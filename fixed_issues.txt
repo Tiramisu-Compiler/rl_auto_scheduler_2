@@ -1,0 +1,15 @@
+Data generation : 
+os module in python does not support asynchronous mechanism , sometimes the writing of the files in copy data set is interupted because the function is returned -> this leads to missing files error
+
+Redundant code : 
+same code in json_to_tensor copied in schedule utils
+
+Unused running code :
+template schedule is never used , only to get the tree prog which you can get previously
+
+Reduced disk access input/output:
+using a new method to remove generating input/output c++ files 
+
+Model : 
+Skip initializing the model and reading weight everytim we initialize schedulecontroller class
+Put model in evaluation mode
