@@ -1,4 +1,4 @@
-./data/dataset/*
-./data/copy/*
-./test/*
+data/dataset/
+data/copy/
+test/
 fixed_issues.txt
