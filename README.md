@@ -16,7 +16,8 @@ To run the project, do the following:
 
 1. Activate the conda environment:
 `conda activate <tiramisu_env>`
-2. run main.py
+2. To generate some programs call : `DataSetService().generate_dataset(size)`
+3. run main.py
 
 ## Contributing
 
