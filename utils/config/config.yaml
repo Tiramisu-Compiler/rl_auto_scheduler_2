@@ -1,4 +1,0 @@
-tiramisu:
-    tiramisu_path: "/scratch/dl5133/Env/tiramisu" 
-    env_type:  "model"
-    model_checkpoint: "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/model.pt"

@@ -1,7 +1,7 @@
 __pycache__/
 .vscode/
 .ipynb_checkpoints/
-data/dataset/
-data/copy/
+env_api/data/dataset/
+env_api/data/copy/
 test/
 fixed_issues.txt

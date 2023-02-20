@@ -1,8 +1,7 @@
-
 import random
-from core.services.tiramisu_service import *
-from tiramisu_api import TiramisuEnvAPIv1
-from utils.config.config import Config
+from env_api.tiramisu_api import TiramisuEnvAPIv1
+from env_api.utils.config.config import Config
+from env_api.utils.exceptions import *
 
 
 if __name__ == "__main__":
@@ -10,7 +9,7 @@ if __name__ == "__main__":
     Config.init()
     tiramisu_api = TiramisuEnvAPIv1()
     # init database
-    tiramisu_api.init_dataset_service(dataset_path = 'data/dataset/',copy_path = 'data/copy/')
+    tiramisu_api.init_dataset_service(dataset_path = 'env_api/data/dataset/',copy_path = 'env_api/data/copy/')
     # Get a list of the program names in the database 
     programs = tiramisu_api.get_programs()
     try : 
@@ -22,9 +21,9 @@ if __name__ == "__main__":
         # After setting a program you can apply any action on it in any order
         #  and expect to get the speedup of the whole schedule, the representation
         #  and the result of legality check of the last operation
-        speedup , representation , legality = tiramisu_api.parallelize(loop_level= 1)
+        speedup , representation , legality = tiramisu_api.parallelize(loop_level= 0)
         print(speedup , legality)
-        speedup , representation , legality = tiramisu_api.reverse(loop_level= 0)
+        speedup , representation , legality = tiramisu_api.parallelize(loop_level= 0)
         print(speedup , legality)
     except Exception as e :
         if isinstance(e , LoopsDepthException) : 
