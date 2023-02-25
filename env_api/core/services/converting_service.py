@@ -882,6 +882,19 @@ class ConvertService:
         return (first_part, torch.cat(vectors[0:], dim=1), third_part)
 
     @classmethod
+    def get_tree_representation(cls,schedule_object):
+        comps_tensor, loops_tensor = cls.get_schedule_representation(schedule_object)
+        x = comps_tensor
+        batch_size, num_comps, __dict__ = x.shape
+        x = x.view(batch_size * num_comps, -1)
+        (first_part, vectors, third_part) = ConvertService.seperate_vector(x, num_transformations=4, pad=False)
+        first_part = first_part.view(batch_size, num_comps, -1)
+        third_part = third_part.view(batch_size, num_comps, -1)
+        return (schedule_object.repr.prog_tree, first_part, vectors, third_part, loops_tensor, schedule_object.repr.comps_expr_tensor, schedule_object.repr.comps_expr_lengths) 
+    
+    # TODO : The following 2 functions exist because we are building tree structure in python
+    # Once we get it from toramisu autocsheduler they should be removed from here
+    @classmethod
     def nest_iterators(cls,root_iterator, iterators):
         if root_iterator['child_iterators'] == []:
             return {'loop_name': root_iterator["loop_name"],

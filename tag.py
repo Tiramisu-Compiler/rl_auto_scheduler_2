@@ -14,8 +14,8 @@ if __name__ == "__main__":
     # init database
     tiramisu_api.init_dataset_service(dataset_path = 'env_api/data/dataset/',copy_path = 'env_api/data/copy/')
     # Get a list of the program names in the database 
-    programs = tiramisu_api.get_programs()
-    program = random.choice(programs)
+    programs =  tiramisu_api.get_programs()
+    program ='function000031' #random.choice(programs)
     print("Selected function : ", program)
     # tiramisu_api.set_program creates all the necessary objects to do operations on a program
     tree_tensor = tiramisu_api.set_program(name=program)
@@ -23,8 +23,9 @@ if __name__ == "__main__":
     #  and expect to get the speedup of the whole schedule, the representation
     #  and the result of legality check of the last operation
     # speedup , _ , legality = tiramisu_api.reverse(0)
-    print(tiramisu_api.scheduler_service.schedule_object.schedule_str)
-    print(PredictionService().tags_model.forward(tree_tensor).item())
+    print(tiramisu_api.scheduler_service.get_schedule_dict())
+    speedup , _ , legality = tiramisu_api.parallelize(0)
+    print(speedup, legality)
     try : 
         # Select a program randomly
         # program = random.choice(programs)
@@ -34,9 +35,9 @@ if __name__ == "__main__":
         # After setting a program you can apply any action on it in any order
         #  and expect to get the speedup of the whole schedule, the representation
         #  and the result of legality check of the last operation
-        # speedup , _ , legality = tiramisu_api.reverse(0)
-        print(PredictionService().tags_model.forward(tree_tensor).item())
-        # print(speedup, legality)
+        speedup , _ , legality = tiramisu_api.parallelize(1)
+        print(tiramisu_api.scheduler_service.get_schedule_dict())
+        print(speedup, legality)
     except Exception as e :
         if isinstance(e , LoopsDepthException) : 
             print("Program has an unsupported loop level")

@@ -1,5 +1,4 @@
 import numpy as np
-import json
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.representation import Representation
 
@@ -95,9 +94,7 @@ class Schedule:
     def __form_iterators_dict(self):
         for comp in self.comps:
             comp_it_dict = {}
-            iterators = list(
-                self.prog.annotations["computations"][comp]["iterators"])
-
+            iterators = list(self.prog.annotations["computations"][comp]["iterators"])
             for i in range(len(iterators)):
                 comp_it_dict[i] = {}
                 comp_it_dict[i]['iterator'] = iterators[i]
@@ -105,6 +102,5 @@ class Schedule:
                     iterators[i]]['lower_bound']
                 comp_it_dict[i]['upper_bound'] = self.prog.annotations['iterators'][
                     iterators[i]]['upper_bound']
-
             self.it_dict[comp] = comp_it_dict
     

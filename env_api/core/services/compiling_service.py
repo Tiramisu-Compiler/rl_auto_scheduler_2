@@ -3,8 +3,9 @@ import  subprocess
 
 class CompilingService():
     @classmethod
-    def compile_legality(cls,tiramisu_program , optims_list : list ,comps=None,first_comp=None,):
-        
+    def compile_legality(cls,schedule_object, optims_list : list ,comps=None):
+        tiramisu_program=schedule_object.prog
+        first_comp=schedule_object.comps[0]
         output_path = tiramisu_program.func_folder+ tiramisu_program.name+ 'legal'
         # Add code to the original file to get legality result
         legality_check_lines = '''
