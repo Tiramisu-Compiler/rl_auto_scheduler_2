@@ -27,7 +27,7 @@ class TiramisuEnvAPIv1:
         file_path = self.dataset_service.get_file_path(name)
         tiramisu_prog = self.tiramisu_service.get_tiramisu_model(path=file_path)  
         schedule =Schedule(tiramisu_prog)
-        self.scheduler_service.set_schedule(schedule=schedule)
+        return self.scheduler_service.set_schedule(schedule=schedule)
 
     def parallelize(self, loop_level: int):
         parallelization = Parallelization(params=[loop_level],

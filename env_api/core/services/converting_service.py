@@ -7,11 +7,11 @@ MAX_NUM_TRANSFORMATIONS = 4
 # Maximum size of the tags vector representing each transformation
 MAX_TAGS = 8
 
-
+MAX_DEPTH = 5
 
 class ConvertService: 
     @classmethod
-    def get_representation_template(cls, program_json, no_sched_json, max_depth, train_device="cpu"):
+    def get_representation_template(cls, program_json, no_sched_json, max_depth = MAX_DEPTH, train_device="cpu"):
         # Set the max and min number of accesses allowed 
         max_accesses = 15
         min_accesses = 0
@@ -531,14 +531,15 @@ class ConvertService:
     @classmethod
     def get_schedule_representation(
         cls,
-        program_json,
-        schedule_json,
-        comps_repr_templates_list,
-        loops_repr_templates_list,
-        comps_placeholders_indices_dict,
-        loops_placeholders_indices_dict,
-        max_depth,
+        schedule_object,
+        max_depth = MAX_DEPTH,
     ):
+        program_json = schedule_object.prog.annotations
+        schedule_json = schedule_object.schedule_dict
+        comps_repr_templates_list = schedule_object.repr.comps_repr_templates_list
+        loops_repr_templates_list = schedule_object.repr.loops_repr_templates_list
+        comps_placeholders_indices_dict =schedule_object.repr.comps_placeholders_indices_dict
+        loops_placeholders_indices_dict =schedule_object.repr.loops_placeholders_indices_dict
     # Create a copy of the templates to avoid modifying the values for other schedules
         comps_repr = copy.deepcopy(comps_repr_templates_list)
         loops_repr = copy.deepcopy(loops_repr_templates_list)
@@ -879,6 +880,22 @@ class ConvertService:
                 vector = torch.zeros_like(vector)
                 vectors.append(vector)
         return (first_part, torch.cat(vectors[0:], dim=1), third_part)
+
+    @classmethod
+    def nest_iterators(cls,root_iterator, iterators):
+        if root_iterator['child_iterators'] == []:
+            return {'loop_name': root_iterator["loop_name"],
+                    'computations_list': root_iterator['computations_list'],
+                    'child_list': []}
+        subtrees = []
+        for loop_name in root_iterator['child_iterators']:
+            child_iterator = iterators[loop_name]
+            child_iterator["loop_name"] = loop_name
+            sub_tree = cls.nest_iterators(child_iterator, iterators)
+            subtrees.append(sub_tree)
+        return {'loop_name': root_iterator["loop_name"],
+                'computations_list': root_iterator['computations_list'],
+                'child_list': subtrees}
 
     @classmethod 
     def get_tree_structure(cls,program_annot):

@@ -1,5 +1,6 @@
 from env_api.core.models.optim_cmd import OptimizationCommand
 from env_api.core.services.compiling_service import CompilingService
+from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.services.prediction_service import PredictionService
 from ..models.schedule import Schedule
 from ..models.action import *
@@ -16,6 +17,21 @@ class SchedulerService:
     def set_schedule(self , schedule : Schedule):
         self.schedule_object = schedule
         self.schedule = []
+        comps_tensor, loops_tensor = ConvertService.get_schedule_representation(self.schedule_object)
+        x = comps_tensor
+        batch_size, num_comps, __dict__ = x.shape
+        x = x.view(batch_size * num_comps, -1)
+        (first_part, vectors, third_part) = ConvertService.seperate_vector(x, num_transformations=4, pad=False)
+        first_part = first_part.view(batch_size, num_comps, -1)
+        third_part = third_part.view(batch_size, num_comps, -1)
+        tree_tensor = (self.schedule_object.repr.prog_tree, first_part, vectors, third_part, loops_tensor, self.schedule_object.repr.comps_expr_tensor, self.schedule_object.repr.comps_expr_lengths)
+        return tree_tensor
+
+    def get_annotations(self):
+        return self.schedule_object.prog.annotations
+
+    def get_schedule_dict(self):
+        return self.schedule_object.schedule_dict
 
     def get_representation(self):
         return self.schedule_object.repr

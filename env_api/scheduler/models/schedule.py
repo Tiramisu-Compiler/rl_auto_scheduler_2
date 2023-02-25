@@ -1,6 +1,7 @@
 import numpy as np
 import json
 from env_api.core.services.converting_service import ConvertService
+from env_api.scheduler.models.representation import Representation
 
 _MAX_DEPTH = 6
 
@@ -15,7 +16,7 @@ class Schedule:
         self.is_reversed = False
         self.prog = program
         self.comps = self.prog.comp_name
-        self.repr = {}
+        self.repr : Representation = None
         self.it_dict = {}
         self.schedule_dict = {}
         self.common_it = []
@@ -59,38 +60,37 @@ class Schedule:
             "roots": [ConvertService.get_tree_structure(self.prog.annotations)]}
 
     def __init_representation(self):
-        pass
+        self.repr = Representation(*ConvertService.get_representation_template(self.prog.annotations,self.schedule_dict))
     
     def __set_action_mask(self):
         match len(self.common_it):
             case 5:
-                self.repr["action_mask"] = np.array(
+                self.repr.action_mask = np.array(
                     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,],
                     dtype=np.float32,
                 )
             case 4:
-                self.repr["action_mask"] = np.array(
+                self.repr.action_mask = np.array(
                     [1,1,1,0,0,0,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,],
                     dtype=np.float32,
                 )
             case 3:
-
-                self.repr["action_mask"] = np.array(
+                self.repr.action_mask = np.array(
                     [1,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,],
                     dtype=np.float32,
                 )
             case 2:
-                self.repr["action_mask"] = np.array(
+                self.repr.action_mask = np.array(
                     [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,],
                     dtype=np.float32,
                 )
             case 1:
-                self.repr["action_mask"] = np.array(
+                self.repr.action_mask = np.array(
                     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,1,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,],
                     dtype=np.float32,
                 )
         if len(self.comps) == 1:
-            np.put(self.repr["action_mask"], [56, 57, 58, 59, 60],[0, 0, 0, 0, 0])
+            np.put(self.repr.action_mask, [56, 57, 58, 59, 60],[0, 0, 0, 0, 0])
 
     def __form_iterators_dict(self):
         for comp in self.comps:
@@ -107,5 +107,4 @@ class Schedule:
                     iterators[i]]['upper_bound']
 
             self.it_dict[comp] = comp_it_dict
-        print(self.it_dict)
     
