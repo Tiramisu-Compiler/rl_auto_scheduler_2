@@ -23,8 +23,8 @@ if __name__ == "__main__":
         # After setting a program you can apply any action on it in any order
         #  and expect to get the speedup of the whole schedule, the representation
         #  and the result of legality check of the last operation
-        speedup , _ , legality = tiramisu_api.reverse(0)
-        print(speedup, legality)
+        # speedup , _ , legality = tiramisu_api.reverse(0)
+        # print(speedup, legality)
     except Exception as e :
         if isinstance(e , LoopsDepthException) : 
             print("Program has an unsupported loop level")

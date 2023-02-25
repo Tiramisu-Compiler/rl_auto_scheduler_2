@@ -7,8 +7,6 @@ MAX_NUM_TRANSFORMATIONS = 4
 # Maximum size of the tags vector representing each transformation
 MAX_TAGS = 8
 
-MAX_MATRICES = 5
-
 
 def get_representation_template(program_json, no_sched_json, max_depth, train_device="cpu"):
     # Set the max and min number of accesses allowed 
