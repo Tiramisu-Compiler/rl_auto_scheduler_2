@@ -879,3 +879,19 @@ class ConvertService:
                 vector = torch.zeros_like(vector)
                 vectors.append(vector)
         return (first_part, torch.cat(vectors[0:], dim=1), third_part)
+
+    @classmethod 
+    def get_tree_structure(cls,program_annot):
+        iterators = program_annot["iterators"]
+
+        mentionned = []
+        for loop, content in iterators.items():
+            mentionned.extend(content['child_iterators'])
+
+        possible_root  = [loop for loop in iterators if loop not in mentionned]
+        assert len(possible_root) == 1
+        root_loop_name = possible_root[0]
+
+        root_iterator = program_annot["iterators"][root_loop_name]
+        root_iterator["loop_name"] = root_loop_name
+        return cls.nest_iterators(root_iterator, iterators)
