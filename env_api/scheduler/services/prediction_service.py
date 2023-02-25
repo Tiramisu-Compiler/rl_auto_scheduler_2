@@ -1,6 +1,7 @@
 from env_api.core.services.converting_service import ConvertService
 from env_api.utils.config.config import Config
 from ..models.prediction_model import Model_Recursive_LSTM_v2
+from ..models.tags_cost_model import Model_Recursive_LSTM_v3
 import torch
 
 MAX_DEPTH = 6
@@ -13,6 +14,11 @@ class PredictionService():
             torch.load(Config.config.tiramisu.model_checkpoint, map_location="cpu"))
         # Set the model in evaluation mode
         self.model.eval()
+
+        # This part concerns the tag cost model
+        self.tags_model = Model_Recursive_LSTM_v3(input_size= 890,loops_tensor_size=8)
+        self.tags_model.load_state_dict(torch.load(Config.config.tiramisu.tag_model ,map_location="cpu"))
+        self.tags_model.eval()
 
     def get_speedup(self,schedule_object):
         computations_tensor, loops_tensor = ConvertService.get_schedule_representation(

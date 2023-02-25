@@ -6,6 +6,7 @@ import yaml,os
 class TiramisuConfig:
     tiramisu_path: str = ""
     env_type: Literal["model", "cpu"] = "cpu"
+    tag_model :str = ""
     model_checkpoint: str = ""
     compile_tiramisu_cmd: str = 'printf "Compiling ${FILE_PATH}\n" >> ${FUNC_DIR}log.txt;\
         ${CXX} -I${TIRAMISU_ROOT}/3rdParty/Halide/include -I${TIRAMISU_ROOT}/include -I${TIRAMISU_ROOT}/3rdParty/isl/include  -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -std=c++11 -O0 -o ${FILE_PATH}.o -c ${FILE_PATH};\

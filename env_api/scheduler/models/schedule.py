@@ -20,9 +20,11 @@ class Schedule:
         self.templates = {}
         self.it_dict = {}
         self.schedule_dict = {}
+        self.schedule_dict_tags = {}
         self.common_it = []
         self.__calculate_common_it()
         self.__init_schedule_dict()
+        self.__init_schedule_dict_tags()
         self.__init_representation()
         self.__set_action_mask()
         self.__init_templates()
@@ -62,6 +64,21 @@ class Schedule:
         self.schedule_dict["tree_structure"] = ConvertService.get_tree_structure(
             self.prog.annotations
         )
+
+
+    def __init_schedule_dict_tags(self):
+        self.schedule_dict_tags["fusions"] = None
+        for comp in self.comps:
+            self.schedule_dict_tags[comp] = {
+                "tiling": {},
+                "unrolling_factor": None,
+                "parallelized_dim": None,
+                "shiftings": None,
+                "transformations_list": []
+            }
+        #TODO : Check for the multi root solution
+        self.schedule_dict_tags["tree_structure"] = {
+            "roots": [ConvertService.get_tree_structure(self.prog.annotations)]}
 
     def __init_representation(self):
         self.repr["representation"] = np.empty((0, 1052), np.float32)

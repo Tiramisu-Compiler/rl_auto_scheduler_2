@@ -34,7 +34,7 @@ class CompilingService():
 
     @classmethod 
     def compile_annotations(cls,tiramisu_program ):
-        
+        # TODO : add getting tree structure object from here 
         output_path = tiramisu_program.func_folder+ tiramisu_program.name+ 'annot'
         # Add code to the original file to get json annotations 
         get_json_lines = '''
@@ -45,8 +45,6 @@ class CompilingService():
         # Paste the lines responsable of generating the program json tree in the cpp file
         cpp_code = tiramisu_program.original_str.replace(tiramisu_program.code_gen_line,get_json_lines)
         return cls.run_cpp_code(cpp_code=cpp_code,output_path=output_path)
-
-
 
     @classmethod
     def run_cpp_code(cls,cpp_code : str,output_path : str):

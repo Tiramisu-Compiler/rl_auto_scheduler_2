@@ -51,12 +51,12 @@ class SchedulerService:
         self.schedule.append(optim_command)
         # Check if the action is legal or no to be applied on self.schedule_object.prog
         try : 
-            print
             legality_check = int(
                 CompilingService.compile_legality(
                     tiramisu_program=self.schedule_object.prog,
                     optims_list=self.schedule,
                     first_comp=self.schedule_object.comps[0]))
+
         except ValueError as e :
             legality_check = 0
             print("Legality error :",e)
