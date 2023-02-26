@@ -210,16 +210,14 @@ class ConvertService:
                     cls.update_tree_atributes(root, loops_indices_dict, comps_indices_dict, train_device=train_device)
                 return node
 
-            node["loop_index"] = torch.tensor(loops_indices_dict[node["loop_name"]]).to(
-                train_device
-            )
+            # node["loop_index"] = torch.tensor(loops_indices_dict[node["loop_name"]]).to(train_device)
+            node["loop_index"] = loops_indices_dict[node["loop_name"]]
             if node["computations_list"] != []:
-                node["computations_indices"] = torch.tensor(
-                    [
+                node["computations_indices"] = [
                         comps_indices_dict[comp_name]
                         for comp_name in node["computations_list"]
                     ]
-                ).to(train_device)
+         
                 node["has_comps"] = True
             else:
                 node["has_comps"] = False
@@ -882,14 +880,14 @@ class ConvertService:
         return (first_part, torch.cat(vectors[0:], dim=1), third_part)
 
     @classmethod
-    def get_tree_representation(cls,schedule_object):
-        comps_tensor, loops_tensor = cls.get_schedule_representation(schedule_object)
+    def get_tree_representation(cls,comps_tensor, loops_tensor,schedule_object):
         x = comps_tensor
         batch_size, num_comps, __dict__ = x.shape
         x = x.view(batch_size * num_comps, -1)
         (first_part, vectors, third_part) = ConvertService.seperate_vector(x, num_transformations=4, pad=False)
         first_part = first_part.view(batch_size, num_comps, -1)
         third_part = third_part.view(batch_size, num_comps, -1)
+        print(schedule_object.repr.prog_tree)
         return (schedule_object.repr.prog_tree, first_part, vectors, third_part, loops_tensor, schedule_object.repr.comps_expr_tensor, schedule_object.repr.comps_expr_lengths) 
     
     # TODO : The following 2 functions exist because we are building tree structure in python

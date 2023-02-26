@@ -28,7 +28,7 @@ class SchedulerService:
         '''
         self.schedule_object = schedule_object
         self.schedule_list = []
-        return ConvertService.get_tree_representation(schedule_object)
+        return ConvertService.get_schedule_representation(schedule_object)
 
 
     def get_annotations(self):
@@ -37,6 +37,10 @@ class SchedulerService:
             - a dictionary containing the annotations of a program which is stored in `self.schedule_object.prog`
         '''
         return self.schedule_object.prog.annotations
+
+    def get_tree_tensor(self):
+        repr_tensors = ConvertService.get_schedule_representation(self.schedule_object)
+        return ConvertService.get_tree_representation(*repr_tensors,self.schedule_object)
 
     def get_schedule_dict(self):
         '''
@@ -53,18 +57,22 @@ class SchedulerService:
             - speedup : float , representation : tuple(tensor) , legality_check : bool
         '''
         legality_check = (self.is_action_legal(action) == 1)
-        tree_representation = ConvertService.get_tree_representation(self.schedule_object)
         speedup = 1.0
         if (legality_check):
             try:
                 if isinstance(action, Parallelization):
                     self.apply_parallelization(loop_level=action.params[0])
                     self.schedule_object.is_parallelized = True
-                    tree_representation = ConvertService.get_tree_representation(self.schedule_object)
+                    repr_tensors = ConvertService.get_schedule_representation(self.schedule_object)
+                    tree_representation = ConvertService.get_tree_representation(*repr_tensors,self.schedule_object)
                     speedup = self.prediction_service.get_speedup(tree_representation)
             except KeyError as e:
                 logging.error(f"Key Error: {e}")
                 legality_check = False        
+        else : 
+            repr_tensors = ConvertService.get_schedule_representation(self.schedule_object)
+            tree_representation = ConvertService.get_tree_representation(*repr_tensors,self.schedule_object)
+
         return speedup , tree_representation , legality_check
 
     def is_action_legal(self, action: Action):
