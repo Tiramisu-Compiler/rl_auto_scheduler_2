@@ -5,3 +5,4 @@ env_api/data/dataset/
 env_api/data/copy/
 test/
 fixed_issues.txt
+ray_results/

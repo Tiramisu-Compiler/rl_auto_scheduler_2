@@ -41,12 +41,12 @@ class TiramisuEnvAPIv1:
         # Get the file path for the program with the given name
         file_path = self.dataset_service.get_file_path(name)
         # Load the Tiramisu model from the file
-        try :
+        try:
             tiramisu_prog = self.tiramisu_service.get_tiramisu_model(path=file_path)
-        except Exception as e :
-            if isinstance(e , LoopsDepthException) : 
+        except Exception as e:
+            if isinstance(e, LoopsDepthException):
                 print("Program has an unsupported loop level")
-            elif isinstance(e , NbAccessException) :
+            elif isinstance(e, NbAccessException):
                 print("Program has an unsupported number of access matrices")
             print("Traceback of the error : " + 60 * "-")
             print(traceback.print_exc())
@@ -68,3 +68,20 @@ class TiramisuEnvAPIv1:
         parallelization = Parallelization(params=[loop_level], name="Parallelization")
         # Use the Scheduler service to apply the Parallelization action to the schedule
         return self.scheduler_service.apply_action(parallelization)
+
+    @classmethod
+    def get_decoded_rl_repr(
+        cls,
+        encoded_tree,
+        encoded_comps,
+        encoded_loops,
+        encoded_comps_expr,
+        encoded_expr_loops,
+    ):
+        return ConvertService.get_decoded_rl_repr(
+            encoded_tree,
+            encoded_comps,
+            encoded_loops,
+            encoded_comps_expr,
+            encoded_expr_loops,
+        )
