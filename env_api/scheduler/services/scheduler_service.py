@@ -57,7 +57,7 @@ class SchedulerService:
             - speedup : float , representation : tuple(tensor) , legality_check : bool
         '''
         legality_check = (self.is_action_legal(action) == 1)
-        rl_representation = None
+        embedding_tensor = None
         speedup = 1.0
         if (legality_check):
             try:
@@ -65,16 +65,13 @@ class SchedulerService:
                     self.apply_parallelization(loop_level=action.params[0])
                     self.schedule_object.is_parallelized = True
                     repr_tensors = ConvertService.get_schedule_representation(self.schedule_object)
-                    speedup = self.prediction_service.get_speedup(*repr_tensors,self.schedule_object)
+                    speedup , embedding_tensor = self.prediction_service.get_speedup(*repr_tensors,self.schedule_object)
             except KeyError as e:
                 logging.error(f"This loop level: {e} doesn't exist")
                 legality_check = False    
-                return speedup , rl_representation , legality_check
-        else : 
-            repr_tensors = ConvertService.get_schedule_representation(self.schedule_object)
+                return speedup , embedding_tensor , legality_check
 
-        rl_representation = ConvertService.get_encoded_rl_representation(*repr_tensors , self.schedule_object)
-        return speedup , rl_representation , legality_check
+        return speedup , embedding_tensor , legality_check
 
     def is_action_legal(self, action: Action):
         '''

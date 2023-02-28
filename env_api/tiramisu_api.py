@@ -5,7 +5,7 @@ from env_api.core.services.tiramisu_service import *
 from env_api.scheduler.models.action import *
 from env_api.scheduler.models.schedule import Schedule
 from env_api.scheduler.services.scheduler_service import SchedulerService
-import os
+import os, torch
 
 from env_api.utils.config.config import Config
 
@@ -43,6 +43,18 @@ class TiramisuEnvAPIv1:
         # Load the Tiramisu model from the file
         try:
             tiramisu_prog = self.tiramisu_service.get_tiramisu_model(path=file_path)
+            # Create a Schedule object for the Tiramisu model
+            schedule = Schedule(tiramisu_prog)
+            # Use the Scheduler service to set the schedule for the Tiramisu model
+            comps_tensor, loops_tensor = self.scheduler_service.set_schedule(
+                schedule_object=schedule
+            )
+            # Using the model to embed the program in a 180 sized vector 
+            with torch.no_grad():
+                _, embedding_tensor = self.scheduler_service.prediction_service.get_speedup(
+                    comps_tensor, loops_tensor, self.scheduler_service.schedule_object
+                )
+            return embedding_tensor
         except Exception as e:
             if isinstance(e, LoopsDepthException):
                 print("Program has an unsupported loop level")
@@ -52,16 +64,8 @@ class TiramisuEnvAPIv1:
             print(traceback.print_exc())
             print(80 * "-")
             return None
-        # Create a Schedule object for the Tiramisu model
-        schedule = Schedule(tiramisu_prog)
-        # Use the Scheduler service to set the schedule for the Tiramisu model
-        comps_tensor, loops_tensor = self.scheduler_service.set_schedule(
-            schedule_object=schedule
-        )
-        # Convert the schedule to a tree representation using the Convert service
-        return ConvertService.get_encoded_rl_representation(
-            comps_tensor, loops_tensor, schedule
-        )
+
+        
 
     def parallelize(self, loop_level: int):
         # Create a Parallelization action with the given loop level

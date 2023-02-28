@@ -200,4 +200,4 @@ class Model_Recursive_LSTM_v3(nn.Module):
             x = self.regression_layers[i](x)
             x = self.regression_dropouts[i](self.ELU(x))
         out = self.predict(x)
-        return self.ReLU(out[:, 0, 0])
+        return self.ReLU(out[:, 0, 0]) , x.detach().view(-1)
