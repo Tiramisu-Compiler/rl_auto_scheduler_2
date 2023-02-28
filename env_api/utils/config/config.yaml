@@ -2,3 +2,7 @@ tiramisu:
     tiramisu_path: "/scratch/dl5133/Env/tiramisu" 
     env_type:  "model"
     tags_model: "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/env_api/scheduler/models/model_release_version.pt"
+
+dataset:
+    path: 'env_api/data/dataset/'
+    copy: 'env_api/data/copy/'
