@@ -64,16 +64,15 @@ class SchedulerService:
                     self.apply_parallelization(loop_level=action.params[0])
                     self.schedule_object.is_parallelized = True
                     repr_tensors = ConvertService.get_schedule_representation(self.schedule_object)
-                    tree_representation = ConvertService.get_tree_representation(*repr_tensors,self.schedule_object)
-                    speedup = self.prediction_service.get_speedup(tree_representation)
+                    speedup = self.prediction_service.get_speedup(*repr_tensors,self.schedule_object)
             except KeyError as e:
                 logging.error(f"Key Error: {e}")
                 legality_check = False        
         else : 
             repr_tensors = ConvertService.get_schedule_representation(self.schedule_object)
-            tree_representation = ConvertService.get_tree_representation(*repr_tensors,self.schedule_object)
 
-        return speedup , tree_representation , legality_check
+        rl_representation = ConvertService.get_encoded_rl_representation(*repr_tensors , self.schedule_object)
+        return speedup , rl_representation , legality_check
 
     def is_action_legal(self, action: Action):
         '''

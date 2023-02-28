@@ -15,6 +15,7 @@ class PredictionService():
         # Putting the model in evaluation mode to turn off Regularization layers.
         self.tags_model.eval()
 
-    def get_speedup(self,tree_tensor):
+    def get_speedup(self,comps_tensor,loops_tensor,schedule_object):
+        tree_tensor = ConvertService.get_tree_representation(comps_tensor,loops_tensor,schedule_object)
         with torch.no_grad():
             return  self.tags_model.forward(tree_tensor).item()
