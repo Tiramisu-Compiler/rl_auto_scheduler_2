@@ -1,5 +1,4 @@
 import traceback
-from env_api.core.services.converting_service import ConvertService
 from env_api.data.data_service import DataSetService
 from env_api.core.services.tiramisu_service import *
 from env_api.scheduler.models.action import *
@@ -38,6 +37,7 @@ class TiramisuEnvAPIv1:
         return self.programs
 
     def set_program(self, name: str):
+        # print("Choosing the function : ", name)
         # Get the file path for the program with the given name
         file_path = self.dataset_service.get_file_path(name)
         # Load the Tiramisu model from the file
@@ -65,27 +65,17 @@ class TiramisuEnvAPIv1:
             print(80 * "-")
             return None
 
-        
+    # TODO : for all these actions we need to generalize over computations and not over shared iterators
 
     def parallelize(self, loop_level: int):
+        # print("Parallelization loop level : ",loop_level)
         # Create a Parallelization action with the given loop level
-        parallelization = Parallelization(params=[loop_level], name="Parallelization")
+        parallelization = Parallelization(params=[loop_level])
         # Use the Scheduler service to apply the Parallelization action to the schedule
         return self.scheduler_service.apply_action(parallelization)
 
-    @classmethod
-    def get_decoded_rl_repr(
-        cls,
-        encoded_tree,
-        encoded_comps,
-        encoded_loops,
-        encoded_comps_expr,
-        encoded_expr_loops,
-    ):
-        return ConvertService.get_decoded_rl_repr(
-            encoded_tree,
-            encoded_comps,
-            encoded_loops,
-            encoded_comps_expr,
-            encoded_expr_loops,
-        )
+    def reverse(self, loop_level: int):
+        # Create a Reversal action with given loop level
+        reversal = Reversal(params=[loop_level])
+        # Use the Scheduler service to apply the Reversal action to the schedule
+        return self.scheduler_service.apply_action(reversal)

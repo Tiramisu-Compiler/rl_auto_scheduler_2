@@ -954,20 +954,6 @@ class ConvertService:
         result = result + [0] * (max_depth * 2 - len(result))
         return result
 
-    # A function to extract the transformations applied on a spesific computation in the form of a vector of tags
-    # Padding is added if the number of transformations is less than the maximum value of MAX_NUM_TRANSFORMATIONS
-    # Currently our dataset represents transformations in two different formats.
-    #         1- in the form of matrices from the polyhedral representation
-    #         2- in the form of tags for each transformation
-    # We generated a variaty of representations to test which one is more useful for our spesfici usage
-    # In this function we will be unifying all of the dataset into the tags representation
-    # The tag representation is as follows:
-    #         ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'first_skew_factor', 'second_skew_factor']
-    #     Where the type_of_transformation tag is:
-    #         - 0 for no transformation being applied
-    #         - 1 for loop interchange
-    #         - 2 for loop reversal
-    #         - 3 for loop skewing
     @classmethod
     def get_padded_transformation_tags(
         cls, program_json, schedule_json, comp_name, max_depth=None

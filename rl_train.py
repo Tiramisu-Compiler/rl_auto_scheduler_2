@@ -1,50 +1,12 @@
-import argparse
-import ray, os
-from ray.tune.registry import register_env
-import ray.rllib.agents.ppo as ppo
+import argparse, os, ray
 from ray import air, tune
-from env_api.core.services.converting_service import ConvertService
-from env_api.tiramisu_api import TiramisuEnvAPIv1
-from env_api.utils.config.config import Config
-from rl_agent.rl_env import TiramisuRlAgent
 from ray.rllib.models import ModelCatalog
-from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
-from ray.rllib.models.torch.fcnet import FullyConnectedNetwork as TorchFC
-from ray.rllib.utils.framework import try_import_torch
+from ray.rllib.utils.test_utils import check_learning_achieved
+from ray.tune.logger import pretty_print
 from ray.tune.registry import get_trainable_cls
-from ray.rllib.models.torch.misc import SlimFC
+from rl_agent.rl_env import TiramisuRlEnv
 
-import gymnasium as gym, numpy as np
-from gymnasium import spaces
-
-torch, nn = try_import_torch()
-
-ray.shutdown()
-
-
-class TorchCustomModel(TorchModelV2, nn.Module):
-    """Example of a PyTorch custom model that just delegates to a fc-net."""
-
-    def __init__(self, obs_space, action_space, num_outputs, model_config, name):
-        TorchModelV2.__init__(
-            self, obs_space, action_space, num_outputs, model_config, name
-        )
-        nn.Module.__init__(self)
-
-        self.torch_sub_model = SlimFC(in_size=2, out_size=num_outputs)
-        self._value_branch = SlimFC(in_size=2, out_size=1)
-
-    def forward(self, input_dict, state, seq_lens):
-        encoded_tree = input_dict["obs"]
-        print(encoded_tree["prog_tree"].shape)
-        # print(ConvertService.decode_dict(encoded_tree["prog_tree"][0].numpy().tolist()))
-        print(encoded_tree["prog_tree"][0].numpy())
-        self._features = torch.tensor([[2, 4]], dtype=torch.float32)
-        fc_out = self.torch_sub_model(self._features)
-        return fc_out, state
-
-    def value_function(self):
-        return self._value_branch(self._features).squeeze(1)
+from rl_agent.rl_policy_nn import PolicyNN
 
 
 parser = argparse.ArgumentParser()
@@ -54,7 +16,7 @@ parser.add_argument(
 parser.add_argument(
     "--framework",
     choices=["tf", "tf2", "torch"],
-    default="tf",
+    default="torch",
     help="The DL framework specifier.",
 )
 parser.add_argument(
@@ -64,79 +26,103 @@ parser.add_argument(
     "be achieved within --stop-timesteps AND --stop-iters.",
 )
 parser.add_argument(
-    "--stop-iters", type=int, default=1, help="Number of iterations to train."
+    "--stop-iters", type=int, default=100000, help="Number of iterations to train."
 )
 parser.add_argument(
-    "--stop-timesteps", type=int, default=1, help="Number of timesteps to train."
+    "--stop-timesteps", type=int, default=100000, help="Number of timesteps to train."
 )
 parser.add_argument(
-    "--stop-reward",
-    type=float,
-    default=-100,
-    help="Reward at which we stop training.",
+    "--stop-reward", type=float, default=12, help="Reward at which we stop training."
 )
 parser.add_argument(
     "--no-tune",
+    default=False,
     action="store_true",
     help="Run without Tune using a manual train loop instead. In this case,"
     "use PPO without grid search and no TensorBoard.",
 )
 parser.add_argument(
     "--local-mode",
+    default=False,
     action="store_true",
     help="Init Ray in local mode for easier debugging.",
 )
 
-ray.init(ignore_reinit_error=True, local_mode=False, num_cpus=28)
 
+if __name__ == "__main__":
+    args = parser.parse_args()
+    print(f"Running with following CLI options: {args}")
+    ray.init(local_mode=args.local_mode, num_cpus=28, num_gpus=1)
+    # Can also register the env creator function explicitly with:
+    # register_env("corridor", lambda config: SimpleCorridor(config))
+    ModelCatalog.register_custom_model("policy_nn", PolicyNN)
 
-ENV = "TiramisuRlAgent"
-register_env(ENV, lambda config: TiramisuRlAgent(config))
-
-ModelCatalog.register_custom_model("my_model", TorchCustomModel)
-
-args = parser.parse_args()
-
-config = (
-    # ppo.PPOConfig()
-    get_trainable_cls(args.run)
-    .get_default_config()
-    .rollouts(num_rollout_workers=1)
-    .framework("torch")
-    .environment(ENV)
-    .training(
-        model={
-            "custom_model": "my_model",
-            "vf_share_layers": True,
-        }
+    config = (
+        get_trainable_cls(args.run)
+        .get_default_config()
+        # or "corridor" if registered above
+        .environment(TiramisuRlEnv, env_config={})
+        .framework(args.framework)
+        .rollouts(num_rollout_workers=25)
+        .training(
+            model={
+                "custom_model": "policy_nn",
+                "vf_share_layers": True,
+            }
+        )
+        # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
+        .resources(num_gpus=int(os.environ.get("RLLIB_NUM_GPUS", "0")))
     )
-    .resources(num_gpus=int(os.environ.get("RLLIB_NUM_GPUS", "0")))
-)
 
+    stop = {
+        "training_iteration": args.stop_iters,
+        "timesteps_total": args.stop_timesteps,
+        "episode_reward_mean": args.stop_reward,
+    }
 
-stop = {
-    "training_iteration": args.stop_iters,
-    "timesteps_total": args.stop_timesteps,
-    "episode_reward_mean": args.stop_reward,
-}
+    if args.no_tune:
+        # manual training with train loop using PPO and fixed learning rate
+        if args.run != "PPO":
+            raise ValueError("Only support --run PPO with --no-tune.")
+        print("Running manual train loop without Ray Tune.")
+        # use fixed learning rate instead of grid search (needs tune)
+        config.lr = 1e-3
+        algo = config.build()
+        # run manual training loop and print results after each iteration
+        for _ in range(args.stop_iters):
+            result = algo.train()
+            print(pretty_print(result))
+            # stop training of the target train steps or reward are reached
+            if (
+                result["timesteps_total"] >= args.stop_timesteps
+                or result["episode_reward_mean"] >= args.stop_reward
+            ):
+                break
+        algo.stop()
+    else:
+        # automated run with Tune and grid search and TensorBoard
+        print("Training automatically with Ray Tune")
+        tuner = tune.Tuner(
+            args.run,
+            param_space=config.to_dict(),
+            run_config=air.RunConfig(
+                name="SeparateNN-Log-base(3/2)-punish-illegal",
+                stop=stop,
+                local_dir="./ray_results",
+                checkpoint_config=air.CheckpointConfig(checkpoint_frequency=10),
+            ),
+        )
 
-# config.log_level = "DEBUG"
-# config.timesteps_per_iteration = 2
-# config.preprocessor_pref = None
-# config.train_batch_size = 128
-# config._disable_preprocessor_api = True
-# config._disable_action_flattening = True
+        results = tuner.fit()
 
+        if args.as_test:
+            print("Checking if learning goals were achieved")
+            check_learning_achieved(results, args.stop_reward)
 
-# config.lr = 1e-3
-# algo = config.build()
+    ray.shutdown()
 
-tuner = tune.Tuner(
-    args.run,
-    param_space=config.to_dict(),
-    run_config=air.RunConfig(stop=stop, local_dir="./ray_results"),
-)
+# model = PolicyNN(
+#     Box(0.0, 2, shape=(1,), dtype=np.float32), Discrete(2),2,{},"jj"
+# )
 
-results = tuner.fit()
-
-ray.shutdown()
+# print(model.forward({"obs_flat":torch.tensor([[1]])},[],None))

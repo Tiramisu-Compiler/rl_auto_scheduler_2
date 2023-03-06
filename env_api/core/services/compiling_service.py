@@ -1,23 +1,21 @@
 import  subprocess
 
+from env_api.scheduler.models.action import Parallelization, Unrolling
+
 
 class CompilingService():
     @classmethod
     def compile_legality(cls,schedule_object, optims_list : list ,comps=None):
+        # TODO : Find a solution to speedup this process, subprocesses take a long time to load libraries in memory
         tiramisu_program=schedule_object.prog
         first_comp=schedule_object.comps[0]
         output_path = tiramisu_program.func_folder+ tiramisu_program.name+ 'legal'
         # Add code to the original file to get legality result
-        legality_check_lines = '''
-            prepare_schedules_for_legality_checks();
-            perform_full_dependency_analysis();
-            bool is_legal=true;
-            '''
+        legality_check_lines = '''\n\tprepare_schedules_for_legality_checks();\n\tperform_full_dependency_analysis();\n\tbool is_legal=true;'''
         for optim in optims_list:
-            if optim.type == 'Parallelization':
-                legality_check_lines += '''
-                is_legal &= loop_parallelization_is_legal(''' + str(optim.params_list[0]) + ''', {&''' + first_comp + '''});'''
-            elif optim.type == 'Unrolling':
+            if isinstance(optim.action , Parallelization):
+                legality_check_lines += '''\n\tis_legal &= loop_parallelization_is_legal(''' + str(optim.params_list[0]) + ''', {&''' + first_comp + '''});\n'''
+            elif isinstance(optim.action , Unrolling):
                 legality_check_lines += '''is_legal &= loop_unrolling_is_legal(''' + str(optim.params_list[comps[0]][0]) + ''', {''' + ", ".join([f"&{comp}" for comp in comps]) + '''});'''
             legality_check_lines += optim.tiramisu_optim_str + '\n'    
         
@@ -27,7 +25,6 @@ class CompilingService():
             '''
         # Paste the lines responsable of checking legality of schedule in the cpp file
         cpp_code = tiramisu_program.original_str.replace(tiramisu_program.code_gen_line,legality_check_lines)
-
         return cls.run_cpp_code(cpp_code=cpp_code,output_path=output_path)   
 
 
@@ -35,7 +32,7 @@ class CompilingService():
 
     @classmethod 
     def compile_annotations(cls,tiramisu_program ):
-        # TODO : add getting tree structure object from here 
+        # TODO : add getting tree structure object from executing the file instead of building it in python
         output_path = tiramisu_program.func_folder+ tiramisu_program.name+ 'annot'
         # Add code to the original file to get json annotations 
         get_json_lines = '''
@@ -45,6 +42,7 @@ class CompilingService():
             '''
         # Paste the lines responsable of generating the program json tree in the cpp file
         cpp_code = tiramisu_program.original_str.replace(tiramisu_program.code_gen_line,get_json_lines)
+
         return cls.run_cpp_code(cpp_code=cpp_code,output_path=output_path)
 
     @classmethod

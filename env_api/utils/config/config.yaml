@@ -4,5 +4,5 @@ tiramisu:
     tags_model: "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/env_api/scheduler/models/model_release_version.pt"
 
 dataset:
-    path: 'env_api/data/dataset/'
-    copy: 'env_api/data/copy/'
+    path: '/scratch/dl5133/Dev/RL-Agent/rl_autoscheduler/utils/program_generator/Dataset_multi/'
+    copy: '/scratch/dl5133/Dev/RL-Agent/rl_autoscheduler/Dataset_copies/'
