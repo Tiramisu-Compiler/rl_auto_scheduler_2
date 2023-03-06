@@ -1,19 +1,19 @@
 from ..models.tiramisu_program import TiramisuProgram
 from .compiling_service import CompilingService
 import json
-from env_api.utils.exceptions import * 
+from env_api.utils.exceptions import *
 
 
-class TiramisuService():
+class TiramisuService:
     def __init__(self):
         pass
 
-    def get_tiramisu_model(self,path : str):
-        tiramisu_prog =  TiramisuProgram(file_path=path)
-        tiramisu_prog.set_annotations(self.get_annotations(tiramisu_prog))
+    def get_tiramisu_model(self, path: str):
+        tiramisu_prog = TiramisuProgram(file_path=path)
+        tiramisu_prog.annotations = self.get_annotations(tiramisu_prog)
         return tiramisu_prog
 
-    def get_annotations(self, prog : TiramisuProgram):
+    def get_annotations(self, prog: TiramisuProgram):
         max_accesses = 15
         min_accesses = 1
         max_iterators = 5
@@ -29,4 +29,3 @@ class TiramisuService():
             if len(comp_dict["iterators"]) > max_iterators:
                 raise LoopsDepthException
         return prog.annotations
-

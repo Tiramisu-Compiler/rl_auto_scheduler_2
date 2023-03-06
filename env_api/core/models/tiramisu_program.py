@@ -25,5 +25,4 @@ class TiramisuProgram():
             self.buffer_sizes.append(re.findall(r'\d+', sizes_vect))
         self.annotations = None
 
-    def set_annotations(self, annotations):
-        self.annotations = annotations
+

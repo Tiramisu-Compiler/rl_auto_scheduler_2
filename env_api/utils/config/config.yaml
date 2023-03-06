@@ -1,4 +1,8 @@
 tiramisu:
     tiramisu_path: "/scratch/dl5133/Env/tiramisu" 
     env_type:  "model"
-    model_checkpoint: "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/env_api/model.pt"
+    tags_model: "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/env_api/scheduler/models/model_release_version.pt"
+
+dataset:
+    path: '/scratch/dl5133/Dev/RL-Agent/rl_autoscheduler/utils/program_generator/Dataset_multi/'
+    copy: '/scratch/dl5133/Dev/RL-Agent/rl_autoscheduler/Dataset_copies/'

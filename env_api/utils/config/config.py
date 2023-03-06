@@ -6,28 +6,25 @@ import yaml,os
 class TiramisuConfig:
     tiramisu_path: str = ""
     env_type: Literal["model", "cpu"] = "cpu"
-    model_checkpoint: str = ""
-    compile_tiramisu_cmd: str = 'printf "Compiling ${FILE_PATH}\n" >> ${FUNC_DIR}log.txt;\
-        ${CXX} -I${TIRAMISU_ROOT}/3rdParty/Halide/include -I${TIRAMISU_ROOT}/include -I${TIRAMISU_ROOT}/3rdParty/isl/include  -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -std=c++11 -O0 -o ${FILE_PATH}.o -c ${FILE_PATH};\
-        ${CXX} -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -std=c++11 -O0 ${FILE_PATH}.o -o ./${FILE_PATH}.out   -L${TIRAMISU_ROOT}/build  -L${TIRAMISU_ROOT}/3rdParty/Halide/lib  -L${TIRAMISU_ROOT}/3rdParty/isl/build/lib  -Wl,-rpath,${TIRAMISU_ROOT}/build:${TIRAMISU_ROOT}/3rdParty/Halide/lib:${TIRAMISU_ROOT}/3rdParty/isl/build/lib -ltiramisu -ltiramisu_auto_scheduler -lHalide -lisl'
+    tags_model :str = ""
 
-    run_tiramisu_cmd: str = 'printf "Running ${FILE_PATH}.out\n">> ${FUNC_DIR}log.txt;\
-        ./${FILE_PATH}.out>> ${FUNC_DIR}log.txt;'
-
-    compile_wrapper_cmd = 'cd ${FUNC_DIR};\
-            ${GXX} -shared -o ${FUNC_NAME}.o.so ${FUNC_NAME}.o;\
-            ${CXX} -I${TIRAMISU_ROOT}/3rdParty/Halide/include -I${TIRAMISU_ROOT}/include -I${TIRAMISU_ROOT}/3rdParty/isl/include -Wl,--no-as-needed -ldl -g -fno-rtti -lpthread -std=c++11 -O3 -o ${FUNC_NAME}_wrapper ${FUNC_NAME}_wrapper.cpp ./${FUNC_NAME}.o.so -L${TIRAMISU_ROOT}/build  -L${TIRAMISU_ROOT}/3rdParty/Halide/lib  -L${TIRAMISU_ROOT}/3rdParty/isl/build/lib  -Wl,-rpath,${TIRAMISU_ROOT}/build:${TIRAMISU_ROOT}/3rdParty/Halide/lib:${TIRAMISU_ROOT}/3rdParty/isl/build/lib -ltiramisu -ltiramisu_auto_scheduler -lHalide -lisl'
-
+@dataclass
+class DatasetConfig:
+    path: str = ""
+    copy :str = ""
 
 
 @dataclass
 class AutoSchedulerConfig:
 
     tiramisu: TiramisuConfig
+    dataset: DatasetConfig
 
     def __post_init__(self):
         if isinstance(self.tiramisu, dict):
             self.tiramisu = TiramisuConfig(**self.tiramisu)
+        if isinstance(self.dataset, dict):
+            self.dataset = DatasetConfig(**self.dataset)
 
 
 
@@ -42,7 +39,8 @@ def parse_yaml_file(yaml_string: str) -> Dict[Any, Any]:
 
 def dict_to_config(parsed_yaml: Dict[Any, Any]) -> AutoSchedulerConfig:
     tiramisu = TiramisuConfig(**parsed_yaml["tiramisu"])
-    return AutoSchedulerConfig( tiramisu)
+    dataset = DatasetConfig(**parsed_yaml["dataset"])
+    return AutoSchedulerConfig(tiramisu,dataset)
 
 
 class Config(object):
