@@ -13,7 +13,7 @@ class PolicyNN(TorchModelV2, nn.Module):
         nn.Module.__init__(self)
 
         input_size = int(np.product(obs_space.shape))
-        hidden_sizes = [512,512,256,64]
+        hidden_sizes = [512,512,256,64,8]
         output_size = 2
         
         self.layers = nn.ModuleList()
