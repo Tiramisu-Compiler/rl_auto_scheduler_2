@@ -5,6 +5,8 @@ from ray.rllib.utils.test_utils import check_learning_achieved
 from ray.tune.logger import pretty_print
 from ray.tune.registry import get_trainable_cls
 from rl_agent.rl_env import TiramisuRlEnv
+from ray.rllib.algorithms.ppo import PPOConfig
+from rllib_ray_utils.custom_metrics_callback import CustomMetricCallback
 
 from rl_agent.rl_policy_nn import PolicyNN
 
@@ -26,13 +28,13 @@ parser.add_argument(
     "be achieved within --stop-timesteps AND --stop-iters.",
 )
 parser.add_argument(
-    "--stop-iters", type=int, default=100000, help="Number of iterations to train."
+    "--stop-iters", type=int, default=100_000, help="Number of iterations to train."
 )
 parser.add_argument(
-    "--stop-timesteps", type=int, default=100000, help="Number of timesteps to train."
+    "--stop-timesteps", type=int, default=100_000, help="Number of timesteps to train."
 )
 parser.add_argument(
-    "--stop-reward", type=float, default=12, help="Reward at which we stop training."
+    "--stop-reward", type=float, default=10, help="Reward at which we stop training."
 )
 parser.add_argument(
     "--no-tune",
@@ -48,7 +50,6 @@ parser.add_argument(
     help="Init Ray in local mode for easier debugging.",
 )
 
-
 if __name__ == "__main__":
     args = parser.parse_args()
     print(f"Running with following CLI options: {args}")
@@ -60,10 +61,11 @@ if __name__ == "__main__":
     config = (
         get_trainable_cls(args.run)
         .get_default_config()
-        # or "corridor" if registered above
         .environment(TiramisuRlEnv, env_config={})
         .framework(args.framework)
-        .rollouts(num_rollout_workers=25)
+        .callbacks(CustomMetricCallback)
+        .rollouts(num_rollout_workers=26,
+                  batch_mode="complete_episodes",enable_connectors=False)
         .training(
             model={
                 "custom_model": "policy_nn",
@@ -106,9 +108,9 @@ if __name__ == "__main__":
             args.run,
             param_space=config.to_dict(),
             run_config=air.RunConfig(
-                name="SeparateNN-Log-base(3/2)-punish-illegal",
+                name="SeparateNN-binary_reward_exit+illegal_punish",
                 stop=stop,
-                local_dir="./ray_results",
+                local_dir="/scratch/dl5133/Dev/RL-Agent/tiramisu-env/ray_results",
                 checkpoint_config=air.CheckpointConfig(checkpoint_frequency=10),
             ),
         )
