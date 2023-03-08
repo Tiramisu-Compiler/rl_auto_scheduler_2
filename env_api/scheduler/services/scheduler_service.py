@@ -65,9 +65,15 @@ class SchedulerService:
                 if isinstance(action, Parallelization):
                     self.apply_parallelization(loop_level=action.params[0])
                     self.schedule_object.is_parallelized = True
+
                 elif isinstance(action, Reversal):
                     self.apply_reversal(loop_level=action.params[0])
                     self.schedule_object.is_reversed = True
+                
+                elif isinstance(action,Interchange):
+                    self.apply_interchange(loop_level1=action.params[0],loop_level2=action.params[1])
+                    self.schedule_object.is_interchaged = True
+                
                 repr_tensors = ConvertService.get_schedule_representation(
                     self.schedule_object
                 )
@@ -131,3 +137,15 @@ class SchedulerService:
             self.schedule_object.schedule_dict[comp]["transformations_list"].append(transformation)
         
 
+    def apply_interchange(self,loop_level1 : int,loop_level2 : int):
+        # The tag representation is as follows:
+        #         ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'first_skew_factor', 'second_skew_factor']
+        #     Where the type_of_transformation tag is:
+        #       - 0 for no transformation being applied
+        #       - 1 for loop interchange
+        #       - 2 for loop reversal
+        #       - 3 for loop skewing
+        transformation = [1, loop_level1, loop_level2, 0, 0, 0, 0, 0]
+        # TODO : for now this action is applied to all comps because they share all the same loop levels , need to fix this to be applied on certain comps only
+        for comp in self.schedule_object.comps : 
+            self.schedule_object.schedule_dict[comp]["transformations_list"].append(transformation)

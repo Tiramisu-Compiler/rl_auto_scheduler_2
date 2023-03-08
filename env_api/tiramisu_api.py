@@ -79,3 +79,13 @@ class TiramisuEnvAPIv1:
         reversal = Reversal(params=[loop_level])
         # Use the Scheduler service to apply the Reversal action to the schedule
         return self.scheduler_service.apply_action(reversal)
+
+    def interchange(self, loop_level1 : int , loop_level2:int):
+        # Create an Interchange action with given loop levels 1 and 2
+        interchange = Interchange(params=[loop_level1,loop_level2])
+        # Use the Scheduler service to apply the Interchange action to the schedule
+        return self.scheduler_service.apply_action(interchange)
+    # TODO : implement Skewing 
+    # TODO : implement Fusion
+    # TODO : implement Tiling
+    # TODO : implement Unrolling  

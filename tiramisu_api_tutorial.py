@@ -27,11 +27,11 @@ if __name__ == "__main__":
         else:
             # After setting a program and checking if it is fully supported by our RL system, you can apply any action on it in any order
             # And expect to get the speedup of the whole schedule, the representation and the result of legality check of the last operation
-            (speedup, embedding_tensor, legality) = tiramisu_api.parallelize(
-                loop_level=1
-            )
-            (speedup, embedding_tensor, legality) = tiramisu_api.reverse(
-                loop_level=0
+            (speedup, embedding_tensor, legality) = tiramisu_api.reverse(loop_level=1)
+            print("Speedup : ", speedup, " ", "Legality : ", legality)
+            (speedup, embedding_tensor, legality) = tiramisu_api.interchange(
+                loop_level1 = 0,
+                loop_level2= 1
             )
             print("Speedup : ", speedup, " ", "Legality : ", legality)
         print("Time : ",time.time()-start)
