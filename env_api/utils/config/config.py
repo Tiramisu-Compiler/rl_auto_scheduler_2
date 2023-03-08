@@ -8,10 +8,12 @@ class TiramisuConfig:
     env_type: Literal["model", "cpu"] = "cpu"
     tags_model :str = ""
 
+
 @dataclass
 class DatasetConfig:
     path: str = ""
     copy :str = ""
+    offline : str = ""
 
 
 @dataclass

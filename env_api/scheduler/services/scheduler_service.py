@@ -57,7 +57,12 @@ class SchedulerService:
         output :
             - speedup : float , representation : tuple(tensor) , legality_check : bool
         """
-        legality_check = self.is_action_legal(action) == 1
+        # prog.schedules only has data when it is fetched from the offline dataset so no need to compile to get the legality
+        # TODO : the data available is just for the parallelization action 
+        if(self.schedule_object.prog.schedules):
+            legality_check = self.schedule_object.prog.schedules['comp00P(L0)']
+        else :
+            legality_check = self.is_action_legal(action) == 1
         embedding_tensor = None
         speedup = 1.0
         if legality_check:
