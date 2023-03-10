@@ -20,14 +20,19 @@ class TiramisuEnvAPIv1:
         # This step of initializing the database service must be executed first in the init of tiramisu api
         self.dataset_service = DataSetService(
             dataset_path=Config.config.dataset.path,
-            copy_path=Config.config.dataset.copy,
             offline_path=Config.config.dataset.offline)
         # The list of program names of the dataset
         self.programs = os.listdir(self.dataset_service.dataset_path)
 
     def get_programs(self):
         if self.programs == None:
-            self.programs = os.listdir(self.dataset_service.dataset_path)
+            # If the offline dataset exists , get the program names from it
+            if self.dataset_service.offline_dataset != None:
+                self.programs = list(
+                    self.dataset_service.offline_dataset.keys())
+            # Else get them from the repository by calling system functions
+            else:
+                self.programs = os.listdir(self.dataset_service.dataset_path)
         return self.programs
 
     def set_program(self, name: str):
@@ -37,9 +42,10 @@ class TiramisuEnvAPIv1:
         # if exist_offline is True , then we can fetch the data from the offline dataset if the program name is saved there
         if (exist_offline):
             data = self.dataset_service.get_offline_prog_data(name=name)
-            tiramisu_prog = self.tiramisu_service.fetch_prog_offline(name=name,data=data)
+            tiramisu_prog = self.tiramisu_service.fetch_prog_offline(name=name,
+                                                                     data=data)
             # From the offline dataset a None value of the annotations mean the program has an issue of try/catch below
-            if(tiramisu_prog.annotations == None):
+            if (tiramisu_prog.annotations == None):
                 return None
         else:
             # Load the Tiramisu model from the file

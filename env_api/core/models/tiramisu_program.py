@@ -37,8 +37,9 @@ class TiramisuProgram():
         tiramisu_prog = cls(None)
         tiramisu_prog.name = name
         tiramisu_prog.annotations = data["annotations"]
-        tiramisu_prog.comp_name = list(
-            data["annotations"]["computations"].keys())
-        tiramisu_prog.schedules = data["schedules"]
+        if (tiramisu_prog.annotations):
+            tiramisu_prog.comp_name = list(
+                tiramisu_prog.annotations["computations"].keys())
+            tiramisu_prog.schedules = data["schedules"]
         # After taking the neccessary fields return the instance
         return tiramisu_prog
