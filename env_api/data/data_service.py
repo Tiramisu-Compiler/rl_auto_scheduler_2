@@ -2,7 +2,6 @@ from .data_gen.tiramisu_maker import generate_programs
 import os, pickle
 
 
-# TODO : Recheck reading and writing to disk
 class DataSetService:
     def __init__(self,
                  dataset_path='env_api/data/dataset/',
@@ -13,7 +12,6 @@ class DataSetService:
             with open(offline_path, "rb") as file:
                 self.offline_dataset = pickle.load(file)
 
-    # TODO : REMOVE THIS METHOD
     def generate_dataset(self, size):
         generate_programs(output_path=self.dataset_path,
                           first_seed=10,
