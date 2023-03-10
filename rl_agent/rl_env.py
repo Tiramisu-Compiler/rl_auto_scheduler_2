@@ -1,15 +1,13 @@
 import random, numpy as np
 import gymnasium as gym
 from gymnasium import spaces
-from env_api.tiramisu_api import TiramisuEnvAPIv1
-from env_api.utils.config.config import Config
 from ray.rllib.env.env_context import EnvContext
 
 
 class TiramisuRlEnv(gym.Env):
     def __init__(self, config: EnvContext):
-        Config.init()
-        self.tiramisu_api = TiramisuEnvAPIv1()
+        
+        self.tiramisu_api = config["tiramisu_api"]
         # Define action and observation spaces
         self.action_space = spaces.Discrete(2)
         self.observation_space = spaces.Box(-np.inf, np.inf, shape=(180,))
@@ -37,47 +35,23 @@ class TiramisuRlEnv(gym.Env):
                 speedup, embedded_tensor, legality = self.tiramisu_api.parallelize(0)
                 if legality:
                     self.state = embedded_tensor.numpy()
+                    if(speedup >1):
+                        self.reward = 1
+                    else : 
+                        self.reward = -1
+                else :
+                    self.reward = -1
             case 1:
                 # Exit case
-                speedup , legality = (1.0 , True)
+                speedup , legality = (1 , False)
+                self.reward = 0
 
-        self.reward = self.calculate_reward(speedup=speedup,legality=legality)
+        # self.reward = self.calculate_reward(speedup=speedup,legality=legality)
         self.done = True
 
         return self.state, self.reward, self.done, self.truncated, self.info
 
-    def calculate_reward(self,speedup: float, legality: bool):
-        if legality : 
-            if speedup > 1 :
-                reward = 10
-            if(speedup == 1):
-                reward = -5
-            else :
-                reward = 10
-        else : 
-            reward = -10
-        return reward
+    # def calculate_reward(self,speedup: float, legality: bool):
 
-'''
-SeparateNN-binary_reward :
-        if legality : 
-            if speedup >= 1 :
-                reward = 10
-            else :
-                reward = -10
-        else : 
-            reward = 0
+    #     return reward
 
-SeparateNN-binary_reward_exit_punish:
-        if legality : 
-            if speedup > 1 :
-                reward = 10
-            if(speedup == 1):
-                reward = -5
-            else :
-                reward = -10
-        else : 
-            reward = 0
-
-
-'''
