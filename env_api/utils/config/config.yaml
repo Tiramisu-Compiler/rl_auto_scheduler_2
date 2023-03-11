@@ -5,4 +5,4 @@ tiramisu:
 
 dataset:
     path: '/scratch/dl5133/Dev/RL-Agent/rl_autoscheduler/utils/program_generator/Dataset_multi/'
-    offline : '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/legal_actions.pkl'
+    offline : '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/valid_progs.pkl'

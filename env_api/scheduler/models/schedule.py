@@ -6,8 +6,6 @@ _MAX_DEPTH = 6
 
 class Schedule:
     def __init__(self, program):
-        # TODO : fill this dict with the schedule applied on the comps
-        self.schedule_str = {}
         self.is_interchaged = False
         self.is_tiled = False
         self.is_unrolled = False
@@ -15,7 +13,7 @@ class Schedule:
         self.is_parallelized = False
         self.is_reversed = False
         self.prog = program
-        self.comps = self.prog.comp_name
+        self.comps = self.prog.comps
         self.repr : Representation = None
         self.it_dict = {}
         self.schedule_dict = {}

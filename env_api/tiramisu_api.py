@@ -21,8 +21,9 @@ class TiramisuEnvAPIv1:
         self.dataset_service = DataSetService(
             dataset_path=Config.config.dataset.path,
             offline_path=Config.config.dataset.offline)
+        self.programs = None
         # The list of program names of the dataset
-        self.programs = os.listdir(self.dataset_service.dataset_path)
+        self.programs = self.get_programs()
 
     def get_programs(self):
         if self.programs == None:
@@ -76,7 +77,6 @@ class TiramisuEnvAPIv1:
         return embedding_tensor
 
     # TODO : for all these actions we need to generalize over computations and not over shared iterators
-
     def parallelize(self, loop_level: int):
         # print("Parallelization loop level : ",loop_level)
         # Create a Parallelization action with the given loop level
@@ -99,4 +99,17 @@ class TiramisuEnvAPIv1:
     # TODO : implement Skewing
     # TODO : implement Fusion
     # TODO : implement Tiling
+    def tile2D(self,loop_level1 : int,loop_level2 : int , size_x : int , size_y : int):
+        # Create a 2 dimensions Tiling action with given loop levels 1 and 2 , and 2D tile size (size_x,size_y)
+        tiling2D = Tiling(params=[loop_level1, loop_level2,size_x,size_y])
+        # Use the Scheduler service to apply the Tiling action to the schedule
+        return self.scheduler_service.apply_action(tiling2D)
+
     # TODO : implement Unrolling
+    def unroll(self,unrolling_factor: int):
+        # Create an Unrolling action with given unrolling factor , the loop level is not given 
+        # because we suppose that unrollong innermost loop is more beneficial ,so this action is applied
+        # on the innermost loop level
+        unrolling = Unrolling(params=[unrolling_factor])
+        # Use the Scheduler service to apply the Unrolling action to the schedule
+        return self.scheduler_service.apply_action(unrolling)

@@ -25,6 +25,7 @@ class CompilingService():
             '''
         # Paste the lines responsable of checking legality of schedule in the cpp file
         cpp_code = tiramisu_program.original_str.replace(tiramisu_program.code_gen_line,legality_check_lines)
+        print(cpp_code)
         return cls.run_cpp_code(cpp_code=cpp_code,output_path=output_path)   
 
 

@@ -1,7 +1,7 @@
 from env_api.tiramisu_api import TiramisuEnvAPIv1
 from env_api.utils.config.config import Config
 from env_api.utils.exceptions import *
-import random, traceback, time 
+import random, traceback, time
 from tqdm import tqdm
 
 if __name__ == "__main__":
@@ -14,6 +14,7 @@ if __name__ == "__main__":
     try:
         # Select a program randomly for example program = "function000028"
         program: str = random.choice(programs)
+        program = "function025885"
         print("Selected function : ", program)
         # set_program(str) creates all the necessary objects to start doing operations on a program
         # it returns an encoded representation specific to the RL system
@@ -27,9 +28,17 @@ if __name__ == "__main__":
         else:
             # After setting a program and checking if it is fully supported by our RL system, you can apply any action on it in any order
             # And expect to get the speedup of the whole schedule, the representation and the result of legality check of the last operation
-            (speedup, embedding_tensor, legality) = tiramisu_api.parallelize(loop_level=0)
+            (speedup, embedding_tensor,
+             legality) = tiramisu_api.parallelize(loop_level=0)
             print("Speedup : ", speedup, " ", "Legality : ", legality)
-        print("Time : ",time.time()-start)
+            (speedup, embedding_tensor,
+             legality) = tiramisu_api.tile2D(loop_level1=1,
+                                             loop_level2=2,
+                                             size_x=32,
+                                             size_y=32)
+            print("Speedup : ", speedup, " ", "Legality : ", legality)
+
+        print("Time : ", time.time() - start)
     except Exception as e:
         print("Traceback of the error : " + 60 * "-")
         print(traceback.print_exc())

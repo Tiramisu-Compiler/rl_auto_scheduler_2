@@ -1,4 +1,5 @@
 from env_api.core.models.optim_cmd import OptimizationCommand
+from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.compiling_service import CompilingService
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.services.prediction_service import PredictionService
@@ -38,10 +39,10 @@ class SchedulerService:
         return self.schedule_object.prog.annotations
 
     def get_tree_tensor(self):
-        repr_tensors = ConvertService.get_schedule_representation(self.schedule_object)
-        return ConvertService.get_tree_representation(
-            *repr_tensors, self.schedule_object
-        )
+        repr_tensors = ConvertService.get_schedule_representation(
+            self.schedule_object)
+        return ConvertService.get_tree_representation(*repr_tensors,
+                                                      self.schedule_object)
 
     def get_schedule_dict(self):
         """
@@ -57,12 +58,7 @@ class SchedulerService:
         output :
             - speedup : float , representation : tuple(tensor) , legality_check : bool
         """
-        # prog.schedules only has data when it is fetched from the offline dataset so no need to compile to get the legality
-        # TODO : the data available is just for the parallelization action 
-        if(self.schedule_object.prog.schedules):
-            legality_check = self.schedule_object.prog.schedules['comp00P(L0)']
-        else :
-            legality_check = self.is_action_legal(action) == 1
+        legality_check = self.is_action_legal(action) == 1
         embedding_tensor = None
         speedup = 1.0
         if legality_check:
@@ -74,17 +70,23 @@ class SchedulerService:
                 elif isinstance(action, Reversal):
                     self.apply_reversal(loop_level=action.params[0])
                     self.schedule_object.is_reversed = True
-                
-                elif isinstance(action,Interchange):
-                    self.apply_interchange(loop_level1=action.params[0],loop_level2=action.params[1])
+
+                elif isinstance(action, Interchange):
+                    self.apply_interchange(loop_level1=action.params[0],
+                                           loop_level2=action.params[1])
                     self.schedule_object.is_interchaged = True
-                
+
+                #TODO : recheck if this is an efficient modeling
+                elif isinstance(action, Tiling):
+                    self.apply_tiling(params=action.params)
+                    self.schedule_object.is_tiled = True
+
+                # repr_tensors contains 2 tensors , the 1st one is related to computations and the 2nd one is related to loops,
+                # we need these 2 tensors for the input of the model.
                 repr_tensors = ConvertService.get_schedule_representation(
-                    self.schedule_object
-                )
+                    self.schedule_object)
                 speedup, embedding_tensor = self.prediction_service.get_speedup(
-                    *repr_tensors, self.schedule_object
-                )
+                    *repr_tensors, self.schedule_object)
             except KeyError as e:
                 logging.error(f"This loop level: {e} doesn't exist")
                 legality_check = False
@@ -103,16 +105,28 @@ class SchedulerService:
         optim_command = OptimizationCommand(action, self.schedule_object.comps)
         # Add the command to the array of schedule
         self.schedule_list.append(optim_command)
+        # Building schedule string
+        schdule_str = ConvertService.build_sched_string(self.schedule_list)
+        print(schdule_str)
         # Check if the action is legal or no to be applied on self.schedule_object.prog
-        try:
+        # prog.schedules only has data when it is fetched from the offline dataset so no need to compile to get the legality
+        if (self.schedule_object.prog.schedules
+                and (schdule_str in self.schedule_object.prog.schedules)):
             legality_check = int(
-                CompilingService.compile_legality(
-                    schedule_object=self.schedule_object, optims_list=self.schedule_list
-                )
-            )
-        except ValueError as e:
-            legality_check = 0
-            print("Legality error :", e)
+                self.schedule_object.prog.schedules[schdule_str])
+        else:
+            # To run the legality we need the original function code to generate legality code
+            if (not self.schedule_object.prog.original_str):
+                # Loading function code lines
+                self.schedule_object.prog.load_code_lines()
+            try:
+                legality_check = int(
+                    CompilingService.compile_legality(
+                        schedule_object=self.schedule_object,
+                        optims_list=self.schedule_list))
+            except ValueError as e:
+                legality_check = 0
+                print("Legality error :", e)
         if legality_check != 1:
             self.schedule_list.pop()
         return legality_check
@@ -122,11 +136,12 @@ class SchedulerService:
         #  but #TODO : we need to fix this to support all cases
         computation = list(self.schedule_object.it_dict.keys())[0]
         # Getting the name of the iterator that points to the loop_level
-        iterator = self.schedule_object.it_dict[computation][loop_level]["iterator"]
+        iterator = self.schedule_object.it_dict[computation][loop_level][
+            "iterator"]
         # Add the tag of parallelized loop level to the computations
         for comp in self.schedule_object.comps:
-            self.schedule_object.schedule_dict[comp]["parallelized_dim"] = iterator
-
+            self.schedule_object.schedule_dict[comp][
+                "parallelized_dim"] = iterator
 
     def apply_reversal(self, loop_level):
         # The tag representation is as follows:
@@ -138,11 +153,11 @@ class SchedulerService:
         #       - 3 for loop skewing
         transformation = [2, 0, 0, loop_level, 0, 0, 0, 0]
         # TODO : for now this action is applied to all comps because they share all the same loop levels , need to fix this to be applied on certain comps only
-        for comp in self.schedule_object.comps : 
-            self.schedule_object.schedule_dict[comp]["transformations_list"].append(transformation)
-        
+        for comp in self.schedule_object.comps:
+            self.schedule_object.schedule_dict[comp][
+                "transformations_list"].append(transformation)
 
-    def apply_interchange(self,loop_level1 : int,loop_level2 : int):
+    def apply_interchange(self, loop_level1: int, loop_level2: int):
         # The tag representation is as follows:
         #         ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'first_skew_factor', 'second_skew_factor']
         #     Where the type_of_transformation tag is:
@@ -152,5 +167,28 @@ class SchedulerService:
         #       - 3 for loop skewing
         transformation = [1, loop_level1, loop_level2, 0, 0, 0, 0, 0]
         # TODO : for now this action is applied to all comps because they share all the same loop levels , need to fix this to be applied on certain comps only
-        for comp in self.schedule_object.comps : 
-            self.schedule_object.schedule_dict[comp]["transformations_list"].append(transformation)
+        for comp in self.schedule_object.comps:
+            self.schedule_object.schedule_dict[comp][
+                "transformations_list"].append(transformation)
+
+    def apply_tiling(self, params):
+
+        if (len(params) == 4):
+            # This is the 2d tiling , 4 params becuase it has 2 loop levels and 2 dimensions x,y
+            for comp in self.schedule_object.comps:
+                tiling_depth = 2  # Because it is 2D tiling
+                tiling_factors = [str(params[-2]),
+                                  str(params[-1])]  # size_x and size_y
+                # iterators is the name of the concerned 2 iterators
+                iterators = self.schedule_object.it_dict[comp][
+                    params[0]]["iterator"], self.schedule_object.it_dict[comp][
+                        params[1]]["iterator"]
+                tiling_dims = [*iterators]
+                tiling_dict = {
+                    'tiling_depth': tiling_depth,
+                    'tiling_dims': tiling_dims,
+                    'tiling_factors': tiling_factors,
+                }
+                print(tiling_dict)
+                self.schedule_object.schedule_dict[comp]["tiling"] = tiling_dict
+        # TODO :  add 3d tiling
