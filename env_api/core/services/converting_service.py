@@ -1180,7 +1180,23 @@ class ConvertService:
         for z in trimmed_y[0]:
             if z[0][0] != np.inf:
                 gt.append(z.astype("float32").tolist())
-        return np.array([gt])
+        return np.array([gt])   
+    
+    # TODO : Test this class for all the actions
+    # Tested on many comps and for parallelization , reversal
+    @classmethod 
+    def build_sched_string(cls,schedule_list):
+        comps = {}
+        for schedule in schedule_list : 
+            for key in schedule.comps_schedule.keys():
+                if(not key in comps or not comps[key]):
+                    comps[key] = ""
+                comps[key] += schedule.comps_schedule[key]
+        schedule_string = ""
+        for key in comps.keys():
+            schedule_string+= "{"+key+"}:"+comps[key]
+        return schedule_string
+   
 
     # TODO : The following 2 functions exist because we are building tree structure in python
     # Once we get it from toramisu autocsheduler they should be removed from here
