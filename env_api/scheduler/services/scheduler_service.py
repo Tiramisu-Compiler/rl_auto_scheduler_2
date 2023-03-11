@@ -1,5 +1,4 @@
 from env_api.core.models.optim_cmd import OptimizationCommand
-from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.compiling_service import CompilingService
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.services.prediction_service import PredictionService
@@ -172,7 +171,6 @@ class SchedulerService:
                 "transformations_list"].append(transformation)
 
     def apply_tiling(self, params):
-
         if (len(params) == 4):
             # This is the 2d tiling , 4 params becuase it has 2 loop levels and 2 dimensions x,y
             for comp in self.schedule_object.comps:
@@ -190,5 +188,31 @@ class SchedulerService:
                     'tiling_factors': tiling_factors,
                 }
                 print(tiling_dict)
-                self.schedule_object.schedule_dict[comp]["tiling"] = tiling_dict
-        # TODO :  add 3d tiling
+                self.schedule_object.schedule_dict[comp][
+                    "tiling"] = tiling_dict
+        elif (len(params) == 6):
+            # This is the 3d tiling , 6 params becuase it has 3 loop levels and 3 dimensions x,y,z
+            for comp in self.schedule_object.comps:
+                tiling_depth = 3  # Because it is 3D tiling
+                tiling_factors = [
+                    str(params[-3]),
+                    str(params[-2]),
+                    str(params[-1])
+                ]  # size_x , size_y and size_z
+                # iterators is the name of the concerned 3 iterators
+                iterators = self.schedule_object.it_dict[comp][
+                    params[0]]["iterator"], self.schedule_object.it_dict[comp][
+                        params[1]]["iterator"], self.schedule_object.it_dict[
+                            comp][params[2]]["iterator"]
+                tiling_dims = [*iterators]
+                tiling_dict = {
+                    'tiling_depth': tiling_depth,
+                    'tiling_dims': tiling_dims,
+                    'tiling_factors': tiling_factors,
+                }
+                print(tiling_dict)
+                self.schedule_object.schedule_dict[comp][
+                    "tiling"] = tiling_dict
+
+        else:
+            raise NotImplementedError

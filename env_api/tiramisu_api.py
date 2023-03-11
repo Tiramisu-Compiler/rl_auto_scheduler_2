@@ -98,16 +98,26 @@ class TiramisuEnvAPIv1:
 
     # TODO : implement Skewing
     # TODO : implement Fusion
-    # TODO : implement Tiling
-    def tile2D(self,loop_level1 : int,loop_level2 : int , size_x : int , size_y : int):
+    
+    def tile2D(self, loop_level1: int, loop_level2: int, size_x: int,
+               size_y: int):
         # Create a 2 dimensions Tiling action with given loop levels 1 and 2 , and 2D tile size (size_x,size_y)
-        tiling2D = Tiling(params=[loop_level1, loop_level2,size_x,size_y])
+        tiling2D = Tiling(params=[loop_level1, loop_level2, size_x, size_y])
         # Use the Scheduler service to apply the Tiling action to the schedule
         return self.scheduler_service.apply_action(tiling2D)
 
+    def tile3D(self, loop_level1: int, loop_level2: int, loop_level3: int,
+               size_x: int, size_y: int, size_z: int):
+        # Create a 3 dimensions Tiling action with given loop levels 1 , 2 and 3, and 3D tile size (size_x,size_y,size_z)
+        tiling3D = Tiling(params=[
+            loop_level1, loop_level2, loop_level3, size_x, size_y, size_z
+        ])
+        # Use the Scheduler service to apply the Tiling action to the schedule
+        return self.scheduler_service.apply_action(tiling3D)
+
     # TODO : implement Unrolling
-    def unroll(self,unrolling_factor: int):
-        # Create an Unrolling action with given unrolling factor , the loop level is not given 
+    def unroll(self, unrolling_factor: int):
+        # Create an Unrolling action with given unrolling factor , the loop level is not given
         # because we suppose that unrollong innermost loop is more beneficial ,so this action is applied
         # on the innermost loop level
         unrolling = Unrolling(params=[unrolling_factor])
