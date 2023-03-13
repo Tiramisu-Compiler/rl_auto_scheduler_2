@@ -2,6 +2,7 @@ from env_api.core.models.optim_cmd import OptimizationCommand
 from env_api.core.services.compiling_service import CompilingService
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.services.prediction_service import PredictionService
+from env_api.utils.functions.fusion import transform_tree_for_fusion
 from ..models.schedule import Schedule
 from ..models.action import *
 import logging
@@ -80,6 +81,14 @@ class SchedulerService:
                     self.apply_tiling(params=action.params)
                     self.schedule_object.is_tiled = True
 
+                elif isinstance(action, Fusion):
+                    self.apply_fusion(loop_level=action.params[0],
+                                      comps=action.comps)
+                    self.schedule_object.is_fused = True
+                elif isinstance(action, Unrolling):
+                    self.apply_unrolling(params=action.params)
+                    self.schedule_object.is_unrolled = True
+                    
                 # repr_tensors contains 2 tensors , the 1st one is related to computations and the 2nd one is related to loops,
                 # we need these 2 tensors for the input of the model.
                 repr_tensors = ConvertService.get_schedule_representation(
@@ -101,7 +110,34 @@ class SchedulerService:
         output :
             - legality_check : int , if it is 1 it means it is legal, otherwise it is illegal
         """
-        optim_command = OptimizationCommand(action, self.schedule_object.comps)
+        if isinstance(action, Fusion):
+            if (len(self.schedule_object.comps) <= 1):
+                # If the program has a single computation , then fusion is illegal
+                return 0
+            requested_comps = [
+                comp for comp in self.schedule_object.it_dict
+                if action.params[0] in self.schedule_object.it_dict[comp]
+            ]
+            if (len(requested_comps) <= 1):
+                # If there are many computations but , at the fusion loop level there is less than 2 computations
+                # then fusion will be illegal
+                return 0
+        # TODO : remove this condition when we apply the new method
+        elif isinstance(action , Unrolling):
+            # In this case we unroll all the computations 
+            requested_comps = self.schedule_object.comps
+            # We look for the last iterator of each computation and save it in the params 
+            unrolling_factor = action.params[0]
+            action.params = {}
+            for comp in self.schedule_object.it_dict : 
+                loop_level = len(self.schedule_object.it_dict[comp].keys()) - 1
+                action.params[comp]= [loop_level,unrolling_factor]
+        else:
+            requested_comps = self.schedule_object.comps
+        # Assign the requested comps to the action
+        # TODO : This field comps is recently added , propagate the use of it in all the actions methods
+        action.comps = requested_comps
+        optim_command = OptimizationCommand(action, requested_comps)
         # Add the command to the array of schedule
         self.schedule_list.append(optim_command)
         # Building schedule string
@@ -177,19 +213,11 @@ class SchedulerService:
                 tiling_depth = 2  # Because it is 2D tiling
                 tiling_factors = [str(params[-2]),
                                   str(params[-1])]  # size_x and size_y
-                # iterators is the name of the concerned 2 iterators
+                # iterators contains the names of the concerned 2 iterators
                 iterators = self.schedule_object.it_dict[comp][
                     params[0]]["iterator"], self.schedule_object.it_dict[comp][
                         params[1]]["iterator"]
                 tiling_dims = [*iterators]
-                tiling_dict = {
-                    'tiling_depth': tiling_depth,
-                    'tiling_dims': tiling_dims,
-                    'tiling_factors': tiling_factors,
-                }
-                print(tiling_dict)
-                self.schedule_object.schedule_dict[comp][
-                    "tiling"] = tiling_dict
         elif (len(params) == 6):
             # This is the 3d tiling , 6 params becuase it has 3 loop levels and 3 dimensions x,y,z
             for comp in self.schedule_object.comps:
@@ -199,20 +227,37 @@ class SchedulerService:
                     str(params[-2]),
                     str(params[-1])
                 ]  # size_x , size_y and size_z
-                # iterators is the name of the concerned 3 iterators
+                # iterators contains the name of the concerned 3 iterators
                 iterators = self.schedule_object.it_dict[comp][
                     params[0]]["iterator"], self.schedule_object.it_dict[comp][
                         params[1]]["iterator"], self.schedule_object.it_dict[
                             comp][params[2]]["iterator"]
                 tiling_dims = [*iterators]
-                tiling_dict = {
-                    'tiling_depth': tiling_depth,
-                    'tiling_dims': tiling_dims,
-                    'tiling_factors': tiling_factors,
-                }
-                print(tiling_dict)
-                self.schedule_object.schedule_dict[comp][
-                    "tiling"] = tiling_dict
+        
+        tiling_dict = {
+            'tiling_depth': tiling_depth,
+            'tiling_dims': tiling_dims,
+            'tiling_factors': tiling_factors,
+        }
+        print(tiling_dict)
+        self.schedule_object.schedule_dict[comp][
+            "tiling"] = tiling_dict
 
-        else:
-            raise NotImplementedError
+
+    def apply_fusion(self, loop_level, comps):
+        # check if fusions are empty in schedule dict
+        if not self.schedule_object.schedule_dict["fusions"]:
+            self.schedule_object.schedule_dict["fusions"] = []
+        # Form the new fusion field in schedule dict
+        fusion = [*comps, loop_level]
+        self.schedule_object.schedule_dict["fusions"].append(fusion)
+        fused_tree = transform_tree_for_fusion(
+            self.schedule_object.schedule_dict['tree_structure'],
+            self.schedule_object.schedule_dict["fusions"])
+        self.schedule_object.schedule_dict['tree_structure'] = fused_tree
+
+    # TODO : change this function later
+    def apply_unrolling(self, params) :
+        for comp in params :
+            self.schedule_object.schedule_dict[comp]["unrolling_factor"] = str(params[comp][1])
+            

@@ -97,8 +97,15 @@ class TiramisuEnvAPIv1:
         return self.scheduler_service.apply_action(interchange)
 
     # TODO : implement Skewing
-    # TODO : implement Fusion
+
     
+    def fuse(self,loop_level : int):
+        # Create a Fusion action with given loop level 1
+        fusion = Fusion(params=[loop_level])
+        # Use the Scheduler service to apply the Fusion action to the schedule
+        return self.scheduler_service.apply_action(fusion)
+
+
     def tile2D(self, loop_level1: int, loop_level2: int, size_x: int,
                size_y: int):
         # Create a 2 dimensions Tiling action with given loop levels 1 and 2 , and 2D tile size (size_x,size_y)
@@ -115,7 +122,6 @@ class TiramisuEnvAPIv1:
         # Use the Scheduler service to apply the Tiling action to the schedule
         return self.scheduler_service.apply_action(tiling3D)
 
-    # TODO : implement Unrolling
     def unroll(self, unrolling_factor: int):
         # Create an Unrolling action with given unrolling factor , the loop level is not given
         # because we suppose that unrollong innermost loop is more beneficial ,so this action is applied

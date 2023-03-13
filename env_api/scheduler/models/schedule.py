@@ -12,10 +12,12 @@ class Schedule:
         self.is_skewed = False
         self.is_parallelized = False
         self.is_reversed = False
+        self.is_fused = False
         self.prog = program
         self.comps = self.prog.comps
         self.repr : Representation = None
         self.it_dict = {}
+        self.branches = []
         self.schedule_dict = {}
         self.common_it = []
         self.__calculate_common_it()
@@ -23,6 +25,7 @@ class Schedule:
         self.__init_representation()
         self.__set_action_mask()
         self.__form_iterators_dict()
+        self.__form_branches()
 
 
     def __calculate_common_it(self):
@@ -102,4 +105,14 @@ class Schedule:
                 comp_it_dict[i]['upper_bound'] = self.prog.annotations['iterators'][
                     iterators[i]]['upper_bound']
             self.it_dict[comp] = comp_it_dict
-    
+            
+    def __form_branches(self):
+        branchs = []
+        iterators = self.prog.annotations["iterators"]
+        for iterator in iterators.keys(): 
+            if iterators[iterator]["computations_list"]:
+                branchs.append({
+                    "comps" : iterators[iterator]["computations_list"],
+                    "iterators" : self.prog.annotations["computations"][iterators[iterator]["computations_list"][0]]["iterators"]
+                })
+        self.branches = branchs

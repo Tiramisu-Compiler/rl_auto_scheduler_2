@@ -8,6 +8,7 @@ class CompilingService():
     def compile_legality(cls,schedule_object, optims_list : list ,comps=None):
         # TODO : Find a solution to speedup this process, subprocesses take a long time to load libraries in memory
         tiramisu_program=schedule_object.prog
+        comps = schedule_object.comps
         first_comp=schedule_object.comps[0]
         output_path = tiramisu_program.func_folder+ tiramisu_program.name+ 'legal'
         # Add code to the original file to get legality result
@@ -16,7 +17,10 @@ class CompilingService():
             if isinstance(optim.action , Parallelization):
                 legality_check_lines += '''\n\tis_legal &= loop_parallelization_is_legal(''' + str(optim.params_list[0]) + ''', {&''' + first_comp + '''});\n'''
             elif isinstance(optim.action , Unrolling):
-                legality_check_lines += '''is_legal &= loop_unrolling_is_legal(''' + str(optim.params_list[comps[0]][0]) + ''', {''' + ", ".join([f"&{comp}" for comp in comps]) + '''});'''
+                for branch in schedule_object.branches : 
+                    comps = branch["comps"]
+                    level = len(branch["iterators"]) - 1 
+                    legality_check_lines += '''\n\tis_legal &= loop_unrolling_is_legal(''' + str(level) + ''', {''' + ", ".join([f"&{comp}" for comp in comps]) + '''});'''
             legality_check_lines += optim.tiramisu_optim_str + '\n'    
         
         legality_check_lines += '''

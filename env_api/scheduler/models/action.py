@@ -1,7 +1,8 @@
 class Action():
-    def __init__(self, params : list ,name : str):
+    def __init__(self, params : list ,name : str,comps : list = []):
         self.params = params
         self.name = name
+        self.comps = comps
 
 class Parallelization(Action):
     def __init__(self, params : list):
