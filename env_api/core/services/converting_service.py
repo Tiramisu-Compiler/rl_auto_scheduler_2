@@ -1182,8 +1182,7 @@ class ConvertService:
                 gt.append(z.astype("float32").tolist())
         return np.array([gt])   
     
-    # TODO : Test this function for all the actions
-    # Tested on many comps and for parallelization , reversal
+    # TODO : add fusion schedule
     @classmethod 
     def build_sched_string(cls,schedule_list):
         # Prepare a dictionary of computations name to fill it with each action applied on every comp

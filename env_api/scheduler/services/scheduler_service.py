@@ -88,6 +88,10 @@ class SchedulerService:
                 elif isinstance(action, Unrolling):
                     self.apply_unrolling(params=action.params)
                     self.schedule_object.is_unrolled = True
+                
+                elif isinstance(action,Skewing):
+                    self.apply_skewing(*action.params)
+                    self.schedule_object.is_skewed = True
                     
                 # repr_tensors contains 2 tensors , the 1st one is related to computations and the 2nd one is related to loops,
                 # we need these 2 tensors for the input of the model.
@@ -132,6 +136,18 @@ class SchedulerService:
             for comp in self.schedule_object.it_dict : 
                 loop_level = len(self.schedule_object.it_dict[comp].keys()) - 1
                 action.params[comp]= [loop_level,unrolling_factor]
+        # TODO : recheck this
+        elif isinstance(action,Skewing):
+            if (not self.schedule_object.prog.original_str):
+                # Loading function code lines
+                self.schedule_object.prog.load_code_lines()
+            requested_comps = self.schedule_object.comps
+            # we need first to get the skewing params : a list of 2 int
+            factors = CompilingService.call_skewing_solver(schedule_object=self.schedule_object,optim_list=self.schedule_list,params=action.params)
+            if(factors == None) :
+                return 0;
+            else : 
+                action.params.extend(factors)
         else:
             requested_comps = self.schedule_object.comps
         # Assign the requested comps to the action
@@ -142,7 +158,6 @@ class SchedulerService:
         self.schedule_list.append(optim_command)
         # Building schedule string
         schdule_str = ConvertService.build_sched_string(self.schedule_list)
-        print(schdule_str)
         # Check if the action is legal or no to be applied on self.schedule_object.prog
         # prog.schedules only has data when it is fetched from the offline dataset so no need to compile to get the legality
         if (self.schedule_object.prog.schedules
@@ -205,6 +220,20 @@ class SchedulerService:
         for comp in self.schedule_object.comps:
             self.schedule_object.schedule_dict[comp][
                 "transformations_list"].append(transformation)
+            
+
+    def apply_skewing(self, loop_level1: int, loop_level2: int,factor1 :int , factor2:int):
+        # The tag representation is as follows:
+        #         ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'first_skew_factor', 'second_skew_factor']
+        #     Where the type_of_transformation tag is:
+        #       - 0 for no transformation being applied
+        #       - 1 for loop interchange
+        #       - 2 for loop reversal
+        #       - 3 for loop skewing
+        transformation = [3, 0, 0, 0, loop_level1, loop_level2, factor1, factor2]
+        for comp in self.schedule_object.comps:
+            self.schedule_object.schedule_dict[comp][
+                "transformations_list"].append(transformation)
 
     def apply_tiling(self, params):
         if (len(params) == 4):
@@ -239,7 +268,6 @@ class SchedulerService:
             'tiling_dims': tiling_dims,
             'tiling_factors': tiling_factors,
         }
-        print(tiling_dict)
         self.schedule_object.schedule_dict[comp][
             "tiling"] = tiling_dict
 

@@ -37,7 +37,6 @@ class TiramisuEnvAPIv1:
         return self.programs
 
     def set_program(self, name: str):
-        # print("Choosing the function : ", name)
         # Get the file path for the program with the given name
         file_path, exist_offline = self.dataset_service.get_file_path(name)
         # if exist_offline is True , then we can fetch the data from the offline dataset if the program name is saved there
@@ -78,7 +77,6 @@ class TiramisuEnvAPIv1:
 
     # TODO : for all these actions we need to generalize over computations and not over shared iterators
     def parallelize(self, loop_level: int):
-        # print("Parallelization loop level : ",loop_level)
         # Create a Parallelization action with the given loop level
         parallelization = Parallelization(params=[loop_level])
         # Use the Scheduler service to apply the Parallelization action to the schedule
@@ -96,9 +94,12 @@ class TiramisuEnvAPIv1:
         # Use the Scheduler service to apply the Interchange action to the schedule
         return self.scheduler_service.apply_action(interchange)
 
-    # TODO : implement Skewing
+    def skew(self,loop_level1:int , loop_level2:int):
+        # Create a skewing action for loop levels 1 and 2 
+        skewing = Skewing(params=[loop_level1,loop_level2])
+        # Use the Scheduler to apply Skewing and return the speedup and legality 
+        return self.scheduler_service.apply_action(skewing)
 
-    
     def fuse(self,loop_level : int):
         # Create a Fusion action with given loop level 1
         fusion = Fusion(params=[loop_level])

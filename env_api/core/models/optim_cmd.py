@@ -11,8 +11,6 @@ class OptimizationCommand:
         self.comps_schedule = {}
         self.tiramisu_optim_str = self.get_tiramisu_optim_str()
 
-    # TODO : add other actions to self.comps_schedule for now there os only
-    # Parallelization , Reversal , Tiling ,
     def get_tiramisu_optim_str(self):
         """Convert the optimization command into Tiramisu code.
         Returns:
@@ -35,6 +33,8 @@ class OptimizationCommand:
                 [str(p) for p in self.params_list]) + ");"
             optim_str = ""
             for comp in self.comps:
+                self.comps_schedule[comp] ="S(L{},L{},{},{})".format(
+                        *self.params_list)
                 optim_str += "\n\t {}".format(comp) + skewing_str
             return optim_str
 
