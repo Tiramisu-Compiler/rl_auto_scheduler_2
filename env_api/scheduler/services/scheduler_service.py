@@ -174,11 +174,16 @@ class SchedulerService:
                     CompilingService.compile_legality(
                         schedule_object=self.schedule_object,
                         optims_list=self.schedule_list))
+                # Saving the legality of the new schedule
+                self.schedule_object.prog.schedules[schdule_str] = (legality_check == 1)
+
             except ValueError as e:
                 legality_check = 0
                 print("Legality error :", e)
         if legality_check != 1:
             self.schedule_list.pop()
+            schdule_str = ConvertService.build_sched_string(self.schedule_list)
+        print(schdule_str)
         return legality_check
 
     def apply_parallelization(self, loop_level):

@@ -130,3 +130,7 @@ class TiramisuEnvAPIv1:
         unrolling = Unrolling(params=[unrolling_factor])
         # Use the Scheduler service to apply the Unrolling action to the schedule
         return self.scheduler_service.apply_action(unrolling)
+    
+    def save_legality_dataset(self):
+        self.dataset_service.store_offline_dataset()
+
