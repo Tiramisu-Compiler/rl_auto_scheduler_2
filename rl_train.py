@@ -1,4 +1,4 @@
-import argparse, os, ray
+import argparse, ray
 from ray import air, tune
 from ray.rllib.models import ModelCatalog
 from ray.rllib.utils.test_utils import check_learning_achieved
@@ -7,6 +7,8 @@ from ray.tune.registry import get_trainable_cls
 from rl_agent.rl_env import TiramisuRlEnv
 from ray.rllib.algorithms.ppo import PPOConfig
 from rllib_ray_utils.custom_metrics_callback import CustomMetricCallback
+from env_api.tiramisu_api import TiramisuEnvAPIv1
+from env_api.utils.config.config import Config
 
 from rl_agent.rl_policy_nn import PolicyNN
 
@@ -28,13 +30,13 @@ parser.add_argument(
     "be achieved within --stop-timesteps AND --stop-iters.",
 )
 parser.add_argument(
-    "--stop-iters", type=int, default=100_000, help="Number of iterations to train."
+    "--stop-iters", type=int, default=200, help="Number of iterations to train."
 )
 parser.add_argument(
-    "--stop-timesteps", type=int, default=100_000, help="Number of timesteps to train."
+    "--stop-timesteps", type=int, default=10_000, help="Number of timesteps to train."
 )
 parser.add_argument(
-    "--stop-reward", type=float, default=10, help="Reward at which we stop training."
+    "--stop-reward", type=float, default=2, help="Reward at which we stop training."
 )
 parser.add_argument(
     "--no-tune",
@@ -51,20 +53,22 @@ parser.add_argument(
 )
 
 if __name__ == "__main__":
+    # TODO : Remove this when training with compiling legality
+    Config.init()
+    tiramisu_api = TiramisuEnvAPIv1()
     args = parser.parse_args()
     print(f"Running with following CLI options: {args}")
     ray.init(local_mode=args.local_mode, num_cpus=28, num_gpus=1)
     # Can also register the env creator function explicitly with:
     # register_env("corridor", lambda config: SimpleCorridor(config))
     ModelCatalog.register_custom_model("policy_nn", PolicyNN)
-
     config = (
-        get_trainable_cls(args.run)
+        get_trainable_cls(args.run) 
         .get_default_config()
-        .environment(TiramisuRlEnv, env_config={})
+        .environment(TiramisuRlEnv, env_config={"tiramisu_api":tiramisu_api})
         .framework(args.framework)
         .callbacks(CustomMetricCallback)
-        .rollouts(num_rollout_workers=26,
+        .rollouts(num_rollout_workers=27,
                   batch_mode="complete_episodes",enable_connectors=False)
         .training(
             model={
@@ -72,8 +76,8 @@ if __name__ == "__main__":
                 "vf_share_layers": True,
             }
         )
-        # Use GPUs iff `RLLIB_NUM_GPUS` env var set to > 0.
-        .resources(num_gpus=int(os.environ.get("RLLIB_NUM_GPUS", "0")))
+        .resources(num_gpus=1)
+        .debugging(log_level="WARN")
     )
 
     stop = {
@@ -108,7 +112,7 @@ if __name__ == "__main__":
             args.run,
             param_space=config.to_dict(),
             run_config=air.RunConfig(
-                name="SeparateNN-binary_reward_exit+illegal_punish",
+                name="Separated-NN-Big-Network",
                 stop=stop,
                 local_dir="/scratch/dl5133/Dev/RL-Agent/tiramisu-env/ray_results",
                 checkpoint_config=air.CheckpointConfig(checkpoint_frequency=10),
@@ -117,14 +121,10 @@ if __name__ == "__main__":
 
         results = tuner.fit()
 
+        tiramisu_api.save_legality_dataset()
+
         if args.as_test:
             print("Checking if learning goals were achieved")
             check_learning_achieved(results, args.stop_reward)
 
     ray.shutdown()
-
-# model = PolicyNN(
-#     Box(0.0, 2, shape=(1,), dtype=np.float32), Discrete(2),2,{},"jj"
-# )
-
-# print(model.forward({"obs_flat":torch.tensor([[1]])},[],None))

@@ -1180,7 +1180,27 @@ class ConvertService:
         for z in trimmed_y[0]:
             if z[0][0] != np.inf:
                 gt.append(z.astype("float32").tolist())
-        return np.array([gt])
+        return np.array([gt])   
+    
+    # TODO : add fusion schedule
+    @classmethod 
+    def build_sched_string(cls,schedule_list):
+        # Prepare a dictionary of computations name to fill it with each action applied on every comp
+        comps = {}
+        # Map the schedules applied one by one
+        for schedule in schedule_list : 
+            # schedule has comps_schedule which includes the comps that was invloved in the optimisation
+            for key in schedule.comps_schedule.keys():
+                # Add the data from that schedule to the global comps dictionnary
+                if(not key in comps or not comps[key]):
+                    comps[key] = ""
+                comps[key] += schedule.comps_schedule[key]
+        # Prepare the string and form it from the comps dictionary
+        schedule_string = ""
+        for key in comps.keys():
+            schedule_string+= "{"+key+"}:"+comps[key]
+        return schedule_string
+   
 
     # TODO : The following 2 functions exist because we are building tree structure in python
     # Once we get it from toramisu autocsheduler they should be removed from here

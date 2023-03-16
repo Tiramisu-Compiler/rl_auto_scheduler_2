@@ -1,22 +1,31 @@
-import  subprocess
+import  subprocess,re
 
 from env_api.scheduler.models.action import Parallelization, Unrolling
 
 
 class CompilingService():
     @classmethod
-    def compile_legality(cls,schedule_object, optims_list : list ,comps=None):
-        # TODO : Find a solution to speedup this process, subprocesses take a long time to load libraries in memory
+    def compile_legality(cls,schedule_object, optims_list : list):
         tiramisu_program=schedule_object.prog
-        first_comp=schedule_object.comps[0]
         output_path = tiramisu_program.func_folder+ tiramisu_program.name+ 'legal'
+        cpp_code = cls.get_legality_code(schedule_object=schedule_object,optims_list=optims_list)
+        return cls.run_cpp_code(cpp_code=cpp_code,output_path=output_path) 
+
+    @classmethod 
+    def get_legality_code(cls,schedule_object, optims_list : list):
+        tiramisu_program=schedule_object.prog
+        comps = schedule_object.comps
+        first_comp=schedule_object.comps[0]
         # Add code to the original file to get legality result
         legality_check_lines = '''\n\tprepare_schedules_for_legality_checks();\n\tperform_full_dependency_analysis();\n\tbool is_legal=true;'''
         for optim in optims_list:
             if isinstance(optim.action , Parallelization):
                 legality_check_lines += '''\n\tis_legal &= loop_parallelization_is_legal(''' + str(optim.params_list[0]) + ''', {&''' + first_comp + '''});\n'''
             elif isinstance(optim.action , Unrolling):
-                legality_check_lines += '''is_legal &= loop_unrolling_is_legal(''' + str(optim.params_list[comps[0]][0]) + ''', {''' + ", ".join([f"&{comp}" for comp in comps]) + '''});'''
+                for branch in schedule_object.branches : 
+                    comps = branch["comps"]
+                    level = len(branch["iterators"]) - 1 
+                    legality_check_lines += '''\n\tis_legal &= loop_unrolling_is_legal(''' + str(level) + ''', {''' + ", ".join([f"&{comp}" for comp in comps]) + '''});'''
             legality_check_lines += optim.tiramisu_optim_str + '\n'    
         
         legality_check_lines += '''
@@ -25,10 +34,7 @@ class CompilingService():
             '''
         # Paste the lines responsable of checking legality of schedule in the cpp file
         cpp_code = tiramisu_program.original_str.replace(tiramisu_program.code_gen_line,legality_check_lines)
-        return cls.run_cpp_code(cpp_code=cpp_code,output_path=output_path)   
-
-
-
+        return cpp_code
 
     @classmethod 
     def compile_annotations(cls,tiramisu_program ):
@@ -42,7 +48,6 @@ class CompilingService():
             '''
         # Paste the lines responsable of generating the program json tree in the cpp file
         cpp_code = tiramisu_program.original_str.replace(tiramisu_program.code_gen_line,get_json_lines)
-
         return cls.run_cpp_code(cpp_code=cpp_code,output_path=output_path)
 
     @classmethod
@@ -68,3 +73,62 @@ class CompilingService():
         except Exception as e :
             print(e)
             return "0"
+    
+    @classmethod
+    def call_skewing_solver(cls, schedule_object , optim_list, params):
+        legality_cpp_code = cls.get_legality_code(schedule_object, optim_list)
+        to_replace = re.findall(r'std::cout << is_legal;',
+                                    legality_cpp_code)[0]
+        header = """
+        function * fct = tiramisu::global::get_implicit_function();\n"""
+        legality_cpp_code = legality_cpp_code.replace(
+            "is_legal &= check_legality_of_function();", "")
+        legality_cpp_code = legality_cpp_code.replace("bool is_legal=true;", "")
+        legality_cpp_code = re.sub(
+            r'is_legal &= loop_parallelization_is_legal.*\n', "", legality_cpp_code)
+        legality_cpp_code = re.sub(
+            r'is_legal &= loop_unrolling_is_legal.*\n', "", legality_cpp_code)
+    
+        solver_lines = header + "\n\tauto auto_skewing_result = fct->skewing_local_solver({" + ", ".join([f"&{comp}" for comp in schedule_object.comps]) + "}"+",{},{},1);\n".format(
+            *params)
+
+        solver_lines += """    
+        std::vector<std::pair<int,int>> outer1, outer2,outer3;
+        tie( outer1,  outer2,  outer3 )= auto_skewing_result;
+        if (outer1.size()>0){
+            std::cout << outer1.front().first;
+            std::cout << ",";
+            std::cout << outer1.front().second;
+            std::cout << ",";
+        }else {
+            std::cout << "None,None,";
+        }
+        if(outer2.size()>0){
+            std::cout << outer2.front().first;
+            std::cout << ",";
+            std::cout << outer2.front().second;
+            std::cout << ",";
+        }else {
+            std::cout << "None,None,";
+        }
+        if(outer3.size()>0){
+            std::cout << outer3.front().first;
+            std::cout << ",";
+            std::cout << outer3.front().second;
+            std::cout << ",";
+        }else {
+            std::cout << "None,None,";
+        }
+        
+            """
+        solver_code = legality_cpp_code.replace(to_replace, solver_lines)
+        output_path = schedule_object.prog.func_folder+ schedule_object.prog.name+ 'skew_solver'
+        result_str = cls.run_cpp_code(cpp_code=solver_code,output_path=output_path)
+        result_str = result_str.split(",")
+        if(result_str[2]!= "None"):
+            fac1 = int(result_str[2])
+            fac2 = int(result_str[3])
+            return fac1 , fac2
+        else :
+            return None
+        

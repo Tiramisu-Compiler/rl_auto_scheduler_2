@@ -8,3 +8,5 @@ fixed_issues.txt
 ray_results/
 outputs/
 *.sh
+*.ipynb
+*.pkl

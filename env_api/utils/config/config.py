@@ -8,10 +8,11 @@ class TiramisuConfig:
     env_type: Literal["model", "cpu"] = "cpu"
     tags_model :str = ""
 
+
 @dataclass
 class DatasetConfig:
     path: str = ""
-    copy :str = ""
+    offline : str = ""
 
 
 @dataclass
@@ -26,16 +27,12 @@ class AutoSchedulerConfig:
         if isinstance(self.dataset, dict):
             self.dataset = DatasetConfig(**self.dataset)
 
-
-
 def read_yaml_file(path):
     with open(path) as yaml_file:
         return yaml_file.read()
 
-
 def parse_yaml_file(yaml_string: str) -> Dict[Any, Any]:
     return yaml.safe_load(yaml_string)
-
 
 def dict_to_config(parsed_yaml: Dict[Any, Any]) -> AutoSchedulerConfig:
     tiramisu = TiramisuConfig(**parsed_yaml["tiramisu"])
