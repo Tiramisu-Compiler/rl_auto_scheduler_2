@@ -8,10 +8,10 @@ torch, nn = try_import_torch()
 class PolicyNN(TorchModelV2, nn.Module):
     def __init__(self, obs_space, action_space, num_outputs, model_config,
                  name):
+        
         TorchModelV2.__init__(self, obs_space, action_space, num_outputs,
                               model_config, name)
         nn.Module.__init__(self)
-
         # Policy network
         input_size = int(np.product(obs_space.shape))
         policy_hidden_sizes = [256, 512, 1024, 1024, 512, 256, 64]

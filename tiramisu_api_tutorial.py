@@ -2,7 +2,6 @@ from env_api.tiramisu_api import TiramisuEnvAPIv1
 from env_api.utils.config.config import Config
 from env_api.utils.exceptions import *
 import random, traceback, time
-from tqdm import tqdm
 
 if __name__ == "__main__":
     start = time.time()
@@ -27,24 +26,11 @@ if __name__ == "__main__":
         else:
             # After setting a program and checking if it is fully supported by our RL system, you can apply any action on it in any order
             # And expect to get the speedup of the whole schedule, the representation and the result of legality check of the last operation
-            # (speedup, embedding_tensor,
-            #  legality) = tiramisu_api.parallelize(loop_level=0)
-            # print("Speedup : ", speedup, " ", "Legality : ", legality)
-            # (speedup, embedding_tensor,
-            #  legality) = tiramisu_api.tile2D(loop_level1=1,
-            #                                  loop_level2=2,
-            #                                  size_x=32,
-            #                                  size_y=32)
-            # print("Speedup : ", speedup, " ", "Legality : ", legality)
             (speedup, embedding_tensor,
-             legality) = tiramisu_api.tile3D(loop_level1=0,
-                                             loop_level2=1,
-                                             loop_level3=2,
-                                             size_x=32,
-                                             size_y=32,
-                                             size_z=32)
+             legality) = tiramisu_api.parallelize(loop_level=1)
             print("Speedup : ", speedup, " ", "Legality : ", legality)
-
+        
+        tiramisu_api.save_legality_dataset()
         print("Time : ", time.time() - start)
     except Exception as e:
         print("Traceback of the error : " + 60 * "-")

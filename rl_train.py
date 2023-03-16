@@ -1,4 +1,4 @@
-import argparse, os, ray, torch
+import argparse, ray
 from ray import air, tune
 from ray.rllib.models import ModelCatalog
 from ray.rllib.utils.test_utils import check_learning_achieved
@@ -30,13 +30,13 @@ parser.add_argument(
     "be achieved within --stop-timesteps AND --stop-iters.",
 )
 parser.add_argument(
-    "--stop-iters", type=int, default=5_000_000, help="Number of iterations to train."
+    "--stop-iters", type=int, default=200, help="Number of iterations to train."
 )
 parser.add_argument(
-    "--stop-timesteps", type=int, default=5_000_000, help="Number of timesteps to train."
+    "--stop-timesteps", type=int, default=10_000, help="Number of timesteps to train."
 )
 parser.add_argument(
-    "--stop-reward", type=float, default=10, help="Reward at which we stop training."
+    "--stop-reward", type=float, default=2, help="Reward at which we stop training."
 )
 parser.add_argument(
     "--no-tune",
@@ -68,7 +68,7 @@ if __name__ == "__main__":
         .environment(TiramisuRlEnv, env_config={"tiramisu_api":tiramisu_api})
         .framework(args.framework)
         .callbacks(CustomMetricCallback)
-        .rollouts(num_rollout_workers=26,
+        .rollouts(num_rollout_workers=27,
                   batch_mode="complete_episodes",enable_connectors=False)
         .training(
             model={
@@ -76,7 +76,8 @@ if __name__ == "__main__":
                 "vf_share_layers": True,
             }
         )
-
+        .resources(num_gpus=1)
+        .debugging(log_level="WARN")
     )
 
     stop = {
@@ -119,6 +120,8 @@ if __name__ == "__main__":
         )
 
         results = tuner.fit()
+
+        tiramisu_api.save_legality_dataset()
 
         if args.as_test:
             print("Checking if learning goals were achieved")
