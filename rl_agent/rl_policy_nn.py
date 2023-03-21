@@ -15,7 +15,7 @@ class PolicyNN(TorchModelV2, nn.Module):
         # Policy network
         input_size = int(np.product(obs_space.shape))
         policy_hidden_sizes = [256, 512, 1024, 1024, 512, 256, 64]
-        policy_output_size = 2
+        policy_output_size = num_outputs
 
         self.policy_layers = nn.ModuleList()
         policy_layers_sizes = [input_size] + policy_hidden_sizes
