@@ -63,9 +63,8 @@ class CompilingService():
             "rm {}*".format(output_path)
             ]
         try :
-           
             compiler = subprocess.run(["\n".join(shell_script)], input=cpp_code, capture_output=True, text=True,shell=True,check=True)
-            return compiler.stdout
+            return compiler.stdout if compiler.stdout != '' else "0"
         except subprocess.CalledProcessError as e:
             print("Process terminated with error code", e.returncode)
             print("Error output:", e.stderr)
@@ -124,10 +123,12 @@ class CompilingService():
         solver_code = legality_cpp_code.replace(to_replace, solver_lines)
         output_path = schedule_object.prog.func_folder+ schedule_object.prog.name+ 'skew_solver'
         result_str = cls.run_cpp_code(cpp_code=solver_code,output_path=output_path)
+        if not result_str : return None
+        elif result_str == '0' : return None
         result_str = result_str.split(",")
-        if(result_str[2]!= "None"):
-            fac1 = int(result_str[2])
-            fac2 = int(result_str[3])
+        if(result_str[4]!= "None"):
+            fac1 = int(result_str[4])
+            fac2 = int(result_str[5])
             return fac1 , fac2
         else :
             return None

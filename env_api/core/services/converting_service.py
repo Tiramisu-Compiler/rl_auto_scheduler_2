@@ -489,9 +489,6 @@ class ConvertService:
         cls, program_json, schedule_json, comp_name, max_depth
     ):
         iterators_list = program_json["computations"][comp_name]["iterators"]
-        transformation_matrix = cls.get_transformation_matrix(
-            program_json, schedule_json, comp_name, max_depth
-        )
         result = []
         for i in iterators_list:
             for j in range(2):

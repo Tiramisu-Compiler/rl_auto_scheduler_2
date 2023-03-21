@@ -103,7 +103,16 @@ class SchedulerService:
                 logging.error(f"This loop level: {e} doesn't exist")
                 legality_check = False
                 return speedup, embedding_tensor, legality_check
-
+            except AssertionError as e :
+                print("%"*50)
+                print(self.schedule_object.prog.name)
+                print(self.schedule_object.schedule_str)
+                print(action.params)
+                print(action.name)
+                print("%"*50)
+                print(e)
+                legality_check = False
+                
         return speedup, embedding_tensor, legality_check
 
     def is_action_legal(self, action: Action):
@@ -114,6 +123,14 @@ class SchedulerService:
         output :
             - legality_check : int , if it is 1 it means it is legal, otherwise it is illegal
         """
+
+        # Before checking legality with search or compiling , see if the iterators are included in the common iterators
+        if (not isinstance(action,Unrolling)):
+            num_iter = self.schedule_object.common_it.__len__()
+            for param in action.params :
+                if param >= num_iter:
+                    return 0
+
         if isinstance(action, Fusion):
             if (len(self.schedule_object.comps) <= 1):
                 # If the program has a single computation , then fusion is illegal
@@ -184,6 +201,7 @@ class SchedulerService:
             self.schedule_list.pop()
             schdule_str = ConvertService.build_sched_string(self.schedule_list)
         print(schdule_str)
+        self.schedule_object.schedule_str = schdule_str
         return legality_check
 
     def apply_parallelization(self, loop_level):

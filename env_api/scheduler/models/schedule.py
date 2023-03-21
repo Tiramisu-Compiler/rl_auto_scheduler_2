@@ -6,6 +6,7 @@ _MAX_DEPTH = 6
 
 class Schedule:
     def __init__(self, program):
+        self.schedule_str = ""
         self.is_interchaged = False
         self.is_tiled = False
         self.is_unrolled = False
