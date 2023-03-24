@@ -10,7 +10,7 @@ class TiramisuProgram():
         self.annotations = None
         self.comps = None
         self.name = None
-        self.schedules = None
+        self.schedules = {}
         self.original_str = None
         if (file_path):
             self.load_code_lines()

@@ -42,7 +42,7 @@ class DataSetService:
         file_path = Config.config.dataset.path + func_name + "/" + file_name
         return file_path
 
-    def store_offline_dataset(self):
+    def store_offline_dataset(self,suffix:str = ""):
         if(self.offline_dataset):
-            with open(self.offline_path[:-4] + date.today().__str__() +".pkl", "wb") as file:
+            with open(self.offline_path[:-4] + date.today().__str__() +suffix+".pkl", "wb") as file:
                 pickle.dump(self.offline_dataset,file)

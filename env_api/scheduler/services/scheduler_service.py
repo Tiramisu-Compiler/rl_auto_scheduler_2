@@ -61,37 +61,34 @@ class SchedulerService:
         legality_check = self.is_action_legal(action) == 1
         embedding_tensor = None
         speedup = 1.0
+        actions_mask = self.schedule_object.repr.action_mask
         if legality_check:
             try:
                 if isinstance(action, Parallelization):
                     self.apply_parallelization(loop_level=action.params[0])
-                    self.schedule_object.is_parallelized = True
 
                 elif isinstance(action, Reversal):
                     self.apply_reversal(loop_level=action.params[0])
-                    self.schedule_object.is_reversed = True
+                    self.schedule_object.transformed +=1
 
                 elif isinstance(action, Interchange):
                     self.apply_interchange(loop_level1=action.params[0],
                                            loop_level2=action.params[1])
-                    self.schedule_object.is_interchaged = True
+                    self.schedule_object.transformed +=1
 
                 #TODO : recheck if this is an efficient modeling
                 elif isinstance(action, Tiling):
                     self.apply_tiling(params=action.params)
-                    self.schedule_object.is_tiled = True
 
                 elif isinstance(action, Fusion):
                     self.apply_fusion(loop_level=action.params[0],
                                       comps=action.comps)
-                    self.schedule_object.is_fused = True
                 elif isinstance(action, Unrolling):
                     self.apply_unrolling(params=action.params)
-                    self.schedule_object.is_unrolled = True
                 
                 elif isinstance(action,Skewing):
                     self.apply_skewing(*action.params)
-                    self.schedule_object.is_skewed = True
+                    self.schedule_object.transformed +=1
                     
                 # repr_tensors contains 2 tensors , the 1st one is related to computations and the 2nd one is related to loops,
                 # we need these 2 tensors for the input of the model.
@@ -102,18 +99,19 @@ class SchedulerService:
             except KeyError as e:
                 logging.error(f"This loop level: {e} doesn't exist")
                 legality_check = False
-                return speedup, embedding_tensor, legality_check
             except AssertionError as e :
                 print("%"*50)
+                print("Used more than 4 transformations of I,R,S")
                 print(self.schedule_object.prog.name)
                 print(self.schedule_object.schedule_str)
                 print(action.params)
                 print(action.name)
                 print("%"*50)
-                print(e)
                 legality_check = False
                 
-        return speedup, embedding_tensor, legality_check
+        actions_mask = self.schedule_object.update_actions_mask(action=action,applied=legality_check)
+
+        return speedup, embedding_tensor, legality_check , actions_mask
 
     def is_action_legal(self, action: Action):
         """
@@ -125,9 +123,14 @@ class SchedulerService:
         """
 
         # Before checking legality with search or compiling , see if the iterators are included in the common iterators
-        if (not isinstance(action,Unrolling)):
+        if (not isinstance(action,Unrolling) and not isinstance(action,Tiling)):
             num_iter = self.schedule_object.common_it.__len__()
             for param in action.params :
+                if param >= num_iter:
+                    return 0
+        elif (isinstance(action,Tiling)):
+            num_iter = self.schedule_object.common_it.__len__()
+            for param in action.params[:len(action.params)//2] :
                 if param >= num_iter:
                     return 0
 

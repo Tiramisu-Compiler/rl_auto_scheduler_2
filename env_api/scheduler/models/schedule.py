@@ -1,19 +1,14 @@
 import numpy as np
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.representation import Representation
+from env_api.scheduler.models.action import *
 
 _MAX_DEPTH = 6
 
 class Schedule:
     def __init__(self, program):
         self.schedule_str = ""
-        self.is_interchaged = False
-        self.is_tiled = False
-        self.is_unrolled = False
-        self.is_skewed = False
-        self.is_parallelized = False
-        self.is_reversed = False
-        self.is_fused = False
+        self.transformed = 0
         self.prog = program
         self.comps = self.prog.comps
         self.repr : Representation = None
@@ -65,34 +60,7 @@ class Schedule:
         self.repr = Representation(*ConvertService.get_representation_template(self.prog.annotations,self.schedule_dict))
     
     def __set_action_mask(self):
-        match len(self.common_it):
-            case 5:
-                self.repr.action_mask = np.array(
-                    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,],
-                    dtype=np.float32,
-                )
-            case 4:
-                self.repr.action_mask = np.array(
-                    [1,1,1,0,0,0,0,1,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,0,0,1,1,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,1,1,1,1,1,1,],
-                    dtype=np.float32,
-                )
-            case 3:
-                self.repr.action_mask = np.array(
-                    [1,1,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,0,0,0,0,0,1,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,1,1,1,1,1,1,],
-                    dtype=np.float32,
-                )
-            case 2:
-                self.repr.action_mask = np.array(
-                    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,0,1,1,1,1,0,0,0,0,0,0,1,1,1,1,1,1,],
-                    dtype=np.float32,
-                )
-            case 1:
-                self.repr.action_mask = np.array(
-                    [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,0,1,0,1,0,0,0,0,0,0,0,1,1,1,1,1,1,],
-                    dtype=np.float32,
-                )
-        if len(self.comps) == 1:
-            np.put(self.repr.action_mask, [56, 57, 58, 59, 60],[0, 0, 0, 0, 0])
+        self.repr.action_mask = np.zeros(27)
 
     def __form_iterators_dict(self):
         for comp in self.comps:
@@ -117,3 +85,30 @@ class Schedule:
                     "iterators" : self.prog.annotations["computations"][iterators[iterator]["computations_list"][0]]["iterators"]
                 })
         self.branches = branchs
+
+    
+    def update_actions_mask(self, action : Action,applied : bool):
+        # Whether an action is legal or not we should mask it to not use it again
+        self.repr.action_mask[action.env_id] = 1
+
+        if applied :
+            # if the action is legal and applied we need to mask similar action when it comes 
+            # to Unrilling , skewing and parallelization because these action are applied once 
+            if isinstance(action, Unrolling) :
+                self.repr.action_mask[4:7] = 1
+            if isinstance(action, Tiling) :
+                self.repr.action_mask[12:19] = 1
+            if isinstance(action, Parallelization)  : 
+                self.repr.action_mask[0:2] = 1
+            # The other case id for skewing , reversal anf interchange 
+            # for these action we are allowed to apply them in any order under the condition of not 
+            # surpassing 4 times of applying them 
+            if self.transformed == 4 :
+                # Skewing
+                self.repr.action_mask[2:4] = 1
+                # Reversal
+                self.repr.action_mask[7:12] = 1
+                # Interchange
+                self.repr.action_mask[19:26] = 1
+
+        return self.repr.action_mask
