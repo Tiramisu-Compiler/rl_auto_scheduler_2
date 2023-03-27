@@ -17,7 +17,7 @@ To run the project, do the following:
 1. Activate the conda environment:
 `conda activate <tiramisu_env>`
 2. To generate some programs call : `DataSetService().generate_dataset(size)` from `env_api/data/data_service.py`
-3. Use `TiramisuEnvAPIv1()` to do the following : select a program, apply a transformation on the program, get the speedup of the schedule and the representation vectors.
+3. Use `TiramisuEnvAPI()` to do the following : select a program, apply a transformation on the program, get the speedup of the schedule and the representation vectors.
 4. You can find the code of the reinforcement learning agent under `rl_agent/`
 
 ## Contributing

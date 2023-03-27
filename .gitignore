@@ -4,9 +4,11 @@ __pycache__/
 env_api/data/dataset/
 env_api/data/copy/
 test/
-fixed_issues.txt
+*.txt
 ray_results/
 outputs/
 *.sh
 *.ipynb
 *.pkl
+benchmark/
+datasets/
