@@ -60,7 +60,7 @@ class SchedulerService:
         """
         legality_check = self.is_action_legal(action) == 1
         embedding_tensor = None
-        speedup = 1.0
+        speedup = 0.9
         actions_mask = self.schedule_object.repr.action_mask
         if legality_check:
             try:
@@ -96,6 +96,7 @@ class SchedulerService:
                     self.schedule_object)
                 speedup, embedding_tensor = self.prediction_service.get_speedup(
                     *repr_tensors, self.schedule_object)
+                print("Speedup:",speedup,"\n")
             except KeyError as e:
                 logging.error(f"This loop level: {e} doesn't exist")
                 legality_check = False
@@ -110,8 +111,9 @@ class SchedulerService:
                 legality_check = False
                 
         actions_mask = self.schedule_object.update_actions_mask(action=action,applied=legality_check)
-
-        return speedup, embedding_tensor, legality_check , actions_mask
+        legality_schedule = self.schedule_object.prog.schedules
+        
+        return speedup, embedding_tensor, legality_check , actions_mask , legality_schedule
 
     def is_action_legal(self, action: Action):
         """

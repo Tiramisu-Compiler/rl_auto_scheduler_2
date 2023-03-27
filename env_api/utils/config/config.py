@@ -14,6 +14,7 @@ class DatasetConfig:
     path: str = ""
     offline : str = ""
     benchmark : str = ""
+    save_path : str = ""
 
 
 @dataclass

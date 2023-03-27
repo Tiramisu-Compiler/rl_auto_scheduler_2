@@ -9,8 +9,13 @@ import os, torch
 from env_api.utils.config.config import Config
 
 
-class TiramisuEnvAPIv1:
-    def __init__(self):
+class TiramisuEnvAPI:
+    def __init__(self,local_dataset = True):
+        '''
+        local_dataset : TiramisuEnvAPI has an internal dataset service to manage offline dataset stored in self.dataset_service
+                        when this variable is False , it means we are using an external service to manage dataset or pure 
+                        compilation.
+        '''
         # The services of the environment
         self.scheduler_service: SchedulerService = SchedulerService()
         self.tiramisu_service: TiramisuService = TiramisuService()
@@ -20,8 +25,7 @@ class TiramisuEnvAPIv1:
         # This step of initializing the database service must be executed first in the init of tiramisu api
         self.dataset_service = DataSetService(
             dataset_path=Config.config.dataset.path,
-            offline_path=None
-            # Config.config.dataset.offline
+            offline_path=Config.config.dataset.offline if local_dataset else None
             )
         self.programs = None
         # The list of program names of the dataset
@@ -36,46 +40,55 @@ class TiramisuEnvAPIv1:
             # Else get them from the repository by calling system functions
             else:
                 self.programs = os.listdir(self.dataset_service.dataset_path)
-        return self.programs
+        return sorted(self.programs)
+    
+    
 
-    def set_program(self, name: str):
-        # TODO : recheck return here
-        # Get the file path for the program with the given name
-        file_path, exist_offline = self.dataset_service.get_file_path(name)
-        # if exist_offline is True , then we can fetch the data from the offline dataset if the program name is saved there
-        if (exist_offline):
-            data = self.dataset_service.get_offline_prog_data(name=name)
-            tiramisu_prog = self.tiramisu_service.fetch_prog_offline(name=name,
-                                                                     data=data)
-            # From the offline dataset a None value of the annotations mean the program has an issue of try/catch below
-            if (tiramisu_prog.annotations == None):
-                return None,None
-        else:
-            # Load the Tiramisu model from the file
-            try:
-                tiramisu_prog = self.tiramisu_service.fetch_prog_compil(
-                    path=file_path)
-            except Exception as e:
-                if isinstance(e, LoopsDepthException):
-                    print("Program has an unsupported loop level")
-                elif isinstance(e, NbAccessException):
-                    print(
-                        "Program has an unsupported number of access matrices")
-                print("Traceback of the error : " + 60 * "-")
-                print(traceback.print_exc())
-                print(80 * "-")
-                return None,None
-
+    def set_program(self, name: str,data : dict = None):
+        print("Function : ",name)
+        if data :
+            tiramisu_prog = self.tiramisu_service.fetch_prog_offline(name=name,data=data)
+        else : 
+            # Get the file path for the program with the given name
+            file_path, exist_offline = self.dataset_service.get_file_path(name)
+            # if exist_offline is True , then we can fetch the data from the offline dataset if the program name is saved there
+            if (exist_offline):
+                data = self.dataset_service.get_offline_prog_data(name=name)
+                tiramisu_prog = self.tiramisu_service.fetch_prog_offline(name=name,
+                                                                         data=data)
+            else:
+                # Load the Tiramisu model from the file
+                try:
+                    tiramisu_prog = self.tiramisu_service.fetch_prog_compil(
+                        path=file_path)
+                except Exception as e:
+                    if isinstance(e, LoopsDepthException):
+                        print("Program has an unsupported loop level")
+                    elif isinstance(e, NbAccessException):
+                        print(
+                            "Program has an unsupported number of access matrices")
+                    print("Traceback of the error : " + 60 * "-")
+                    print(traceback.print_exc())
+                    print(80 * "-")
+                    return None,None
+                
+        # From the offline dataset a None value of the annotations mean the program has an issue of try/catch below
+        if (tiramisu_prog.annotations == None):
+            return None,None
+        
         # Create a Schedule object for the Tiramisu model
         schedule = Schedule(tiramisu_prog)
+        
         # Use the Scheduler service to set the schedule for the Tiramisu model
         comps_tensor, loops_tensor = self.scheduler_service.set_schedule(
             schedule_object=schedule)
+        
         # Using the model to embed the program in a 180 sized vector
         with torch.no_grad():
             _, embedding_tensor = self.scheduler_service.prediction_service.get_speedup(
                 comps_tensor, loops_tensor,
                 self.scheduler_service.schedule_object)
+            
         return embedding_tensor,self.scheduler_service.schedule_object.repr.action_mask
 
     # TODO : for all these actions we need to generalize over computations and not over shared iterators
