@@ -3,8 +3,6 @@ from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.representation import Representation
 from env_api.scheduler.models.action import *
 
-_MAX_DEPTH = 6
-
 class Schedule:
     def __init__(self, program):
         self.schedule_str = ""
@@ -100,9 +98,9 @@ class Schedule:
                 self.repr.action_mask[12:19] = 1
             if isinstance(action, Parallelization)  : 
                 self.repr.action_mask[0:2] = 1
-            # The other case id for skewing , reversal anf interchange 
-            # for these action we are allowed to apply them in any order under the condition of not 
-            # surpassing 4 times of applying them 
+            # The other case is for skewing , reversal and interchange 
+            # for these actions we are allowed to apply them in any order under the condition of not 
+            # surpassing 4 times of applying them.
             if self.transformed == 4 :
                 # Skewing
                 self.repr.action_mask[2:4] = 1
@@ -110,5 +108,28 @@ class Schedule:
                 self.repr.action_mask[7:12] = 1
                 # Interchange
                 self.repr.action_mask[19:26] = 1
+            
+            self.apply_beam_search_conditions(action=action)
 
         return self.repr.action_mask
+    
+    def apply_beam_search_conditions(self, action : Action):
+        # The order of actions in beam search :
+        # Fusion, [Interchange, reversal, skewing], parallelization, tiling, unrolling
+        if (isinstance(action,Unrolling) or isinstance(action,Tiling) or isinstance(action,Parallelization)):
+            # Skewing
+            self.repr.action_mask[2:4] = 1
+            # Reversal
+            self.repr.action_mask[7:12] = 1
+            # Interchange
+            self.repr.action_mask[19:26] = 1
+
+            if (isinstance(action,Tiling)) : 
+                # Parallelization
+                self.repr.action_mask[0:2] = 1
+
+            elif (isinstance(action,Unrolling)):
+                # Parallelization
+                self.repr.action_mask[0:2] = 1
+                # Tiling
+                self.repr.action_mask[12:19] = 1

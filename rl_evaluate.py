@@ -47,7 +47,7 @@ if __name__ == "__main__":
     try : 
         ppo_agent.restore(
             checkpoint_path=
-            "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/ray_results/All-actions-new-exp2/PPO_TiramisuRlEnv_6f3ac_00000_0_2023-03-26_18-56-50/checkpoint_000080"
+            "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/ray_results/All-actions-punish-legality-beam-search-10m/PPO_TiramisuRlEnv_16641_00000_0_2023-03-27_17-12-56/checkpoint_000930"
         )
     except AssertionError as e :
         print(e)

@@ -39,16 +39,16 @@ if __name__ == "__main__":
 
             # (speedup, embedding_tensor,
             #  legality,actions_mask,legality_schedule) = tiramisu_api.skew(loop_level1=0,loop_level2=1,env_id=2)
-            (speedup, embedding_tensor,
-            legality,actions_mask,legality_schedule) = tiramisu_api.tile2D(
-                loop_level1=0 , loop_level2=1,
-                size_x=32,size_y=32,env_id=4
-            )
-            (speedup, embedding_tensor, legality, actions_mask,
-             legality_schedule) = tiramisu_api.parallelize(loop_level=0,
-                                                           env_id=0)
-            (speedup, embedding_tensor, legality, actions_mask,
-             legality_schedule) = tiramisu_api.reverse(loop_level=0, env_id=7)
+            # (speedup, embedding_tensor,
+            # legality,actions_mask,legality_schedule) = tiramisu_api.tile2D(
+            #     loop_level1=0 , loop_level2=1,
+            #     size_x=32,size_y=32,env_id=4
+            # )
+            # (speedup, embedding_tensor, legality, actions_mask,
+            #  legality_schedule) = tiramisu_api.parallelize(loop_level=0,
+            #                                                env_id=0)
+            # (speedup, embedding_tensor, legality, actions_mask,
+            #  legality_schedule) = tiramisu_api.reverse(loop_level=0, env_id=7)
             # (speedup, embedding_tensor,
             # legality,actions_mask,legality_schedule) = tiramisu_api.tile3D(loop_level1=0 , loop_level2=1,loop_level3=2,
             #     size_x=128,size_y=128,size_z=128,env_id=17)

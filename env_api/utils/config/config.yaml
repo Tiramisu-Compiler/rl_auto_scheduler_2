@@ -5,10 +5,6 @@ tiramisu:
 
 dataset:
     path: '/scratch/dl5133/Dev/RL-Agent/rl_autoscheduler/utils/program_generator/Dataset_multi/'
-    # '/scratch/dl5133/Dev/RL-Agent/rl_autoscheduler/utils/program_generator/Dataset_multi/'
-    # '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/benchmark/'
     offline : '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/datasets/merged_valid_programs.pkl'
-    # '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/datasets/merged_valid_programs.pkl'
-    # '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/datasets/benchmark_P0.pkl'
     benchmark: '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/datasets/benchmark_P0.pkl'
     save_path: '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/datasets'

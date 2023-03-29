@@ -64,7 +64,7 @@ class PolicyNN(TorchModelV2, nn.Module):
                 self._last_flat_in = layer(self._last_flat_in)
         # Output logits
         logits = self.logits_layer(self._last_flat_in)
-        # TODO : remove that mask 
+        # Masking selected and restricted actions
         logits = logits - (1_000_000 * input_dict["obs"]["actions_mask"])
         return logits, state
 

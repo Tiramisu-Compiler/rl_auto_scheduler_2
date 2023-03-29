@@ -1,4 +1,4 @@
-import random, numpy as np, math,ray
+import numpy as np, math,ray
 import gymnasium as gym
 from gymnasium import spaces
 from ray.rllib.env.env_context import EnvContext
@@ -15,7 +15,6 @@ class TiramisuRlEnv(gym.Env):
         self.dataset_actor : DatasetActor = config["dataset_actor"]
         # Define action and observation spaces
         self.action_space = spaces.Discrete(27)
-        # self.observation_space = spaces.Box(-np.inf, np.inf, shape=(180, ))
         self.observation_space = spaces.Dict({
             "embedding":
             spaces.Box(-np.inf, np.inf, shape=(180, )),
@@ -28,8 +27,8 @@ class TiramisuRlEnv(gym.Env):
         embedded_tensor = None
         # Select a program randomly
         while embedded_tensor == None:
-        # There is some programs that has unsupported loop levels , acces matrices , ...
-        # These programs are not supported yet so the embedded_tensor will be None
+            # There is some programs that has unsupported loop levels , acces matrices , ...
+            # These programs are not supported yet so the embedded_tensor will be None
             # program = random.choice(self.tiramisu_api.programs)
             self.program_name , data = ray.get(self.dataset_actor.get_next_function.remote())
             # The shape of embedded_tensor : (180,)
@@ -43,8 +42,7 @@ class TiramisuRlEnv(gym.Env):
             "embedding": embedded_tensor.numpy(),
             "actions_mask": actions_mask
         }
-        self.previous_speedup = 1
-        self.reward = 1
+        self.previous_speedup = self.reward = 1
         self.done = self.truncated = False
         self.info = {}
         self.steps = 0
@@ -54,16 +52,18 @@ class TiramisuRlEnv(gym.Env):
         self.steps += 1
         speedup, embedded_tensor, legality, actions_mask = self.apply_flattened_action(
             action=action)
-        new_speedup = 1
+        instant_speedup = 1
         if (legality and not self.done):
             self.state = {
                 "embedding": embedded_tensor.numpy(),
                 "actions_mask": actions_mask
             }
-            new_speedup = speedup / self.previous_speedup
+            # If the action is legal , we divide the speedup of new sequence {A_0 .. A_i+1} by the speedup of 
+            # the previous Sequnce {A_0 .. A_i} to get the speedup of the action {A_i+1}
+            instant_speedup = speedup / self.previous_speedup
             self.previous_speedup = speedup
 
-        self.reward = math.log(new_speedup, 4)
+        self.reward = math.log(instant_speedup, 4)
 
         if (self.steps == 20):
             self.done = True
@@ -128,9 +128,11 @@ class TiramisuRlEnv(gym.Env):
         else:
             # Exit case
             speedup, embedded_tensor, legality, actions_mask,legality_schedule = (1, None, True,
-                                                                np.ones(27),None)
+                                                                np.zeros(27),None)
             self.done = True
         
+        # legality_schedule is of type dict, if it is not None, we update our dataset with new discovered legalities 
+        # of the program
         if legality_schedule :
             self.dataset_actor.update_dataset.remote(
                 self.program_name , legality_schedule
