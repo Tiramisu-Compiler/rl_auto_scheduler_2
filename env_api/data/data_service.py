@@ -1,5 +1,4 @@
 from env_api.utils.config.config import Config
-from .data_gen.tiramisu_maker import generate_programs
 import pickle
 from datetime import date
 
@@ -14,11 +13,6 @@ class DataSetService:
         if (offline_path != None):
             with open(offline_path, "rb") as file:
                 self.offline_dataset = pickle.load(file)
-
-    def generate_dataset(self, size):
-        generate_programs(output_path=self.dataset_path,
-                          first_seed=10,
-                          nb_programs=size)
 
     def get_file_path(self, func_name):
         file_name = func_name + "_generator.cpp"
