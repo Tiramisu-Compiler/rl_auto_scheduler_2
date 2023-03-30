@@ -1,4 +1,4 @@
-# Tiramisu RL environment 
+# A reinforcement learning environment for tiramisu autoscheduler
 
 This project offers a ready to use environment for the reinforcement learning project.
 
@@ -16,8 +16,8 @@ To run the project, do the following:
 
 1. Activate the conda environment:
 `conda activate <tiramisu_env>`
-2. To generate some programs call : `DataSetService().generate_dataset(size)` from `env_api/data/data_service.py`
-3. Use `TiramisuEnvAPIv1()` to do the following : select a program, apply a transformation on the program, get the speedup of the schedule and the representation vectors.
+2. You need to have some generated Tiramisu cpp functions to optimize.
+3. Use `TiramisuEnvAPI()` to do the following : select a program, apply a transformation on the program, get the speedup of the schedule and the representation.
 4. You can find the code of the reinforcement learning agent under `rl_agent/`
 
 ## Contributing

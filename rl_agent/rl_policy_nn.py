@@ -13,9 +13,9 @@ class PolicyNN(TorchModelV2, nn.Module):
                               model_config, name)
         nn.Module.__init__(self)
         # Policy network
-        input_size = int(np.product(obs_space.shape))
+        input_size = 180
         policy_hidden_sizes = [256, 512, 1024, 1024, 512, 256, 64]
-        policy_output_size = 2
+        policy_output_size = num_outputs
 
         self.policy_layers = nn.ModuleList()
         policy_layers_sizes = [input_size] + policy_hidden_sizes
@@ -51,7 +51,7 @@ class PolicyNN(TorchModelV2, nn.Module):
         nn.init.xavier_uniform_(self.value_layer.weight)
 
     def forward(self, input_dict, state, seq_lens):
-        obs = input_dict["obs_flat"].float()
+        obs = input_dict["obs"]["embedding"].float()
         self._last_flat_in = obs.reshape(obs.shape[0], -1)
         self._features = self._last_flat_in
         for layer in self.policy_layers:
@@ -64,6 +64,8 @@ class PolicyNN(TorchModelV2, nn.Module):
                 self._last_flat_in = layer(self._last_flat_in)
         # Output logits
         logits = self.logits_layer(self._last_flat_in)
+        # Masking selected and restricted actions
+        logits = logits - (1_000_000 * input_dict["obs"]["actions_mask"])
         return logits, state
 
     def value_function(self):

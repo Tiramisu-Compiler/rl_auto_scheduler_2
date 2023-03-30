@@ -5,7 +5,7 @@ import yaml,os
 @dataclass
 class TiramisuConfig:
     tiramisu_path: str = ""
-    env_type: Literal["model", "cpu"] = "cpu"
+    env_type: Literal["model", "cpu"] = "model"
     tags_model :str = ""
 
 
@@ -13,6 +13,8 @@ class TiramisuConfig:
 class DatasetConfig:
     path: str = ""
     offline : str = ""
+    benchmark : str = ""
+    save_path : str = ""
 
 
 @dataclass
