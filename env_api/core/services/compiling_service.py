@@ -1,6 +1,7 @@
-import  subprocess,re
+import  subprocess,re,os
 
 from env_api.scheduler.models.action import Parallelization, Unrolling
+from env_api.utils.config.config import Config
 
 
 class CompilingService():
@@ -38,7 +39,7 @@ class CompilingService():
 
     @classmethod 
     def compile_annotations(cls,tiramisu_program ):
-        # TODO : add getting tree structure object from executing the file instead of building it in python
+        # TODO : add getting tree structure object from executing the file instead of building it
         output_path = tiramisu_program.func_folder+ tiramisu_program.name+ 'annot'
         # Add code to the original file to get json annotations 
         get_json_lines = '''
@@ -52,6 +53,8 @@ class CompilingService():
 
     @classmethod
     def run_cpp_code(cls,cpp_code : str,output_path : str):
+        # Making the tiramisu root path explicit to the env
+        os.environ["TIRAMISU_ROOT"] = Config.config.tiramisu.tiramisu_path
         shell_script = [
             # Compile intermidiate tiramisu file
             "$CXX -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/isl/include  -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -std=c++11 -O0 -o {}.o -c -x c++ -".format(output_path),
@@ -124,11 +127,25 @@ class CompilingService():
         output_path = schedule_object.prog.func_folder+ schedule_object.prog.name+ 'skew_solver'
         result_str = cls.run_cpp_code(cpp_code=solver_code,output_path=output_path)
         if not result_str : return None
+        # Refer to function run_cpp_code to see from where the "0" comes from
         elif result_str == '0' : return None
+        print(result_str)
         result_str = result_str.split(",")
-        if(result_str[4]!= "None"):
-            fac1 = int(result_str[4])
-            fac2 = int(result_str[5])
+        # Skewing Solver returns 3 solutions in form of tuples, the first tuple is for outer parallelism ,
+        # second is for inner parallelism , and last one is for locality, we are going to use the first preferably
+        # if availble , else , we are going to use the scond one if available, this policy of choosing factors may change 
+        # in later versions!  
+        # The compiler in our case returns a tuple of type : (fac0,fac1,fac2,fac3,fac4,fac5) each 2 factors represent the 
+        # solutions mentioned above
+        if (result_str[0]!= "None"):
+            # Means we have a solution for outer parallelism
+            fac1 = int(result_str[0])
+            fac2 = int(result_str[1])
+            return fac1 , fac2
+        if(result_str[2]!= "None"):
+            # Means we have a solution for inner parallelism
+            fac1 = int(result_str[2])
+            fac2 = int(result_str[3])
             return fac1 , fac2
         else :
             return None
