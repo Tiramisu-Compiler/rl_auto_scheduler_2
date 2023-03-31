@@ -8,7 +8,7 @@ To use this project, you'll need to do the following:
 
 1. Clone the repository to your local machine.
 2. Make sure you have Anaconda installed.
-3. Update the paths in the `env_api/utils/config/config.yaml` file to match your preferences.
+3. Update the paths in the `config/config.yaml` file to match your preferences.
 
 ## Usage
 

@@ -1,0 +1,42 @@
+tiramisu:
+    tiramisu_path: "/scratch/dl5133/Env/tiramisu" 
+    env_type:  "model"
+    tags_model_weights: "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/env_api/scheduler/models/model_release_version.pt"
+
+dataset:
+    path: '/scratch/dl5133/Dev/RL-Agent/rl_autoscheduler/utils/program_generator/Dataset_multi/'
+    offline : '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/datasets/merged_valid_programs.pkl'
+    save_path: '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/datasets'
+    # When doing evaluation on the benchmark set the value to True
+    is_benchmark: False
+    benchmark_cpp_files: '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/benchmark/'
+    benchmark_path: '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/datasets/benchmark_P0.pkl'
+
+ray:
+    results: "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/ray_results"
+    restore_checkpoint: "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/ray_results/All-actions-pseudo-beam-search-small-networks/PPO_TiramisuRlEnv_1133f_00000_0_2023-03-30_04-59-06/checkpoint_000160"
+
+experiment:
+    name: "test"
+    checkpoint_frequency: 10
+    checkpoint_num_to_keep: 10
+    # The following 3 values are the values to stop the experiment if any of them is reached 
+    training_iteration: 500
+    timesteps_total: 1000000
+    episode_reward_mean: 2
+    # Use this value to punish or tolerate illegal actions from being taken
+    legality_speedup: 0.9
+
+policy_network:
+    # Set this to True if you want to use shared weights between policy and value function
+    vf_share_layers: False
+    policy_hidden_layers: 
+        - 2048
+        - 512 
+        - 64
+    # If vf_share_layers is true then, these values won't be taken for the value network
+    vf_hidden_layers: 
+        - 512 
+        - 64
+    dropout_rate: 0.2
+    lr: 0.001

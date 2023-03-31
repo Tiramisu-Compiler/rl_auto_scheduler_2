@@ -1,9 +1,7 @@
 from env_api.tiramisu_api import TiramisuEnvAPI
-from env_api.utils.config.config import Config
+from config.config import Config
 from env_api.utils.exceptions import *
 import random, traceback, time
-
-# Fusion, [Interchange, reversal, skewing], parallelization, tiling, unrolling
 
 if __name__ == "__main__":
     start = time.time()
@@ -32,10 +30,10 @@ if __name__ == "__main__":
             #  legality_schedule) = tiramisu_api.reverse(loop_level=1, env_id=7)
             
             (speedup, embedding_tensor,
-             legality,actions_mask,legality_schedule) = tiramisu_api.interchange(loop_level1=0,loop_level2=1,env_id=4)
+             legality,actions_mask,legality_schedule) = tiramisu_api.skew(loop_level1=0,loop_level2=1,env_id=2)
 
-            (speedup, embedding_tensor,
-             legality,actions_mask,legality_schedule) = tiramisu_api.unroll(unrolling_factor=8,env_id=4)
+            # (speedup, embedding_tensor,
+            #  legality,actions_mask,legality_schedule) = tiramisu_api.unroll(unrolling_factor=8,env_id=4)
 
             # (speedup, embedding_tensor,
             #  legality,actions_mask,legality_schedule) = tiramisu_api.skew(loop_level1=0,loop_level2=1,env_id=2)
@@ -46,14 +44,13 @@ if __name__ == "__main__":
             # )
             # (speedup, embedding_tensor, legality, actions_mask,
             #  legality_schedule) = tiramisu_api.parallelize(loop_level=0,
-            #                                                env_id=0)
+            #                                                env_id=1)
             # (speedup, embedding_tensor, legality, actions_mask,
             #  legality_schedule) = tiramisu_api.reverse(loop_level=0, env_id=7)
             # (speedup, embedding_tensor,
             # legality,actions_mask,legality_schedule) = tiramisu_api.tile3D(loop_level1=0 , loop_level2=1,loop_level3=2,
             #     size_x=128,size_y=128,size_z=128,env_id=17)
             print("Speedup : ", speedup, " ", "Legality : ", legality)
-            print(actions_mask)
 
         print("Time : ", time.time() - start)
     except Exception as e:

@@ -1,4 +1,4 @@
-from env_api.utils.config.config import Config
+from config.config import Config
 import pickle
 from datetime import date
 
@@ -11,8 +11,11 @@ class DataSetService:
         self.offline_dataset = None
         self.offline_path = offline_path
         if (offline_path != None):
-            with open(offline_path, "rb") as file:
-                self.offline_dataset = pickle.load(file)
+            try :
+                with open(offline_path, "rb") as file:
+                    self.offline_dataset = pickle.load(file)
+            except FileNotFoundError:
+                print("[Error] : Offline dataset path is not valid => Reading from cpp files on disk")
 
     def get_file_path(self, func_name):
         file_name = func_name + "_generator.cpp"
@@ -26,15 +29,6 @@ class DataSetService:
 
     def get_offline_prog_data(self, name: str):
         return self.offline_dataset[name]
-
-    @classmethod
-    def get_filepath(cls, func_name):
-        '''
-        This static class method is for the classes that need to get file path without the need to check in the offline dataset
-        '''
-        file_name = func_name + "_generator.cpp"
-        file_path = Config.config.dataset.path + func_name + "/" + file_name
-        return file_path
 
     def store_offline_dataset(self,suffix:str = ""):
         if(self.offline_dataset):

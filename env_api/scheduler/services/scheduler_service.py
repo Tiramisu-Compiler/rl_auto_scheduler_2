@@ -1,3 +1,4 @@
+from config.config import Config
 from env_api.core.models.optim_cmd import OptimizationCommand
 from env_api.core.services.compiling_service import CompilingService
 from env_api.core.services.converting_service import ConvertService
@@ -10,7 +11,7 @@ import logging
 
 class SchedulerService:
     def __init__(self):
-        # An array that contains a list of optimizations that has been applied on the program
+        # self.schedule_list is an array that contains a list of optimizations that has been applied on the program
         # This list has objects of type `OptimizationCommand`
         self.schedule_list = []
         # The Schedule object contains all the informations of a program : annotatons , tree representation ...
@@ -60,7 +61,7 @@ class SchedulerService:
         """
         legality_check = self.is_action_legal(action) == 1
         embedding_tensor = None
-        speedup = 0.9
+        speedup = Config.config.experiment.legality_speedup
         actions_mask = self.schedule_object.repr.action_mask
         if legality_check:
             try:
@@ -69,12 +70,12 @@ class SchedulerService:
 
                 elif isinstance(action, Reversal):
                     self.apply_reversal(loop_level=action.params[0])
-                    self.schedule_object.transformed +=1
+                    self.schedule_object.transformed += 1
 
                 elif isinstance(action, Interchange):
                     self.apply_interchange(loop_level1=action.params[0],
                                            loop_level2=action.params[1])
-                    self.schedule_object.transformed +=1
+                    self.schedule_object.transformed += 1
 
                 #TODO : recheck if this is an efficient modeling
                 elif isinstance(action, Tiling):
@@ -85,35 +86,37 @@ class SchedulerService:
                                       comps=action.comps)
                 elif isinstance(action, Unrolling):
                     self.apply_unrolling(params=action.params)
-                
-                elif isinstance(action,Skewing):
+
+                elif isinstance(action, Skewing):
                     self.apply_skewing(*action.params)
-                    self.schedule_object.transformed +=1
-                    
+                    self.schedule_object.transformed += 1
+
                 # repr_tensors contains 2 tensors , the 1st one is related to computations and the 2nd one is related to loops,
                 # we need these 2 tensors for the input of the model.
                 repr_tensors = ConvertService.get_schedule_representation(
                     self.schedule_object)
                 speedup, embedding_tensor = self.prediction_service.get_speedup(
                     *repr_tensors, self.schedule_object)
-                print("Speedup:",speedup,"\n")
+                print(self.schedule_object.schedule_str)
+                print("Speedup:", speedup)
             except KeyError as e:
                 logging.error(f"This loop level: {e} doesn't exist")
                 legality_check = False
-            except AssertionError as e :
-                print("%"*50)
+            except AssertionError as e:
+                print("%" * 50)
                 print("Used more than 4 transformations of I,R,S")
                 print(self.schedule_object.prog.name)
                 print(self.schedule_object.schedule_str)
                 print(action.params)
                 print(action.name)
-                print("%"*50)
+                print("%" * 50)
                 legality_check = False
-                
-        actions_mask = self.schedule_object.update_actions_mask(action=action,applied=legality_check)
+
+        actions_mask = self.schedule_object.update_actions_mask(
+            action=action, applied=legality_check)
         legality_schedule = self.schedule_object.prog.schedules
-        
-        return speedup, embedding_tensor, legality_check , actions_mask , legality_schedule
+
+        return speedup, embedding_tensor, legality_check, actions_mask, legality_schedule
 
     def is_action_legal(self, action: Action):
         """
@@ -124,15 +127,15 @@ class SchedulerService:
             - legality_check : int , if it is 1 it means it is legal, otherwise it is illegal
         """
 
-        # Before checking legality with search or compiling , see if the iterators are included in the common iterators
-        if (not isinstance(action,Unrolling) and not isinstance(action,Tiling)):
+        # Before checking legality from dataset or by compiling , we see if the iterators are included in the common iterators
+        if (not isinstance(action, Unrolling)):
             num_iter = self.schedule_object.common_it.__len__()
-            for param in action.params :
-                if param >= num_iter:
-                    return 0
-        elif (isinstance(action,Tiling)):
-            num_iter = self.schedule_object.common_it.__len__()
-            for param in action.params[:len(action.params)//2] :
+            if isinstance(action, Tiling):
+                # Becuase the second half of action.params contains tiling size, so we need only the first half of the vector
+                params = action.params[:len(action.params) // 2]
+            else:
+                params = action.params
+            for param in params:
                 if param >= num_iter:
                     return 0
 
@@ -148,27 +151,31 @@ class SchedulerService:
                 # If there are many computations but , at the fusion loop level there is less than 2 computations
                 # then fusion will be illegal
                 return 0
+
         # TODO : remove this condition when we apply the new method
-        elif isinstance(action , Unrolling):
-            # In this case we unroll all the computations 
+        elif isinstance(action, Unrolling):
+            # In this case we unroll all the computations
             requested_comps = self.schedule_object.comps
-            # We look for the last iterator of each computation and save it in the params 
+            # We look for the last iterator of each computation and save it in the params
             unrolling_factor = action.params[0]
             action.params = {}
-            for comp in self.schedule_object.it_dict : 
+            for comp in self.schedule_object.it_dict:
                 loop_level = len(self.schedule_object.it_dict[comp].keys()) - 1
-                action.params[comp]= [loop_level,unrolling_factor]
-        # TODO : recheck this
-        elif isinstance(action,Skewing):
+                action.params[comp] = [loop_level, unrolling_factor]
+
+        # For skewing action we need first to get the skewing params : a list of 2 int
+        elif isinstance(action, Skewing):
             if (not self.schedule_object.prog.original_str):
                 # Loading function code lines
                 self.schedule_object.prog.load_code_lines()
             requested_comps = self.schedule_object.comps
-            # we need first to get the skewing params : a list of 2 int
-            factors = CompilingService.call_skewing_solver(schedule_object=self.schedule_object,optim_list=self.schedule_list,params=action.params)
-            if(factors == None) :
-                return 0;
-            else : 
+            factors = CompilingService.call_skewing_solver(
+                schedule_object=self.schedule_object,
+                optim_list=self.schedule_list,
+                params=action.params)
+            if (factors == None):
+                return 0
+            else:
                 action.params.extend(factors)
         else:
             requested_comps = self.schedule_object.comps
@@ -197,7 +204,8 @@ class SchedulerService:
                         schedule_object=self.schedule_object,
                         optims_list=self.schedule_list))
                 # Saving the legality of the new schedule
-                self.schedule_object.prog.schedules[schdule_str] = (legality_check == 1)
+                self.schedule_object.prog.schedules[schdule_str] = (
+                    legality_check == 1)
 
             except ValueError as e:
                 legality_check = 0
@@ -205,7 +213,7 @@ class SchedulerService:
         if legality_check != 1:
             self.schedule_list.pop()
             schdule_str = ConvertService.build_sched_string(self.schedule_list)
-        print(schdule_str)
+
         self.schedule_object.schedule_str = schdule_str
         return legality_check
 
@@ -248,9 +256,9 @@ class SchedulerService:
         for comp in self.schedule_object.comps:
             self.schedule_object.schedule_dict[comp][
                 "transformations_list"].append(transformation)
-            
 
-    def apply_skewing(self, loop_level1: int, loop_level2: int,factor1 :int , factor2:int):
+    def apply_skewing(self, loop_level1: int, loop_level2: int, factor1: int,
+                      factor2: int):
         # The tag representation is as follows:
         #         ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'first_skew_factor', 'second_skew_factor']
         #     Where the type_of_transformation tag is:
@@ -258,7 +266,9 @@ class SchedulerService:
         #       - 1 for loop interchange
         #       - 2 for loop reversal
         #       - 3 for loop skewing
-        transformation = [3, 0, 0, 0, loop_level1, loop_level2, factor1, factor2]
+        transformation = [
+            3, 0, 0, 0, loop_level1, loop_level2, factor1, factor2
+        ]
         for comp in self.schedule_object.comps:
             self.schedule_object.schedule_dict[comp][
                 "transformations_list"].append(transformation)
@@ -290,15 +300,13 @@ class SchedulerService:
                         params[1]]["iterator"], self.schedule_object.it_dict[
                             comp][params[2]]["iterator"]
                 tiling_dims = [*iterators]
-        
+
         tiling_dict = {
             'tiling_depth': tiling_depth,
             'tiling_dims': tiling_dims,
             'tiling_factors': tiling_factors,
         }
-        self.schedule_object.schedule_dict[comp][
-            "tiling"] = tiling_dict
-
+        self.schedule_object.schedule_dict[comp]["tiling"] = tiling_dict
 
     def apply_fusion(self, loop_level, comps):
         # check if fusions are empty in schedule dict
@@ -313,7 +321,7 @@ class SchedulerService:
         self.schedule_object.schedule_dict['tree_structure'] = fused_tree
 
     # TODO : change this function later
-    def apply_unrolling(self, params) :
-        for comp in params :
-            self.schedule_object.schedule_dict[comp]["unrolling_factor"] = str(params[comp][1])
-            
+    def apply_unrolling(self, params):
+        for comp in params:
+            self.schedule_object.schedule_dict[comp]["unrolling_factor"] = str(
+                params[comp][1])

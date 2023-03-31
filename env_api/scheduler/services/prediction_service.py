@@ -1,5 +1,5 @@
 from env_api.core.services.converting_service import ConvertService
-from env_api.utils.config.config import Config
+from config.config import Config
 from ..models.tags_cost_model import Model_Recursive_LSTM_v3
 import torch
 
@@ -12,7 +12,7 @@ class PredictionService:
         self.tags_model = Model_Recursive_LSTM_v3(input_size=890, loops_tensor_size=8)
         # Loading the weights
         self.tags_model.load_state_dict(
-            torch.load(Config.config.tiramisu.tags_model, map_location="cpu")
+            torch.load(Config.config.tiramisu.tags_model_weights, map_location="cpu")
         )
         # Putting the model in evaluation mode to turn off Regularization layers.
         self.tags_model.eval()

@@ -3,15 +3,17 @@ import gymnasium as gym
 from gymnasium import spaces
 from ray.rllib.env.env_context import EnvContext
 
-from env_api.utils.config.config import Config
+from config.config import Config
 from rllib_ray_utils.dataset_actor import DatasetActor
 from env_api.tiramisu_api import TiramisuEnvAPI
 
 
 class TiramisuRlEnv(gym.Env):
     def __init__(self, config: EnvContext):
-        Config.init()
-        self.tiramisu_api : TiramisuEnvAPI = config["tiramisu_api"]
+        Config.config = config["config"]
+        # local_dataset=False => means that we are reading data from external source than the dataservice implemented in
+        # TiramisuEnvAPI, this data is the annotations of a function + the leglaity of schedules
+        self.tiramisu_api = TiramisuEnvAPI(local_dataset=False)
         self.dataset_actor : DatasetActor = config["dataset_actor"]
         # Define action and observation spaces
         self.action_space = spaces.Discrete(27)

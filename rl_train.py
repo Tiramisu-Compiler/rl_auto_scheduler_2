@@ -7,10 +7,11 @@ from ray.tune.registry import get_trainable_cls
 from rl_agent.rl_env import TiramisuRlEnv
 from ray.rllib.algorithms.callbacks import MultiCallbacks
 from env_api.tiramisu_api import TiramisuEnvAPI
-from env_api.utils.config.config import Config
+from config.config import Config
 
 from rl_agent.rl_policy_nn import PolicyNN
 from rllib_ray_utils.dataset_actor import DatasetActor
+
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -35,18 +36,7 @@ parser.add_argument(
     help="Whether this script should be run as a test: --stop-reward must "
     "be achieved within --stop-timesteps AND --stop-iters.",
 )
-parser.add_argument("--stop-iters",
-                    type=int,
-                    default=5000,
-                    help="Number of iterations to train.")
-parser.add_argument("--stop-timesteps",
-                    type=int,
-                    default=10_000_000,
-                    help="Number of timesteps to train.")
-parser.add_argument("--stop-reward",
-                    type=float,
-                    default=2,
-                    help="Reward at which we stop training.")
+
 parser.add_argument(
     "--no-tune",
     default=False,
@@ -68,9 +58,6 @@ if __name__ == "__main__":
     ray.init(address='auto') if args.num_workers > 28 else ray.init()
     # Config.init() is necessary to load all env variables
     Config.init()
-    # local_dataset=False => means that we are reading data from external source than the dataservice implemented in
-    # TiramisuEnvAPI, this data is the annotations of a function + the leglaity of schedules
-    tiramisu_api = TiramisuEnvAPI(local_dataset=False)
     # DatasetActor is the responsible class of syncronizing data between rollout-workers, TiramisuEnvAPI will read
     # data from this actor.
     dataset_actor = DatasetActor.remote(
@@ -84,7 +71,7 @@ if __name__ == "__main__":
     config = get_trainable_cls(args.run).get_default_config().environment(
         TiramisuRlEnv,
         env_config={
-            "tiramisu_api": tiramisu_api,
+            "config" : Config.config,
             "dataset_actor": dataset_actor,
         }).framework(args.framework).callbacks(
             MultiCallbacks([
@@ -92,15 +79,23 @@ if __name__ == "__main__":
             ])).rollouts(
                 num_rollout_workers=args.num_workers - 1,
                 batch_mode="complete_episodes",
-                enable_connectors=False).training(model={
+                enable_connectors=False).training(
+                    lr= Config.config.policy_network.lr,
+                    model={
                     "custom_model": "policy_nn",
-                    "vf_share_layers": False,
+                    "vf_share_layers": Config.config.policy_network.vf_share_layers,
+                    "custom_model_config": {
+                        "policy_hidden_layers" : Config.config.policy_network.policy_hidden_layers,
+                        "vf_hidden_layers" : Config.config.policy_network.vf_hidden_layers,
+                        "dropout_rate" : Config.config.policy_network.dropout_rate
+                    }
                 }).resources(num_gpus=0).debugging(log_level="WARN")
 
+    # Setting the stop conditions
     stop = {
-        "training_iteration": args.stop_iters,
-        "timesteps_total": args.stop_timesteps,
-        "episode_reward_mean": args.stop_reward,
+        "training_iteration": Config.config.experiment.training_iteration,
+        "timesteps_total": Config.config.experiment.timesteps_total,
+        "episode_reward_mean": Config.config.experiment.episode_reward_mean,
     }
 
     if args.no_tune:
@@ -127,13 +122,12 @@ if __name__ == "__main__":
                 args.run,
                 param_space=config.to_dict(),
                 run_config=air.RunConfig(
-                    name="All-actions-punish-legality-beam-search-10m",
+                    name=Config.config.experiment.name,
                     stop=stop,
-                    local_dir=
-                    "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/ray_results",
+                    local_dir= Config.config.ray.results,
                     checkpoint_config=air.CheckpointConfig(
-                        checkpoint_frequency=10,
-                        num_to_keep=10,
+                        checkpoint_frequency=Config.config.experiment.checkpoint_frequency,
+                        num_to_keep=Config.config.experiment.checkpoint_num_to_keep,
                         checkpoint_at_end=True),
                     failure_config=air.FailureConfig(fail_fast=True),
                 ),

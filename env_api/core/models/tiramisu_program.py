@@ -1,7 +1,6 @@
 import re
 from pathlib import Path
-
-from env_api.data.data_service import DataSetService
+from config.config import Config
 
 
 class TiramisuProgram():
@@ -28,24 +27,33 @@ class TiramisuProgram():
             tiramisu_prog.schedules = data["schedules"]
         # After taking the neccessary fields return the instance
         return tiramisu_prog
-    
+
     def load_code_lines(self):
         '''
         This function loads the file code , it is necessary to generate legality check code and annotations
         '''
         if (self.name):
-            self.file_path = DataSetService.get_filepath(func_name=self.name)
-        file_path = self.file_path
+            # if self.name is None the program doesn't exist in the offline dataset but built from compiling
+            # if self.name has a value than it is fetched from the dataset, we need the full path to read
+            # the lines of the real function to execute legality code
+            func_name = self.name
+            file_name = func_name + "_generator.cpp"
+            file_path = (Config.config.dataset.benchmark_cpp_files
+                         if Config.config.dataset.is_benchmark else Config.
+                         config.dataset.path) + func_name + "/" + file_name
+            self.file_path = file_path
+        else:
+            file_path = self.file_path
+
         with open(file_path, 'r') as f:
             self.original_str = f.read()
-        self.func_folder = ('/'.join(Path(file_path).parts[:-1]) if
-                            len(Path(file_path).parts) > 1 else '.') + '/'
+        self.func_folder = ('/'.join(Path(file_path).parts[:-1])
+                            if len(Path(file_path).parts) > 1 else '.') + '/'
         self.body = re.findall(r'(tiramisu::init(?s:.)+)tiramisu::codegen',
-                                self.original_str)[0]
+                               self.original_str)[0]
         self.name = re.findall(r'tiramisu::init\(\"(\w+)\"\);',
-                                self.original_str)[0]
-        self.comps = re.findall(r'computation (\w+)\(',
-                                    self.original_str)
+                               self.original_str)[0]
+        self.comps = re.findall(r'computation (\w+)\(', self.original_str)
         self.code_gen_line = re.findall(r'tiramisu::codegen\({.+;',
                                         self.original_str)[0]
         buffers_vect = re.findall(r'{(.+)}', self.code_gen_line)[0]
