@@ -1,20 +1,20 @@
 tiramisu:
-    tiramisu_path: "/scratch/dl5133/Env/tiramisu" 
+    tiramisu_path: "path to tiramisu root directory" 
     env_type:  "model"
-    tags_model_weights: "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/env_api/scheduler/models/model_release_version.pt"
+    tags_model_weights: "<Your path to the repo>/env_api/scheduler/models/model_release_version.pt"
 
 dataset:
-    path: '/scratch/dl5133/Dev/RL-Agent/rl_autoscheduler/utils/program_generator/Dataset_multi/'
-    offline : '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/datasets/merged_valid_programs.pkl'
-    save_path: '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/datasets'
+    path: 'path to dataset'
+    offline : 'path to saved dataset <pkl file>, if available'
+    save_path: 'path to save new pkl dataset'
     # When doing evaluation on the benchmark set the value to True
     is_benchmark: False
-    benchmark_cpp_files: '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/benchmark/'
-    benchmark_path: '/scratch/dl5133/Dev/RL-Agent/tiramisu-env/datasets/benchmark_P0.pkl'
+    benchmark_cpp_files: 'path to cpp folder of benchmarks'
+    benchmark_path: 'path to pkl file of benchmarks of available'
 
 ray:
-    results: "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/ray_results"
-    restore_checkpoint: "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/ray_results/All-actions-pseudo-beam-search-small-networks/PPO_TiramisuRlEnv_1133f_00000_0_2023-03-30_04-59-06/checkpoint_000160"
+    results: "path to where you want to store ray results"
+    restore_checkpoint: "path of the checkpoint you want to restore"
 
 experiment:
     name: "test"
@@ -26,6 +26,8 @@ experiment:
     episode_reward_mean: 2
     # Use this value to punish or tolerate illegal actions from being taken
     legality_speedup: 0.9
+    # Use the order of beam search 
+    beam_search_order : True
 
 policy_network:
     # Set this to True if you want to use shared weights between policy and value function

@@ -12,3 +12,4 @@ outputs/
 *.pkl
 benchmark/
 datasets/
+config/config.yaml

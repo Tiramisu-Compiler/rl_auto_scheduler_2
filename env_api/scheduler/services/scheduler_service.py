@@ -113,7 +113,9 @@ class SchedulerService:
                 legality_check = False
 
         actions_mask = self.schedule_object.update_actions_mask(
-            action=action, applied=legality_check)
+            action=action,
+            applied=legality_check,
+            beam_search_order=Config.config.experiment.beam_search_order)
         legality_schedule = self.schedule_object.prog.schedules
 
         return speedup, embedding_tensor, legality_check, actions_mask, legality_schedule

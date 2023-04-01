@@ -35,6 +35,7 @@ class Experiment:
     timesteps_total: int = 1000000
     episode_reward_mean: float = 2
     legality_speedup: float =  1.0
+    beam_search_order: bool = False
 
 @dataclass
 class PolicyNetwork:

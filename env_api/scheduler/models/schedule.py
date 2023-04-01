@@ -85,7 +85,7 @@ class Schedule:
         self.branches = branchs
 
     
-    def update_actions_mask(self, action : Action,applied : bool):
+    def update_actions_mask(self, action : Action,applied : bool,beam_search_order= False):
         # Whether an action is legal or not we should mask it to not use it again
         self.repr.action_mask[action.env_id] = 1
 
@@ -108,8 +108,9 @@ class Schedule:
                 self.repr.action_mask[7:12] = 1
                 # Interchange
                 self.repr.action_mask[19:26] = 1
-            
-            self.apply_beam_search_conditions(action=action)
+                
+            if beam_search_order : 
+                self.apply_beam_search_conditions(action=action)
 
         return self.repr.action_mask
     
