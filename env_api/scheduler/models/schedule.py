@@ -1,10 +1,11 @@
 import numpy as np
+from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.representation import Representation
 from env_api.scheduler.models.action import *
 
 class Schedule:
-    def __init__(self, program):
+    def __init__(self, program: TiramisuProgram):
         self.schedule_str = ""
         self.transformed = 0
         self.prog = program

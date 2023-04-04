@@ -13,3 +13,4 @@ outputs/
 benchmark/
 datasets/
 config/config.yaml
+.venv

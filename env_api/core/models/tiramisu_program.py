@@ -9,7 +9,8 @@ class TiramisuProgram():
         self.annotations = None
         self.comps = None
         self.name = None
-        self.schedules = {}
+        self.schedules_legality = {}
+        self.schedules_solver = {}
         self.original_str = None
         if (file_path):
             self.load_code_lines()
@@ -20,11 +21,12 @@ class TiramisuProgram():
         # Initiate an instante of the TiramisuProgram class
         tiramisu_prog = cls(None)
         tiramisu_prog.name = name
-        tiramisu_prog.annotations = data["annotations"]
+        tiramisu_prog.annotations = data["program_annotation"]
         if (tiramisu_prog.annotations):
             tiramisu_prog.comps = list(
                 tiramisu_prog.annotations["computations"].keys())
-            tiramisu_prog.schedules = data["schedules"]
+            tiramisu_prog.schedules_legality = data["schedules_legality_dict"]
+            tiramisu_prog.schedules_solver = data["schedules_solver_results_dict"]
         # After taking the neccessary fields return the instance
         return tiramisu_prog
 
@@ -47,6 +49,9 @@ class TiramisuProgram():
 
         with open(file_path, 'r') as f:
             self.original_str = f.read()
+        
+        # Remove the wrapper include from the original string
+        self.original_str = self.original_str.replace(f'#include "{func_name}_wrapper.h"', "")
         self.func_folder = ('/'.join(Path(file_path).parts[:-1])
                             if len(Path(file_path).parts) > 1 else '.') + '/'
         self.body = re.findall(r'(tiramisu::init(?s:.)+)tiramisu::codegen',
