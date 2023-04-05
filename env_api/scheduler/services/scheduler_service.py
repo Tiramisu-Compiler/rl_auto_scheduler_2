@@ -185,6 +185,9 @@ class SchedulerService:
                     schedule_object=self.schedule_object,
                     optim_list=self.schedule_list,
                     params=action.params)
+                
+                # Save the results of skewing solver in the dataset
+                self.schedule_object.prog.schedules_solver[schdule_str] = factors
             if (factors == None):
                 return 0
             else:
