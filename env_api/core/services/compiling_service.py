@@ -1,10 +1,14 @@
-import subprocess, re
+import subprocess
+import re
 from env_api.scheduler.models.action import Parallelization, Unrolling
+from env_api.scheduler.models.schedule import Schedule
+
+import config.config as cfg
 
 
 class CompilingService():
     @classmethod
-    def compile_legality(cls, schedule_object, optims_list: list):
+    def compile_legality(cls, schedule_object: Schedule, optims_list: list):
         tiramisu_program = schedule_object.prog
         output_path = tiramisu_program.func_folder + tiramisu_program.name + 'legal'
         cpp_code = cls.get_legality_code(schedule_object=schedule_object,
@@ -12,7 +16,7 @@ class CompilingService():
         return cls.run_cpp_code(cpp_code=cpp_code, output_path=output_path)
 
     @classmethod
-    def get_legality_code(cls, schedule_object, optims_list: list):
+    def get_legality_code(cls, schedule_object: Schedule, optims_list: list):
         tiramisu_program = schedule_object.prog
         comps = schedule_object.comps
         first_comp = schedule_object.comps[0]
@@ -46,11 +50,20 @@ class CompilingService():
         # TODO : add getting tree structure object from executing the file instead of building it
         output_path = tiramisu_program.func_folder + tiramisu_program.name + 'annot'
         # Add code to the original file to get json annotations
-        get_json_lines = '''
-            auto ast = tiramisu::auto_scheduler::syntax_tree(tiramisu::global::get_implicit_function());
-            std::string program_json = tiramisu::auto_scheduler::evaluate_by_learning_model::get_program_json(ast);
-            std::cout << program_json;
-            '''
+        if cfg.Config.config is None:
+            cfg.Config.init()
+        if cfg.Config.config.tiramisu.new_tiramisu:
+            get_json_lines = '''
+                auto ast = tiramisu::auto_scheduler::syntax_tree(tiramisu::global::get_implicit_function(), {});
+                std::string program_json = tiramisu::auto_scheduler::evaluate_by_learning_model::get_program_json(ast);
+                std::cout << program_json;
+                '''
+        else:
+            get_json_lines = '''
+                auto ast = tiramisu::auto_scheduler::syntax_tree(tiramisu::global::get_implicit_function());
+                std::string program_json = tiramisu::auto_scheduler::evaluate_by_learning_model::get_program_json(ast);
+                std::cout << program_json;
+                '''
         # Paste the lines responsable of generating the program json tree in the cpp file
         cpp_code = tiramisu_program.original_str.replace(
             tiramisu_program.code_gen_line, get_json_lines)
@@ -58,19 +71,35 @@ class CompilingService():
 
     @classmethod
     def run_cpp_code(cls, cpp_code: str, output_path: str):
-        # Making the tiramisu root path explicit to the env
-        shell_script = [
-            # Compile intermidiate tiramisu file
-            "$CXX -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/isl/include  -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -std=c++11 -O0 -o {}.o -c -x c++ -"
-            .format(output_path),
-            # Link generated file with executer
-            "$CXX -Wl,--no-as-needed -ldl -g -fno-rtti -lpthread -std=c++11 -O0 {}.o -o {}.out   -L$TIRAMISU_ROOT/build  -L$TIRAMISU_ROOT/3rdParty/Halide/lib  -L$TIRAMISU_ROOT/3rdParty/isl/build/lib  -Wl,-rpath,$TIRAMISU_ROOT/build:$TIRAMISU_ROOT/3rdParty/Halide/lib:$TIRAMISU_ROOT/3rdParty/isl/build/lib -ltiramisu -ltiramisu_auto_scheduler -lHalide -lisl"
-            .format(output_path, output_path),
-            # Run the program
-            "{}.out".format(output_path),
-            # Clean generated files
-            "rm {}*".format(output_path)
-        ]
+        if cfg.Config.config is None:
+            cfg.Config.init()
+        if cfg.Config.config.tiramisu.new_tiramisu:
+            # Making the tiramisu root path explicit to the env
+            shell_script = [
+                # Compile intermidiate tiramisu file
+                "$CXX -I$TIRAMISU_ROOT/3rdParty/Halide/install/include -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/isl/include  -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -std=c++17 -O0 -o {}.o -c -x c++ -"
+                .format(output_path),
+                # Link generated file with executer
+                "$CXX -Wl,--no-as-needed -ldl -g -fno-rtti -lpthread -std=c++17 -O0 {}.o -o {}.out   -L$TIRAMISU_ROOT/build  -L$TIRAMISU_ROOT/3rdParty/Halide/install/lib64  -L$TIRAMISU_ROOT/3rdParty/isl/build/lib  -Wl,-rpath,$TIRAMISU_ROOT/build:$TIRAMISU_ROOT/3rdParty/Halide/install/lib64:$TIRAMISU_ROOT/3rdParty/isl/build/lib -ltiramisu -ltiramisu_auto_scheduler -lHalide -lisl"
+                .format(output_path, output_path),
+                # Run the program
+                "{}.out".format(output_path),
+                # Clean generated files
+                "rm {}*".format(output_path)
+            ]
+        else:
+            shell_script = [
+                # Compile intermidiate tiramisu file
+                "$CXX -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/isl/include  -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -std=c++11 -O0 -o {}.o -c -x c++ -"
+                .format(output_path),
+                # Link generated file with executer
+                "$CXX -Wl,--no-as-needed -ldl -g -fno-rtti -lpthread -std=c++11 -O0 {}.o -o {}.out   -L$TIRAMISU_ROOT/build  -L$TIRAMISU_ROOT/3rdParty/Halide/lib  -L$TIRAMISU_ROOT/3rdParty/isl/build/lib  -Wl,-rpath,$TIRAMISU_ROOT/build:$TIRAMISU_ROOT/3rdParty/Halide/lib:$TIRAMISU_ROOT/3rdParty/isl/build/lib -ltiramisu -ltiramisu_auto_scheduler -lHalide -lisl"
+                .format(output_path, output_path),
+                # Run the program
+                "{}.out".format(output_path),
+                # Clean generated files
+                "rm {}*".format(output_path)
+            ]
         try:
             compiler = subprocess.run(["\n".join(shell_script)],
                                       input=cpp_code,
@@ -138,7 +167,8 @@ class CompilingService():
         
             """
         solver_code = legality_cpp_code.replace(to_replace, solver_lines)
-        output_path = schedule_object.prog.func_folder + schedule_object.prog.name + 'skew_solver'
+        output_path = schedule_object.prog.func_folder + \
+            schedule_object.prog.name + 'skew_solver'
         result_str = cls.run_cpp_code(cpp_code=solver_code,
                                       output_path=output_path)
         if not result_str:

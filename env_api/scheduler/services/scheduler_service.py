@@ -77,7 +77,7 @@ class SchedulerService:
                                            loop_level2=action.params[1])
                     self.schedule_object.transformed += 1
 
-                #TODO : recheck if this is an efficient modeling
+                # TODO : recheck if this is an efficient modeling
                 elif isinstance(action, Tiling):
                     self.apply_tiling(params=action.params)
 
@@ -116,9 +116,8 @@ class SchedulerService:
             action=action,
             applied=legality_check,
             beam_search_order=Config.config.experiment.beam_search_order)
-        legality_schedule = self.schedule_object.prog.schedules_legality
 
-        return speedup, embedding_tensor, legality_check, actions_mask, legality_schedule
+        return speedup, embedding_tensor, legality_check, actions_mask
 
     def is_action_legal(self, action: Action):
         """
@@ -169,23 +168,23 @@ class SchedulerService:
         elif isinstance(action, Skewing):
             # construct the schedule string to check if it is legal or not
             schdule_str = ConvertService.build_sched_string(self.schedule_list)
-            # 
+            #
             requested_comps = self.schedule_object.comps
             # check if results of skewing solver exist in the dataset
             if schdule_str in self.schedule_object.prog.schedules_solver:
                 factors = self.schedule_object.prog.schedules_solver[schdule_str]
-            
+
             else:
-            
+
                 if (not self.schedule_object.prog.original_str):
                     # Loading function code lines
                     self.schedule_object.prog.load_code_lines()
-                # Call the skewing solver       
+                # Call the skewing solver
                 factors = CompilingService.call_skewing_solver(
                     schedule_object=self.schedule_object,
                     optim_list=self.schedule_list,
                     params=action.params)
-                
+
                 # Save the results of skewing solver in the dataset
                 self.schedule_object.prog.schedules_solver[schdule_str] = factors
             if (factors == None):
@@ -205,6 +204,7 @@ class SchedulerService:
         # Check if the action is legal or no to be applied on self.schedule_object.prog
         # prog.schedules_legality only has data when it is fetched from the offline dataset so no need to compile to get the legality
         if schdule_str in self.schedule_object.prog.schedules_legality:
+            print("Found Legality in dataset")
             legality_check = int(
                 self.schedule_object.prog.schedules_legality[schdule_str])
         else:
@@ -217,7 +217,7 @@ class SchedulerService:
                     CompilingService.compile_legality(
                         schedule_object=self.schedule_object,
                         optims_list=self.schedule_list))
-                
+
                 # Saving the legality of the new schedule
                 self.schedule_object.prog.schedules_legality[schdule_str] = (
                     legality_check == 1)

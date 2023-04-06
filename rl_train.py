@@ -1,4 +1,5 @@
-import argparse, ray
+import argparse
+import ray
 from ray import air, tune
 from ray.rllib.models import ModelCatalog
 from ray.rllib.utils.test_utils import check_learning_achieved
@@ -10,7 +11,7 @@ from env_api.tiramisu_api import TiramisuEnvAPI
 from config.config import Config
 
 from rl_agent.rl_policy_nn import PolicyNN
-from rllib_ray_utils.dataset_actor import DatasetActor, DatasetFormat
+from rllib_ray_utils.dataset_actor import DatasetActor
 
 
 parser = argparse.ArgumentParser()
@@ -60,18 +61,14 @@ if __name__ == "__main__":
     Config.init()
     # DatasetActor is the responsible class of syncronizing data between rollout-workers, TiramisuEnvAPI will read
     # data from this actor.
-    dataset_actor = DatasetActor.remote(
-        dataset_path=Config.config.dataset.offline,
-        use_dataset=True,
-        path_to_save_dataset=Config.config.dataset.save_path,
-        dataset_format=DatasetFormat.PICKLE,
-    )
+    dataset_actor = DatasetActor.remote(Config.config.dataset)
+
     ModelCatalog.register_custom_model("policy_nn", PolicyNN)
-    
+
     config = get_trainable_cls(args.run).get_default_config().environment(
         TiramisuRlEnv,
         env_config={
-            "config" : Config.config,
+            "config": Config.config,
             "dataset_actor": dataset_actor,
         }).framework(args.framework).callbacks(
             MultiCallbacks([
@@ -80,16 +77,16 @@ if __name__ == "__main__":
                 num_rollout_workers=args.num_workers - 1,
                 batch_mode="complete_episodes",
                 enable_connectors=False).training(
-                    lr= Config.config.policy_network.lr,
+                    lr=Config.config.policy_network.lr,
                     model={
-                    "custom_model": "policy_nn",
-                    "vf_share_layers": Config.config.policy_network.vf_share_layers,
-                    "custom_model_config": {
-                        "policy_hidden_layers" : Config.config.policy_network.policy_hidden_layers,
-                        "vf_hidden_layers" : Config.config.policy_network.vf_hidden_layers,
-                        "dropout_rate" : Config.config.policy_network.dropout_rate
-                    }
-                }).resources(num_gpus=0).debugging(log_level="WARN")
+                        "custom_model": "policy_nn",
+                        "vf_share_layers": Config.config.policy_network.vf_share_layers,
+                        "custom_model_config": {
+                            "policy_hidden_layers": Config.config.policy_network.policy_hidden_layers,
+                            "vf_hidden_layers": Config.config.policy_network.vf_hidden_layers,
+                            "dropout_rate": Config.config.policy_network.dropout_rate
+                        }
+                    }).resources(num_gpus=0).debugging(log_level="WARN")
 
     # Setting the stop conditions
     stop = {
@@ -124,7 +121,7 @@ if __name__ == "__main__":
                 run_config=air.RunConfig(
                     name=Config.config.experiment.name,
                     stop=stop,
-                    local_dir= Config.config.ray.results,
+                    local_dir=Config.config.ray.results,
                     checkpoint_config=air.CheckpointConfig(
                         checkpoint_frequency=Config.config.experiment.checkpoint_frequency,
                         num_to_keep=Config.config.experiment.checkpoint_num_to_keep,
