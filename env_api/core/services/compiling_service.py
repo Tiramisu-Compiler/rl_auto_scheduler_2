@@ -9,8 +9,12 @@ import config.config as cfg
 class CompilingService():
     @classmethod
     def compile_legality(cls, schedule_object: Schedule, optims_list: list):
+        if cfg.Config.config is None:
+            cfg.Config.init()
+
         tiramisu_program = schedule_object.prog
-        output_path = tiramisu_program.func_folder + tiramisu_program.name + 'legal'
+        output_path = cfg.Config.config.tiramisu.workspace + tiramisu_program.name + 'legal'
+
         cpp_code = cls.get_legality_code(schedule_object=schedule_object,
                                          optims_list=optims_list)
         return cls.run_cpp_code(cpp_code=cpp_code, output_path=output_path)
@@ -47,11 +51,13 @@ class CompilingService():
 
     @classmethod
     def compile_annotations(cls, tiramisu_program):
-        # TODO : add getting tree structure object from executing the file instead of building it
-        output_path = tiramisu_program.func_folder + tiramisu_program.name + 'annot'
-        # Add code to the original file to get json annotations
         if cfg.Config.config is None:
             cfg.Config.init()
+
+        # TODO : add getting tree structure object from executing the file instead of building it
+        output_path = cfg.Config.config.tiramisu.workspace + tiramisu_program.name + 'annot'
+        # Add code to the original file to get json annotations
+
         if cfg.Config.config.tiramisu.new_tiramisu:
             get_json_lines = '''
                 auto ast = tiramisu::auto_scheduler::syntax_tree(tiramisu::global::get_implicit_function(), {});

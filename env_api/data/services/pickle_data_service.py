@@ -30,14 +30,14 @@ class PickleDataService(BaseDataService):
         self.cpps = {}
 
         print(
-            f"reading dataset in full pkl format: dataset pkl from {self.dataset_path} and cpps pkl from {self.cpps_pkl_file}"
+            f"reading dataset in full pkl format: dataset pkl from {self.dataset_path} and cpps pkl from {self.cpps_path}"
         )
 
         with open(self.dataset_path, "rb") as f:
             self.dataset = pickle.load(f)
             self.function_names = list(self.dataset.keys())
 
-        with open(self.cpps_pkl_file, "rb") as f:
+        with open(self.cpps_path, "rb") as f:
             self.cpps = pickle.load(f)
 
         # Shuffle the dataset (can be used with random sampling turned off to get a random order)

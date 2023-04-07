@@ -32,6 +32,7 @@ class TiramisuConfig:
     env_type: Literal["model", "cpu"] = "model"
     tags_model_weights: str = ""
     new_tiramisu: bool = False
+    workspace: str = "./workspace"
 
 
 @dataclass
@@ -46,7 +47,7 @@ class DatasetConfig:
 
     def __init__(self, dataset_config_dict: Dict):
         self.dataset_format = DatasetFormat.from_string(
-            dataset_config_dict["mode"])
+            dataset_config_dict["dataset_format"])
         self.cpps_path = dataset_config_dict["cpps_path"]
         self.dataset_path = dataset_config_dict["dataset_path"]
         self.save_path = dataset_config_dict["save_path"]

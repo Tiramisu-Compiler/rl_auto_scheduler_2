@@ -10,9 +10,9 @@ import ray
 import config.config as cfg
 import env_api.core.models.tiramisu_program as tiramisu_program
 from env_api.data.services.compile_data_service import CompileDataService
-from env_api.data.services.hybrid_service import HybridDataService
+from env_api.data.services.hybrid_data_service import HybridDataService
 
-from env_api.data.services.pickle_service import PickleDataService
+from env_api.data.services.pickle_data_service import PickleDataService
 
 # Frequency at which the dataset is saved to disk
 SAVING_FREQUENCY = 10000

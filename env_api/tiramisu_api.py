@@ -29,21 +29,21 @@ class TiramisuEnvAPI:
         self.dataset_service = DataSetService(
             dataset_path=Config.config.dataset.cpps_path,
             offline_path=Config.config.dataset.dataset_path if local_dataset else None)
-        self.programs = None
-        # The list of program names of the dataset
-        self.programs = self.get_programs()
+    #     self.programs = None
+    #     # The list of program names of the dataset
+    #     self.programs = self.get_programs()
 
-    # This method is called only if local_dataset == True
-    def get_programs(self):
-        if self.programs == None:
-            # If the offline dataset exists , get the program names from it
-            if self.dataset_service.offline_dataset != None:
-                self.programs = list(
-                    self.dataset_service.offline_dataset.keys())
-            # Else get them from the repository by calling system functions
-            else:
-                self.programs = os.listdir(self.dataset_service.dataset_path)
-        return sorted(self.programs)
+    # # This method is called only if local_dataset == True
+    # def get_programs(self):
+    #     if self.programs == None:
+    #         # If the offline dataset exists , get the program names from it
+    #         if self.dataset_service.offline_dataset != None:
+    #             self.programs = list(
+    #                 self.dataset_service.offline_dataset.keys())
+    #         # Else get them from the repository by calling system functions
+    #         else:
+    #             self.programs = os.listdir(self.dataset_service.dataset_path)
+    #     return sorted(self.programs)
 
     def set_program(self, tiramisu_prog: TiramisuProgram):
         print("Function : ", tiramisu_prog.name)
