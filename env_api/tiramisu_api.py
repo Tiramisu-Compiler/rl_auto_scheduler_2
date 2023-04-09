@@ -29,27 +29,52 @@ class TiramisuEnvAPI:
         self.dataset_service = DataSetService(
             dataset_path=Config.config.dataset.cpps_path,
             offline_path=Config.config.dataset.dataset_path if local_dataset else None)
-    #     self.programs = None
-    #     # The list of program names of the dataset
-    #     self.programs = self.get_programs()
+        self.programs = None
+        # The list of program names of the dataset
+        self.programs = self.get_programs()
 
-    # # This method is called only if local_dataset == True
-    # def get_programs(self):
-    #     if self.programs == None:
-    #         # If the offline dataset exists , get the program names from it
-    #         if self.dataset_service.offline_dataset != None:
-    #             self.programs = list(
-    #                 self.dataset_service.offline_dataset.keys())
-    #         # Else get them from the repository by calling system functions
-    #         else:
-    #             self.programs = os.listdir(self.dataset_service.dataset_path)
-    #     return sorted(self.programs)
+    # This method is used Outside of the RL env for independent testing , don't remove it in order 
+    # to make tiramisu_api_tutorial work
+    def get_programs(self):
+        if self.programs == None:
+            # If the offline dataset exists , get the program names from it
+            if self.dataset_service.offline_dataset != None:
+                self.programs = list(
+                    self.dataset_service.offline_dataset.keys())
+            # Else get them from the repository by calling system functions
+            else:
+                self.programs = os.listdir(self.dataset_service.dataset_path)
+        return sorted(self.programs)
 
-    def set_program(self, tiramisu_prog: TiramisuProgram):
-        print("Function : ", tiramisu_prog.name)
-        # From the offline dataset a None value of the annotations mean the program has an issue of try/catch below
-        if (tiramisu_prog.annotations == None):
-            return None, None
+    def set_program(self, name: str, data: dict = None):
+        print("Function : ", name)
+        if data:
+            tiramisu_prog = self.tiramisu_service.fetch_prog_offline(name=name,
+                                                                     data=data)
+        else:
+            # Get the file path for the program with the given name
+            file_path, exist_offline = self.dataset_service.get_file_path(name)
+            # if exist_offline is True , then we can fetch the data from the offline dataset if the program name is saved there
+            if (exist_offline):
+                data = self.dataset_service.get_offline_prog_data(name=name)
+                tiramisu_prog = self.tiramisu_service.fetch_prog_offline(
+                    name=name, data=data)
+            else:
+                # Load the Tiramisu model from the file
+                try:
+                    tiramisu_prog = self.tiramisu_service.fetch_prog_compil(
+                        path=file_path)
+                except Exception as e:
+                    if isinstance(e, LoopsDepthException):
+                        print("Program has an unsupported loop level")
+                    elif isinstance(e, NbAccessException):
+                        print(
+                            "Program has an unsupported number of access matrices"
+                        )
+                    print("Traceback of the error : " + 60 * "-")
+                    print(traceback.print_exc())
+                    print(80 * "-")
+                    return None, None
 
         # Create a Schedule object for the Tiramisu model
         schedule = Schedule(tiramisu_prog)
