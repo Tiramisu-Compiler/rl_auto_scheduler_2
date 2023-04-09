@@ -43,8 +43,6 @@ class TiramisuProgram():
             # the lines of the real function to execute legality code
             func_name = self.name
             file_name = func_name + "_generator.cpp"
-            if (cfg.Config.config is None):
-                cfg.Config.init()
             file_path = cfg.Config.config.dataset.cpps_path + func_name + "/" + file_name
             self.file_path = file_path
         else:

@@ -32,7 +32,7 @@ class TiramisuConfig:
     env_type: Literal["model", "cpu"] = "model"
     tags_model_weights: str = ""
     new_tiramisu: bool = False
-    workspace: str = "./workspace"
+    workspace: str = "./workspace/"
 
 
 @dataclass

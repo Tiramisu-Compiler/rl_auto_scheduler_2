@@ -2,18 +2,14 @@ import subprocess
 import re
 from env_api.scheduler.models.action import Parallelization, Unrolling
 from env_api.scheduler.models.schedule import Schedule
-
-import config.config as cfg
+from config.config import Config
 
 
 class CompilingService():
     @classmethod
     def compile_legality(cls, schedule_object: Schedule, optims_list: list):
-        if cfg.Config.config is None:
-            cfg.Config.init()
-
         tiramisu_program = schedule_object.prog
-        output_path = cfg.Config.config.tiramisu.workspace + tiramisu_program.name + 'legal'
+        output_path =  Config.config.tiramisu.workspace + tiramisu_program.name + 'legal'
 
         cpp_code = cls.get_legality_code(schedule_object=schedule_object,
                                          optims_list=optims_list)
@@ -51,14 +47,11 @@ class CompilingService():
 
     @classmethod
     def compile_annotations(cls, tiramisu_program):
-        if cfg.Config.config is None:
-            cfg.Config.init()
-
         # TODO : add getting tree structure object from executing the file instead of building it
-        output_path = cfg.Config.config.tiramisu.workspace + tiramisu_program.name + 'annot'
+        output_path =  Config.config.tiramisu.workspace + tiramisu_program.name + 'annot'
         # Add code to the original file to get json annotations
 
-        if cfg.Config.config.tiramisu.new_tiramisu:
+        if  Config.config.tiramisu.new_tiramisu:
             get_json_lines = '''
                 auto ast = tiramisu::auto_scheduler::syntax_tree(tiramisu::global::get_implicit_function(), {});
                 std::string program_json = tiramisu::auto_scheduler::evaluate_by_learning_model::get_program_json(ast);
@@ -77,9 +70,7 @@ class CompilingService():
 
     @classmethod
     def run_cpp_code(cls, cpp_code: str, output_path: str):
-        if cfg.Config.config is None:
-            cfg.Config.init()
-        if cfg.Config.config.tiramisu.new_tiramisu:
+        if  Config.config.tiramisu.new_tiramisu:
             # Making the tiramisu root path explicit to the env
             shell_script = [
                 # Compile intermidiate tiramisu file
@@ -172,8 +163,9 @@ class CompilingService():
         }
         
             """
+        
         solver_code = legality_cpp_code.replace(to_replace, solver_lines)
-        output_path = schedule_object.prog.func_folder + \
+        output_path = Config.config.tiramisu.workspace + \
             schedule_object.prog.name + 'skew_solver'
         result_str = cls.run_cpp_code(cpp_code=solver_code,
                                       output_path=output_path)

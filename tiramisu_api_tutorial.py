@@ -29,11 +29,11 @@ if __name__ == "__main__":
             # (speedup, embedding_tensor, legality, actions_mask,
             # ) = tiramisu_api.reverse(loop_level=1, env_id=7)
             
-            # (speedup, embedding_tensor,
-            #  legality,actions_mask) = tiramisu_api.skew(loop_level1=0,loop_level2=1,env_id=2)
-
             (speedup, embedding_tensor,
-             legality,actions_mask) = tiramisu_api.unroll(unrolling_factor=8,env_id=4)
+             legality,actions_mask) = tiramisu_api.skew(loop_level1=0,loop_level2=1,env_id=2)
+
+            # (speedup, embedding_tensor,
+            #  legality,actions_mask) = tiramisu_api.unroll(unrolling_factor=8,env_id=4)
 
             # (speedup, embedding_tensor,
             #  legality,actions_mask) = tiramisu_api.skew(loop_level1=0,loop_level2=1,env_id=2)
