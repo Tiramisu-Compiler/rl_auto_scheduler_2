@@ -1,8 +1,7 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 import pickle
 from typing import Tuple
 
-from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.tiramisu_service import TiramisuService
 
 
@@ -23,7 +22,7 @@ class BaseDataService():
         self.tiramisu_service = TiramisuService()
 
     @abstractmethod
-    def get_next_function(self, random=False) -> TiramisuProgram:
+    def get_next_function(self, random=False) -> Tuple:
         pass
 
     # Update the dataset with the new function
@@ -37,7 +36,7 @@ class BaseDataService():
         self.dataset[function_name]['schedules_legality_dict'] = function_dict['schedules_legality']
         self.dataset[function_name]['schedules_solver_results_dict'] = function_dict['schedules_solver']
         self.nbr_updates += 1
-        print(f"# updates: {self.nbr_updates}")
+        # print(f"# updates: {self.nbr_updates}")
         if self.nbr_updates % self.saving_frequency == 0:
             if self.nbr_updates % (2 * self.saving_frequency):
                 return self.save_dataset_to_disk(version=2)

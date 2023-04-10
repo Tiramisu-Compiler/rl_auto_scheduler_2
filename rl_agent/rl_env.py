@@ -1,4 +1,3 @@
-import traceback
 import numpy as np
 import math
 import ray
@@ -7,7 +6,6 @@ from gymnasium import spaces
 from ray.rllib.env.env_context import EnvContext
 
 from config.config import Config
-from env_api.utils.exceptions import LoopsDepthException, NbAccessException
 from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
 from env_api.tiramisu_api import TiramisuEnvAPI
 
@@ -27,6 +25,7 @@ class TiramisuRlEnv(gym.Env):
             "actions_mask":
             spaces.Box(0, 1, shape=(27, ))
         })
+        self.current_program = ""
         self.reset()
 
     def reset(self, seed=None, options={}):
@@ -36,12 +35,11 @@ class TiramisuRlEnv(gym.Env):
             # There is some programs that has unsupported loop levels , acces matrices , ...
             # These programs are not supported yet so the embedded_tensor will be None
             # program = random.choice(self.tiramisu_api.programs)
-            self.program_name , data = ray.get(self.dataset_actor.get_next_function.remote())
+            prog_infos = ray.get(self.dataset_actor.get_next_function.remote())
             # The shape of embedded_tensor : (180,)
             # Shape pf actions mask : (27,)
-            embedded_tensor, actions_mask = self.tiramisu_api.set_program(
-                name=self.program_name,
-                data=data)
+            embedded_tensor, actions_mask = self.tiramisu_api.set_program(*prog_infos)
+            self.current_program = prog_infos[0]
 
         self.state = {
             # Converting Tensor to numpy array
@@ -147,7 +145,7 @@ class TiramisuRlEnv(gym.Env):
             }
 
             self.dataset_actor.update_dataset.remote(
-                self.current_program.name, schedules_dict
+                self.current_program, schedules_dict
             )
 
         return speedup, embedded_tensor, legality, actions_mask

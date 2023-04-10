@@ -29,6 +29,7 @@ class TiramisuEnvAPI:
         self.dataset_service = DataSetService(
             dataset_path=Config.config.dataset.cpps_path,
             offline_path=Config.config.dataset.dataset_path if local_dataset else None)
+        # The following attribute is independent of RL env , it is used for debugging don't remove it
         self.programs = None
         # The list of program names of the dataset
         self.programs = self.get_programs()
@@ -46,8 +47,8 @@ class TiramisuEnvAPI:
                 self.programs = os.listdir(self.dataset_service.dataset_path)
         return sorted(self.programs)
 
-    def set_program(self, name: str, data: dict = None):
-        print("Function : ", name)
+    def set_program(self, name: str, data: dict = None,cpp_code:str =None):
+        # print("Function : ", name)
         if data:
             tiramisu_prog = self.tiramisu_service.fetch_prog_offline(name=name,
                                                                      data=data)

@@ -1,6 +1,5 @@
 import pickle
 import random
-from typing import Tuple
 
 import numpy as np
 from env_api.core.models.tiramisu_program import TiramisuProgram
@@ -60,8 +59,8 @@ class PickleDataService(BaseDataService):
             ]
             self.current_function_index += 1
 
-        print(
-            f"Selected function with index: {self.current_function_index}, name: {function_name}"
-        )
+        # print(
+        #     f"Selected function with index: {self.current_function_index}, name: {function_name}"
+        # )
 
-        return TiramisuProgram.from_dict(function_name, self.dataset[function_name], self.cpps[function_name])
+        return function_name, self.dataset[function_name], self.cpps[function_name]
