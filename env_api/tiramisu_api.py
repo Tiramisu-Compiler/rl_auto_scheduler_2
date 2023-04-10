@@ -32,9 +32,9 @@ class TiramisuEnvAPI:
         # The following attribute is independent of RL env , it is used for debugging don't remove it
         self.programs = None
         # The list of program names of the dataset
-        self.programs = self.get_programs()
+        # self.programs = self.get_programs()
 
-    # This method is used Outside of the RL env for independent testing , don't remove it in order 
+    # This method is used Outside of the RL env for independent testing , don't remove it in order
     # to make tiramisu_api_tutorial work
     def get_programs(self):
         if self.programs == None:
@@ -47,11 +47,12 @@ class TiramisuEnvAPI:
                 self.programs = os.listdir(self.dataset_service.dataset_path)
         return sorted(self.programs)
 
-    def set_program(self, name: str, data: dict = None,cpp_code:str =None):
+    def set_program(self, name: str, data: dict = None, cpp_code: str = None):
         # print("Function : ", name)
         if data:
             tiramisu_prog = self.tiramisu_service.fetch_prog_offline(name=name,
-                                                                     data=data)
+                                                                     data=data,
+                                                                     original_str=cpp_code)
         else:
             # Get the file path for the program with the given name
             file_path, exist_offline = self.dataset_service.get_file_path(name)
