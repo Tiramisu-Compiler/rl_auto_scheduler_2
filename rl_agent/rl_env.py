@@ -8,7 +8,7 @@ from ray.rllib.env.env_context import EnvContext
 
 from config.config import Config
 from env_api.utils.exceptions import LoopsDepthException, NbAccessException
-from rllib_ray_utils.dataset_actor import DatasetActor
+from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
 from env_api.tiramisu_api import TiramisuEnvAPI
 
 
@@ -36,25 +36,12 @@ class TiramisuRlEnv(gym.Env):
             # There is some programs that has unsupported loop levels , acces matrices , ...
             # These programs are not supported yet so the embedded_tensor will be None
             # program = random.choice(self.tiramisu_api.programs)
-            try:
-
-                self.current_program = ray.get(
-                    self.dataset_actor.get_next_function.remote())
-            except Exception as e:
-                if isinstance(e, LoopsDepthException):
-                    print("Program has an unsupported loop level")
-                elif isinstance(e, NbAccessException):
-                    print(
-                        "Program has an unsupported number of access matrices"
-                    )
-                print("Traceback of the error : " + 60 * "-")
-                print(traceback.print_exc())
-                print(80 * "-")
-                continue
+            self.program_name , data = ray.get(self.dataset_actor.get_next_function.remote())
             # The shape of embedded_tensor : (180,)
             # Shape pf actions mask : (27,)
             embedded_tensor, actions_mask = self.tiramisu_api.set_program(
-                tiramisu_prog=self.current_program)
+                name=self.program_name,
+                data=data)
 
         self.state = {
             # Converting Tensor to numpy array

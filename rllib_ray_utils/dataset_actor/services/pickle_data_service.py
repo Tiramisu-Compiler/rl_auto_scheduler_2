@@ -4,12 +4,12 @@ from typing import Tuple
 
 import numpy as np
 from env_api.core.models.tiramisu_program import TiramisuProgram
-from env_api.data.services.base_data_service import (
+from rllib_ray_utils.dataset_actor.services.base_data_service  import (
     BaseDataService,
 )
 
 
-class HybridDataService(BaseDataService):
+class PickleDataService(BaseDataService):
     def __init__(
         self,
         dataset_path: str,
@@ -30,12 +30,15 @@ class HybridDataService(BaseDataService):
         self.cpps = {}
 
         print(
-            f"reading dataset in Hybrid format: dataset pkl from {self.dataset_path} and cpps from {self.cpps_path}"
+            f"reading dataset in full pkl format: dataset pkl from {self.dataset_path} and cpps pkl from {self.cpps_path}"
         )
 
         with open(self.dataset_path, "rb") as f:
             self.dataset = pickle.load(f)
             self.function_names = list(self.dataset.keys())
+
+        with open(self.cpps_path, "rb") as f:
+            self.cpps = pickle.load(f)
 
         # Shuffle the dataset (can be used with random sampling turned off to get a random order)
         if self.shuffle:
@@ -60,7 +63,5 @@ class HybridDataService(BaseDataService):
         print(
             f"Selected function with index: {self.current_function_index}, name: {function_name}"
         )
-        file_name = function_name + "_generator.cpp"
-        file_path = self.cpps_path + function_name + "/" + file_name
 
-        return TiramisuProgram.from_dict(function_name, self.dataset[function_name])
+        return TiramisuProgram.from_dict(function_name, self.dataset[function_name], self.cpps[function_name])

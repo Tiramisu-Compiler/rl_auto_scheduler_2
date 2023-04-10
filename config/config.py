@@ -9,17 +9,13 @@ import os
 class DatasetFormat:
     # Both the CPP code and the data of the functions are loaded from PICKLE files
     PICKLE = "PICKLE"
-    # The CPP code is loaded from CPP files and the data of the functions are constructed from it
-    CPPS = "CPPS"
-    # The CPP code is loaded from CPP files and the data of the functions are loaded from PICKLE files
+    # We look for informations in the pickle files, if something is missing we get it from cpp files in a dynamic way
     HYBRID = "HYBRID"
 
     @staticmethod
     def from_string(s):
         if s == "PICKLE":
             return DatasetFormat.PICKLE
-        elif s == "CPPS":
-            return DatasetFormat.CPPS
         elif s == "HYBRID":
             return DatasetFormat.HYBRID
         else:

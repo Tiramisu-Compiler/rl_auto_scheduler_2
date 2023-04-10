@@ -11,7 +11,7 @@ from env_api.tiramisu_api import TiramisuEnvAPI
 from config.config import Config
 
 from rl_agent.rl_policy_nn import PolicyNN
-from rllib_ray_utils.dataset_actor import DatasetActor
+from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
 
 
 parser = argparse.ArgumentParser()

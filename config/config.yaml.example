@@ -4,7 +4,7 @@ tiramisu:
     tags_model_weights: "<Your path to the repo>/env_api/scheduler/models/model_release_version.pt"
 
 dataset:
-    dataset_format: HYBRID | PICKLE | CPPS
+    dataset_format: HYBRID | PICKLE 
     cpps_path: "path to cpp files or cpp pickle file"
     dataset_path: "path to dataset pkl file"
     save_path: "path to save updated or new dataset"

@@ -1,18 +1,8 @@
-import bz2
-from dataclasses import dataclass
-import json
-import os
-import pickle
-import random
-from typing import Tuple
-import numpy as np
 import ray
 import config.config as cfg
 import env_api.core.models.tiramisu_program as tiramisu_program
-from env_api.data.services.compile_data_service import CompileDataService
-from env_api.data.services.hybrid_data_service import HybridDataService
-
-from env_api.data.services.pickle_data_service import PickleDataService
+from rllib_ray_utils.dataset_actor.services.hybrid_data_service import HybridDataService
+from rllib_ray_utils.dataset_actor.services.pickle_data_service import PickleDataService
 
 # Frequency at which the dataset is saved to disk
 SAVING_FREQUENCY = 10000
@@ -34,11 +24,7 @@ class DatasetActor:
         if config.dataset_format == cfg.DatasetFormat.PICKLE:
             self.dataset_service = PickleDataService(
                 config.dataset_path, config.cpps_path, config.save_path, config.shuffle, config.seed, config.saving_frequency)
-        elif config.dataset_format == cfg.DatasetFormat.CPPS:
-            self.dataset_service = CompileDataService(
-                config.dataset_path, config.cpps_path, config.save_path, config.shuffle, config.seed, config.saving_frequency)
         elif config.dataset_format == cfg.DatasetFormat.HYBRID:
-            print(config)
             self.dataset_service = HybridDataService(
                 config.dataset_path, config.cpps_path, config.save_path, config.shuffle, config.seed, config.saving_frequency)
         else:

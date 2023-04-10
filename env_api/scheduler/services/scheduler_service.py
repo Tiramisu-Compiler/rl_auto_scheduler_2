@@ -97,8 +97,6 @@ class SchedulerService:
                     self.schedule_object)
                 speedup, embedding_tensor = self.prediction_service.get_speedup(
                     *repr_tensors, self.schedule_object)
-                print(self.schedule_object.schedule_str)
-                print("Speedup:", speedup)
             except KeyError as e:
                 logging.error(f"This loop level: {e} doesn't exist")
                 legality_check = False
@@ -204,7 +202,6 @@ class SchedulerService:
         # Check if the action is legal or no to be applied on self.schedule_object.prog
         # prog.schedules_legality only has data when it is fetched from the offline dataset so no need to compile to get the legality
         if schdule_str in self.schedule_object.prog.schedules_legality:
-            print("Found Legality in dataset")
             legality_check = int(
                 self.schedule_object.prog.schedules_legality[schdule_str])
         else:
