@@ -167,5 +167,5 @@ class TiramisuEnvAPI:
     def save_legality_dataset(self, suffix: str = ""):
         self.dataset_service.store_offline_dataset(suffix=suffix)
 
-    def get_schedules(self):
-        return self.scheduler_service.schedule_object.prog.schedules_legality, self.scheduler_service.schedule_object.prog.schedules_solver
+    def get_current_tiramisu_program(self) -> TiramisuProgram:
+        return self.scheduler_service.schedule_object.prog

@@ -25,8 +25,8 @@ class TiramisuProgram():
         if (tiramisu_prog.annotations):
             tiramisu_prog.comps = list(
                 tiramisu_prog.annotations["computations"].keys())
-            tiramisu_prog.schedules_legality = data["schedules_legality_dict"]
-            tiramisu_prog.schedules_solver = data["schedules_solver_results_dict"]
+            tiramisu_prog.schedules_legality = data["schedules_legality"]
+            tiramisu_prog.schedules_solver = data["schedules_solver"]
 
         tiramisu_prog.load_code_lines(original_str)
 

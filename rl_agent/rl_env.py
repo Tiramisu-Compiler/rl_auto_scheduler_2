@@ -38,7 +38,8 @@ class TiramisuRlEnv(gym.Env):
             prog_infos = ray.get(self.dataset_actor.get_next_function.remote())
             # The shape of embedded_tensor : (180,)
             # Shape pf actions mask : (27,)
-            embedded_tensor, actions_mask = self.tiramisu_api.set_program(*prog_infos)
+            embedded_tensor, actions_mask = self.tiramisu_api.set_program(
+                *prog_infos)
             self.current_program = prog_infos[0]
 
         self.state = {
@@ -71,6 +72,20 @@ class TiramisuRlEnv(gym.Env):
 
         if (self.steps == 20):
             self.done = True
+
+        # Update dataset on episode end
+        if self.done:
+            current_tiramisu_program = self.tiramisu_api.get_current_tiramisu_program()
+            tiramisu_program_dict = {
+                "proram_annotation": current_tiramisu_program.annotations,
+                "schedules_legality": current_tiramisu_program.schedules_legality,
+                "schedules_solver": current_tiramisu_program.schedules_solver
+            }
+
+            self.dataset_actor.update_dataset.remote(
+                self.current_program, tiramisu_program_dict
+            )
+
         return self.state, self.reward, self.done, self.truncated, self.info
 
     def apply_flattened_action(self, action):
@@ -134,18 +149,5 @@ class TiramisuRlEnv(gym.Env):
             speedup, embedded_tensor, legality, actions_mask = (1, None, True,
                                                                 np.zeros(27))
             self.done = True
-
-        # legality_schedule is of type dict, if it is not None, we update our dataset with new discovered legalities
-        # of the program
-        schedules_legality, schedules_solver = self.tiramisu_api.get_schedules()
-        if schedules_legality != None or schedules_solver != None:
-            schedules_dict = {
-                "schedules_legality": schedules_legality,
-                "schedules_solver": schedules_solver
-            }
-
-            self.dataset_actor.update_dataset.remote(
-                self.current_program, schedules_dict
-            )
 
         return speedup, embedded_tensor, legality, actions_mask

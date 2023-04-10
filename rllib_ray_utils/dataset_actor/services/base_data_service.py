@@ -33,8 +33,9 @@ class BaseDataService():
         :param function_dict: dictionary containing the function schedules
         :return: True if the dataset was saved successfully
         """
-        self.dataset[function_name]['schedules_legality_dict'] = function_dict['schedules_legality']
-        self.dataset[function_name]['schedules_solver_results_dict'] = function_dict['schedules_solver']
+        for key in function_dict.keys():
+            self.dataset[function_name][key] = function_dict[key]
+
         self.nbr_updates += 1
         # print(f"# updates: {self.nbr_updates}")
         if self.nbr_updates % self.saving_frequency == 0:
