@@ -3,7 +3,7 @@ from ray.rllib.models import ModelCatalog
 from rl_agent.rl_env import TiramisuRlEnv
 from ray.rllib.algorithms.ppo import PPO, PPOConfig
 from ray.rllib.algorithms.algorithm_config import AlgorithmConfig
-from rllib_ray_utils.dataset_actor import DatasetActor
+from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor, DatasetFormat
 from config.config import Config
 from rl_agent.rl_policy_nn import PolicyNN
 
@@ -30,7 +30,7 @@ if __name__ == "__main__":
         dataset_path=Config.config.dataset.benchmark_path,
         use_dataset=True,
         path_to_save_dataset=Config.config.dataset.save_path,
-        dataset_format="PICKLE",
+        dataset_format=DatasetFormat.PICKLE,
     )
 
     ModelCatalog.register_custom_model("policy_nn", PolicyNN)

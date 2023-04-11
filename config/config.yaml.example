@@ -4,13 +4,17 @@ tiramisu:
     tags_model_weights: "<Your path to the repo>/env_api/scheduler/models/model_release_version.pt"
 
 dataset:
-    path: 'path to dataset'
-    offline : 'path to saved dataset <pkl file>, if available'
-    save_path: 'path to save new pkl dataset'
+    dataset_format: HYBRID | PICKLE 
+    cpps_path: "path to cpp files or cpp pickle file"
+    dataset_path: "path to dataset pkl file"
+    save_path: "path to save updated or new dataset"
+    shuffle: False/True # Whether to shuffle the dataset
+    seed: null # Seed for shuffle
+    saving_frequency: 10 # dataset save to disk frequency
     # When doing evaluation on the benchmark set the value to True
     is_benchmark: False
     benchmark_cpp_files: 'path to cpp folder of benchmarks'
-    benchmark_path: 'path to pkl file of benchmarks of available'
+    benchmark_dataset_path: 'path to pkl file of benchmarks of available'
 
 ray:
     results: "path to where you want to store ray results"
