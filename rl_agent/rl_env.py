@@ -21,7 +21,7 @@ class TiramisuRlEnv(gym.Env):
         self.action_space = spaces.Discrete(27)
         self.observation_space = spaces.Dict({
             "embedding":
-            spaces.Box(-np.inf, np.inf, shape=(180, )),
+            spaces.Box(-np.inf, np.inf, shape=(188, )),
             "actions_mask":
             spaces.Box(0, 1, shape=(27, ))
         })
@@ -44,13 +44,13 @@ class TiramisuRlEnv(gym.Env):
 
         self.state = {
             # Converting Tensor to numpy array
-            "embedding": embedded_tensor.numpy(),
+            "embedding": self.preprocess_embeddings(embeddings=embedded_tensor),
             "actions_mask": actions_mask
         }
         self.previous_speedup = self.reward = 1
         self.done = self.truncated = False
         self.info = {}
-        self.steps = 0
+        self.action_index = 0
         return self.state, self.info
 
     def step(self, action):
@@ -60,9 +60,12 @@ class TiramisuRlEnv(gym.Env):
         instant_speedup = 1
         if (legality and not self.done):
             self.state = {
-                "embedding": embedded_tensor.numpy(),
+                "embedding": self.preprocess_embeddings(embeddings=embedded_tensor,
+                                           index=self.action_index,
+                                           action=action),
                 "actions_mask": actions_mask
             }
+            self.action_index += 1
             # If the action is legal , we divide the speedup of new sequence {A_0 .. A_i+1} by the speedup of
             # the previous Sequnce {A_0 .. A_i} to get the speedup of the action {A_i+1}
             instant_speedup = speedup / self.previous_speedup
@@ -70,9 +73,10 @@ class TiramisuRlEnv(gym.Env):
 
         self.reward = math.log(instant_speedup, 4)
 
-        if (self.steps == 20):
+        if (self.action_index == 8):
             self.done = True
 
+        # TODO : Remove this code from here
         # Update dataset on episode end
         if self.done:
             current_tiramisu_program = self.tiramisu_api.get_current_tiramisu_program()
@@ -151,3 +155,16 @@ class TiramisuRlEnv(gym.Env):
             self.done = True
 
         return speedup, embedded_tensor, legality, actions_mask
+
+    def preprocess_embeddings(self, embeddings, index=-1, action=0.1):
+        actions_size = 8
+        embeddings = embeddings.numpy()
+        if (index == -1):
+            # initial state
+            actions_vector = [action] * actions_size
+        else:
+            previous_actions = self.state["embedding"][-actions_size:]
+            previous_actions[index] = action
+            actions_vector = previous_actions
+        embeddings = np.append(embeddings, actions_vector)
+        return embeddings
