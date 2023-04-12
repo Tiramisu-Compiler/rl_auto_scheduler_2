@@ -1,9 +1,10 @@
 import subprocess
 import re
+from typing import List
 from env_api.scheduler.models.action import Parallelization, Unrolling
 from env_api.scheduler.models.schedule import Schedule
 from config.config import Config
-
+from env_api.core.models.optim_cmd import OptimizationCommand 
 
 class CompilingService():
     @classmethod
@@ -193,3 +194,20 @@ class CompilingService():
             return fac1, fac2
         else:
             return None
+
+    @classmethod
+    def get_schedule_code(cls, schedule_object: Schedule, optims_list: List[OptimizationCommand]):
+        tiramisu_program = schedule_object.prog
+        # Add code to the original file to get the schedule code
+        schedule_code = ''
+        for optim in optims_list:
+            schedule_code += optim.tiramisu_optim_str + '\n'
+        # Paste the lines responsable of checking legality of schedule in the cpp file
+        cpp_code = tiramisu_program.original_str.replace(
+            tiramisu_program.code_gen_line, schedule_code)
+        return cpp_code
+
+    @classmethod
+    def write_cpp_code(cls, cpp_code: str, output_path: str):
+        with open(output_path + '.cpp', 'w') as f:
+            f.write(cpp_code)

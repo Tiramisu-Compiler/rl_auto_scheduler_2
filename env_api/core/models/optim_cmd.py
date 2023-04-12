@@ -33,8 +33,8 @@ class OptimizationCommand:
                 [str(p) for p in self.params_list]) + ");"
             optim_str = ""
             for comp in self.comps:
-                self.comps_schedule[comp] ="S(L{},L{},{},{})".format(
-                        *self.params_list)
+                self.comps_schedule[comp] = "S(L{},L{},{},{})".format(
+                    *self.params_list)
                 optim_str += "\n\t {}".format(comp) + skewing_str
             return optim_str
 
@@ -43,7 +43,7 @@ class OptimizationCommand:
             for comp in self.comps:
                 self.comps_schedule[comp] = "P(L{})".format(
                     self.params_list[0])
-            return ("\t" + self.comps[0] + ".tag_parallel_level(" +
+            return ("\n\t" + self.comps[0] + ".tag_parallel_level(" +
                     str(self.params_list[0]) + ");")
 
         elif isinstance(self.action, Tiling):
@@ -64,7 +64,8 @@ class OptimizationCommand:
         elif isinstance(self.action, Unrolling):
             optim_str = ""
             for comp in self.comps:
-                self.comps_schedule[comp] = "U(L{},{})".format(*self.params_list[comp])
+                self.comps_schedule[comp] = "U(L{},{})".format(
+                    *self.params_list[comp])
                 unrolling_str = (
                     ".unroll(" +
                     ",".join([str(p) for p in self.params_list[comp]]) + ");")
@@ -79,7 +80,7 @@ class OptimizationCommand:
                 optim_str += "\n\t {}".format(comp) + reversal_str
             return optim_str
         elif isinstance(self.action, Fusion):
-            # TODO : Recheck the right command for this 
+            # TODO : Recheck the right command for this
             optim_str = ""
             # prev_comp = self.comps[0]
             # for comp in self.comps[1:]:
@@ -92,3 +93,9 @@ class OptimizationCommand:
                 optim_str += ".then(" + comp + ","+str(self.params_list[0])+")"
             optim_str += ";"
             return optim_str
+
+    def __str__(self) -> str:
+        return f"OptimizationCommand(action={self.action.__class__.__name__}, params={self.params_list})"
+
+    def __repr__(self) -> str:
+        return self.__str__()
