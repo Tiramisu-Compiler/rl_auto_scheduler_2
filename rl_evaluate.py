@@ -1,14 +1,12 @@
 import argparse, ray
-import random
 from ray.rllib.models import ModelCatalog
 from rl_agent.rl_env import TiramisuRlEnv
 from ray.rllib.algorithms.ppo import PPO, PPOConfig
 from ray.rllib.algorithms.algorithm_config import AlgorithmConfig
-from ray.rllib.policy.policy import Policy
+from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor, DatasetFormat
 from rllib_ray_utils.dataset_actor import DatasetActor
 from config.config import Config
 from rl_agent.rl_policy_nn import PolicyNN
-from ray.rllib.algorithms.algorithm import Algorithm
 from ray.air.checkpoint import Checkpoint
 
 parser = argparse.ArgumentParser()
@@ -23,7 +21,6 @@ parser.add_argument(
     default="torch",
     help="The DL framework specifier.",
 )
-
 if __name__ == "__main__":
     args = parser.parse_args()
     print(f"Running with following CLI options: {args}")
@@ -35,7 +32,7 @@ if __name__ == "__main__":
         dataset_path=Config.config.dataset.benchmark_path,
         use_dataset=True,
         path_to_save_dataset=Config.config.dataset.save_path,
-        dataset_format="PICKLE",
+        dataset_format=DatasetFormat.PICKLE,
     )
 
     ModelCatalog.register_custom_model("policy_nn", PolicyNN)
