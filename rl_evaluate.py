@@ -45,26 +45,6 @@ if __name__ == "__main__":
 
     ModelCatalog.register_custom_model("policy_nn", PolicyNN)
 
-    config = PPOConfig().framework(args.framework).environment(
-        TiramisuRlEnv,
-        env_config={
-            "config": Config.config,
-            "dataset_actor": dataset_actor
-        }).rollouts(num_rollout_workers=0)
-    config.explore = False
-
-    config = config.to_dict()
-    config["model"] = {
-        "custom_model": "policy_nn",
-        "vf_share_layers": Config.config.policy_network.vf_share_layers,
-        "custom_model_config": {
-            "policy_hidden_layers":
-            Config.config.policy_network.policy_hidden_layers,
-            "vf_hidden_layers": Config.config.policy_network.vf_hidden_layers,
-            "dropout_rate": Config.config.policy_network.dropout_rate
-        }
-    }
-
     env = TiramisuRlEnv(config={
         "config": Config.config,
         "dataset_actor": dataset_actor
