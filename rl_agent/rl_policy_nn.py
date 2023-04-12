@@ -16,7 +16,7 @@ class PolicyNN(TorchModelV2, nn.Module):
         self.share_weights = model_config["vf_share_layers"]
 
         dropout = model_config["custom_model_config"]["dropout_rate"]
-        input_size = 180
+        input_size = obs_space.original_space["embedding"].shape[0]
 
         # Policy network
         policy_hidden_sizes = model_config["custom_model_config"]["policy_hidden_layers"]
