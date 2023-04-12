@@ -25,7 +25,7 @@ class OptimizationCommand:
             for comp in self.comps:
                 self.comps_schedule[comp] = "I(L{},L{})".format(
                     *self.params_list)
-                optim_str += "\n\t {}".format(comp) + interchange_str
+                optim_str += "\n\t{}".format(comp) + interchange_str
             return optim_str
         elif isinstance(self.action, Skewing):
             assert len(self.params_list) == 4
@@ -35,7 +35,7 @@ class OptimizationCommand:
             for comp in self.comps:
                 self.comps_schedule[comp] = "S(L{},L{},{},{})".format(
                     *self.params_list)
-                optim_str += "\n\t {}".format(comp) + skewing_str
+                optim_str += "\n\t{}".format(comp) + skewing_str
             return optim_str
 
         elif isinstance(self.action, Parallelization):
@@ -59,7 +59,7 @@ class OptimizationCommand:
                     self.comps_schedule[
                         comp] = "T3(L{},L{},L{},{},{},{})".format(
                             *self.params_list)
-                optim_str += "\n\t {}".format(comp) + tiling_str
+                optim_str += "\n\t{}".format(comp) + tiling_str
             return optim_str
         elif isinstance(self.action, Unrolling):
             optim_str = ""
@@ -69,7 +69,7 @@ class OptimizationCommand:
                 unrolling_str = (
                     ".unroll(" +
                     ",".join([str(p) for p in self.params_list[comp]]) + ");")
-                optim_str += "\n\t {}".format(comp) + unrolling_str
+                optim_str += "\n\t{}".format(comp) + unrolling_str
             return optim_str
         elif isinstance(self.action, Reversal):
             reversal_str = ".loop_reversal(" + str(self.params_list[0]) + ");"
@@ -77,7 +77,7 @@ class OptimizationCommand:
             for comp in self.comps:
                 self.comps_schedule[comp] = "R(L{})".format(
                     self.params_list[0])
-                optim_str += "\n\t {}".format(comp) + reversal_str
+                optim_str += "\n\t{}".format(comp) + reversal_str
             return optim_str
         elif isinstance(self.action, Fusion):
             # TODO : Recheck the right command for this

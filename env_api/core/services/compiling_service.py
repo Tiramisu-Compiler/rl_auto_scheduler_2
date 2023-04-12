@@ -202,9 +202,14 @@ class CompilingService():
         schedule_code = ''
         for optim in optims_list:
             schedule_code += optim.tiramisu_optim_str + '\n'
+        
+        # Add code gen line to the schedule code
+        schedule_code += '\n\t' + tiramisu_program.code_gen_line + '\n'
         # Paste the lines responsable of checking legality of schedule in the cpp file
         cpp_code = tiramisu_program.original_str.replace(
             tiramisu_program.code_gen_line, schedule_code)
+        cpp_code = cpp_code.replace(
+            f"// {tiramisu_program.wrapper_str}", tiramisu_program.wrapper_str)
         return cpp_code
 
     @classmethod

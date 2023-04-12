@@ -61,8 +61,9 @@ class TiramisuProgram():
         self.name = re.findall(r'tiramisu::init\(\"(\w+)\"\);',
                                self.original_str)[0]
         # Remove the wrapper include from the original string
+        self.wrapper_str = f'#include "{self.name}_wrapper.h"'
         self.original_str = self.original_str.replace(
-            f'#include "{self.name}_wrapper.h"', "")
+            self.wrapper_str, f"// {self.wrapper_str}")
         self.comps = re.findall(r'computation (\w+)\(', self.original_str)
         self.code_gen_line = re.findall(r'tiramisu::codegen\({.+;',
                                         self.original_str)[0]
