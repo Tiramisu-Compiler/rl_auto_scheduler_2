@@ -17,8 +17,12 @@ from rl_agent.rl_policy_nn import PolicyNN
 from ray.rllib.algorithms.algorithm import Algorithm
 from ray.air.checkpoint import Checkpoint
 from ray.tune.registry import get_trainable_cls
+from rl_agent.rl_policy_lstm import PolicyLSTM
+import numpy as np
 
 from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
+from rllib_ray_utils.evaluators.ff_evaluator import FFBenchmarkEvaluator
+from rllib_ray_utils.evaluators.lstm_evaluator import LSTMBenchmarkEvaluator
 
 parser = argparse.ArgumentParser()
 
@@ -39,84 +43,6 @@ parser.add_argument(
 )
 parser.add_argument("--num-workers", default=-1, type=int)
 
-
-# Benchmark actor is used to explore schedules for benchmarks in a distributed way
-@ray.remote
-class BenchmarkActor:
-    def __init__(self, config: AutoSchedulerConfig, args: dict, num_programs_to_do: int):
-
-        self.config = config
-        self.num_programs_to_do = num_programs_to_do
-
-        self.env = TiramisuRlEnv(config={
-            "config": config,
-            "dataset_actor": dataset_actor
-        })
-
-        self.config = get_trainable_cls(args.run).get_default_config().environment(
-            TiramisuRlEnv,
-            env_config={
-                "config": config,
-                "dataset_actor": dataset_actor,
-            }).framework(args.framework).rollouts(
-            num_rollout_workers=0,
-            batch_mode="complete_episodes",
-            enable_connectors=False).training(
-            lr=config.policy_network.lr,
-            model={
-                "custom_model": "policy_nn",
-                "vf_share_layers": config.policy_network.vf_share_layers,
-                "custom_model_config": {
-                                "policy_hidden_layers": config.policy_network.policy_hidden_layers,
-                                "vf_hidden_layers": config.policy_network.vf_hidden_layers,
-                                "dropout_rate": config.policy_network.dropout_rate
-                }
-            }).resources(num_gpus=0).debugging(log_level="WARN")
-        # Build the Algorithm instance using the config.
-        # Restore the algo's state from the checkpoint.
-        self.algo = self.config.build()
-        self.algo.restore(config.ray.restore_checkpoint)
-        self.num_programs_done = 0
-
-    # explore schedules for benchmarks
-    def explore_benchmarks(self):
-        # store explored programs and their schedules
-        explored_programs = {}
-
-        # explore schedules for each program
-        for i in range(self.num_programs_to_do):
-            observation, _ = self.env.reset()
-            print(
-                f"Running program {self.env.current_program}, num programs done: {self.num_programs_done} / {self.num_programs_to_do}")
-
-            episode_done = False
-
-            # explore schedule for current program
-            while not episode_done:
-                # get action from policy
-                action = self.algo.compute_single_action(
-                    observation=observation, explore=False)
-                # take action in environment and get new observation
-                observation, reward, episode_done, _, _ = self.env.step(action)
-
-            # when episode is done, write cpp code to file
-            cpp_code = CompilingService.get_schedule_code(
-                self.env.tiramisu_api.scheduler_service.schedule_object, self.env.tiramisu_api.scheduler_service.schedule_list)
-            CompilingService.write_cpp_code(cpp_code, os.path.join(
-                args.output_path, self.env.current_program))
-
-            # store explored program and its schedule
-            explored_programs[self.env.current_program] = {
-                "schedule": ConvertService.build_sched_string(self.env.tiramisu_api.scheduler_service.schedule_list)
-            }
-            self.num_programs_done += 1
-
-        return explored_programs
-
-    def get_progress(self) -> float:
-        return self.num_programs_done
-
-
 if __name__ == "__main__":
     args = parser.parse_args()
     print(f"Running with following CLI options: {args}")
@@ -125,8 +51,6 @@ if __name__ == "__main__":
     Config.init()
     Config.config.dataset.is_benchmark = True
     dataset_actor = DatasetActor.remote(Config.config.dataset)
-
-    ModelCatalog.register_custom_model("policy_nn", PolicyNN)
     dataset_size = ray.get(dataset_actor.get_dataset_size.remote())
     num_workers = args.num_workers
     if (num_workers == -1):
@@ -143,14 +67,22 @@ if __name__ == "__main__":
     actors = []
     explorations = []
     explored_programs = {}
+
+    if Config.config.experiment.policy_model == "lstm":
+        Benchmarker = LSTMBenchmarkEvaluator
+    elif Config.config.experiment.policy_model == "ff":
+        Benchmarker = FFBenchmarkEvaluator
+    else:
+        raise Exception("Unknown policy model")
+
     for i in range(num_workers):
         num_programs_to_do = num_programs_per_task
 
         if i == num_workers-1:
             num_programs_to_do += programs_remaining
 
-        benchmark_actor = BenchmarkActor.remote(
-            Config.config, args, num_programs_to_do)
+        benchmark_actor = Benchmarker.remote(
+            Config.config, args, num_programs_to_do, dataset_actor)
 
         actors.append(benchmark_actor)
 

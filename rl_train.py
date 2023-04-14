@@ -7,10 +7,10 @@ from ray.tune.logger import pretty_print
 from ray.tune.registry import get_trainable_cls
 from rl_agent.rl_env import TiramisuRlEnv
 from ray.rllib.algorithms.callbacks import MultiCallbacks
-from env_api.tiramisu_api import TiramisuEnvAPI
 from config.config import Config
 
 from rl_agent.rl_policy_nn import PolicyNN
+from rl_agent.rl_policy_lstm import PolicyLSTM
 from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
 
 
@@ -63,8 +63,15 @@ if __name__ == "__main__":
     # data from this actor.
     dataset_actor = DatasetActor.remote(Config.config.dataset)
 
-    ModelCatalog.register_custom_model("policy_nn", PolicyNN)
+    match (Config.config.experiment.policy_model):
+        case "lstm":
+            ModelCatalog.register_custom_model("policy_nn", PolicyLSTM)
+            model_custom_config = Config.config.lstm_policy.__dict__ 
+        case "ff":
+            ModelCatalog.register_custom_model("policy_nn", PolicyNN)
+            model_custom_config = Config.config.policy_network.__dict__
 
+    
     config = get_trainable_cls(args.run).get_default_config().environment(
         TiramisuRlEnv,
         env_config={
@@ -77,17 +84,15 @@ if __name__ == "__main__":
                 num_rollout_workers=args.num_workers - 1,
                 batch_mode="complete_episodes",
                 enable_connectors=False).training(
-                    lr=Config.config.policy_network.lr,
+                    lr=Config.config.experiment.lr,
                     model={
                         "custom_model": "policy_nn",
-                        "vf_share_layers": Config.config.policy_network.vf_share_layers,
-                        "custom_model_config": {
-                            "policy_hidden_layers": Config.config.policy_network.policy_hidden_layers,
-                            "vf_hidden_layers": Config.config.policy_network.vf_hidden_layers,
-                            "dropout_rate": Config.config.policy_network.dropout_rate
-                        }
+                        "vf_share_layers": Config.config.experiment.vf_share_layers,
+                        "custom_model_config": model_custom_config
                     }).resources(num_gpus=0).debugging(log_level="WARN")
 
+    config.entropy_coeff = Config.config.experiment.entropy_coeff
+    
     # Setting the stop conditions
     stop = {
         "training_iteration": Config.config.experiment.training_iteration,

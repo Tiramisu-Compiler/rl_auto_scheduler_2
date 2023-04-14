@@ -53,7 +53,7 @@ class DatasetConfig:
 
         if dataset_config_dict['is_benchmark']:
             self.dataset_path = dataset_config_dict["benchmark_dataset_path"]
-            self.cpps_path = dataset_config_dict["benchmark_cpps_path"]
+            self.cpps_path = dataset_config_dict["benchmark_cpp_files"]
 
 
 @dataclass
@@ -72,18 +72,26 @@ class Experiment:
     episode_reward_mean: float = 2
     legality_speedup: float = 1.0
     beam_search_order: bool = False
+    entropy_coeff:float = 0.0
+    train_batch_size: int = 1024
+    lr: float = 0.001
+    vf_share_layers: bool = False
+    policy_model: str = ""
 
 
 @dataclass
 class PolicyNetwork:
-    vf_share_layers: bool = False
     policy_hidden_layers: List[int] = field(
         default_factory=lambda: [])
     vf_hidden_layers: List[int] = field(
         default_factory=lambda: [])
     dropout_rate: float = 0.2
-    lr: float = 0.001
-
+    
+@dataclass
+class LSTMPolicy:
+    fc_size:int = 1024
+    lstm_state_size:int = 256
+    num_layers:int = 1
 
 @dataclass
 class AutoSchedulerConfig:
@@ -93,6 +101,7 @@ class AutoSchedulerConfig:
     ray: Ray
     experiment: Experiment
     policy_network: PolicyNetwork
+    lstm_policy : LSTMPolicy
 
     def __post_init__(self):
         if isinstance(self.tiramisu, dict):
@@ -105,6 +114,8 @@ class AutoSchedulerConfig:
             self.experiment = Experiment(**self.experiment)
         if isinstance(self.policy_network, dict):
             self.policy_network = PolicyNetwork(**self.policy_network)
+        if isinstance(self.lstm_policy, dict):
+            self.lstm_policy = LSTMPolicy(**self.lstm_policy)
 
 
 def read_yaml_file(path):
@@ -122,7 +133,8 @@ def dict_to_config(parsed_yaml: Dict[Any, Any]) -> AutoSchedulerConfig:
     ray = Ray(**parsed_yaml["ray"])
     experiment = Experiment(**parsed_yaml["experiment"])
     policy_network = PolicyNetwork(**parsed_yaml["policy_network"])
-    return AutoSchedulerConfig(tiramisu, dataset, ray, experiment, policy_network)
+    lstm_policy = LSTMPolicy(**parsed_yaml["lstm_policy"])
+    return AutoSchedulerConfig(tiramisu, dataset, ray, experiment, policy_network,lstm_policy)
 
 
 class Config(object):
