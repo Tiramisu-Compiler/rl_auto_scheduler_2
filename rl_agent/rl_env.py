@@ -74,16 +74,9 @@ class TiramisuRlEnv(gym.Env):
         if (self.action_index == 8):
             self.done = True
 
-        # TODO : Remove this code from here
         # Update dataset on episode end
         if self.done:
-            current_tiramisu_program = self.tiramisu_api.get_current_tiramisu_program()
-            tiramisu_program_dict = {
-                "proram_annotation": current_tiramisu_program.annotations,
-                "schedules_legality": current_tiramisu_program.schedules_legality,
-                "schedules_solver": current_tiramisu_program.schedules_solver
-            }
-
+            tiramisu_program_dict = self.tiramisu_api.get_current_tiramisu_program_dict()
             self.dataset_actor.update_dataset.remote(
                 self.current_program, tiramisu_program_dict
             )
