@@ -77,7 +77,7 @@ if __name__ == "__main__":
                 num_rollout_workers=args.num_workers - 1,
                 batch_mode="complete_episodes",
                 enable_connectors=False).training(
-                    lr=Config.config.policy_network.lr,
+                    lr=Config.config.experiment.lr,
                     model={
                         "custom_model": "policy_nn",
                         "vf_share_layers": Config.config.policy_network.vf_share_layers,
@@ -88,6 +88,8 @@ if __name__ == "__main__":
                         }
                     }).resources(num_gpus=0).debugging(log_level="WARN")
 
+    config.entropy_coeff = Config.config.experiment.entropy_coeff
+    
     # Setting the stop conditions
     stop = {
         "training_iteration": Config.config.experiment.training_iteration,

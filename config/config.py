@@ -72,6 +72,9 @@ class Experiment:
     episode_reward_mean: float = 2
     legality_speedup: float = 1.0
     beam_search_order: bool = False
+    entropy_coeff:float = 0.0
+    train_batch_size: int = 1024
+    lr: float = 0.001
 
 
 @dataclass
@@ -82,7 +85,7 @@ class PolicyNetwork:
     vf_hidden_layers: List[int] = field(
         default_factory=lambda: [])
     dropout_rate: float = 0.2
-    lr: float = 0.001
+    
 
 
 @dataclass
