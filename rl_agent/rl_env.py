@@ -21,7 +21,7 @@ class TiramisuRlEnv(gym.Env):
         self.action_space = spaces.Discrete(27)
         self.observation_space = spaces.Dict({
             "embedding":
-            spaces.Box(-np.inf, np.inf, shape=(188, )),
+            spaces.Box(-np.inf, np.inf, shape=(181, )),
             "actions_mask":
             spaces.Box(0, 1, shape=(27, ))
         })
@@ -60,7 +60,6 @@ class TiramisuRlEnv(gym.Env):
         if (legality and not self.done):
             self.state = {
                 "embedding": self.preprocess_embeddings(embeddings=embedded_tensor,
-                                           index=self.action_index,
                                            action=action),
                 "actions_mask": actions_mask
             }
@@ -155,15 +154,6 @@ class TiramisuRlEnv(gym.Env):
 
         return speedup, embedded_tensor, legality, actions_mask
 
-    def preprocess_embeddings(self, embeddings, index=-1, action=0.1):
-        actions_size = 8
-        embeddings = embeddings.numpy()
-        if (index == -1):
-            # initial state
-            actions_vector = [action] * actions_size
-        else:
-            previous_actions = self.state["embedding"][-actions_size:]
-            previous_actions[index] = action
-            actions_vector = previous_actions
-        embeddings = np.append(embeddings, actions_vector)
+    def preprocess_embeddings(self, embeddings, action=0.1):
+        embeddings = np.append(embeddings, [action])
         return embeddings

@@ -1,6 +1,5 @@
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from ray.rllib.utils.framework import try_import_torch
-import numpy as np
 
 torch, nn = try_import_torch()
 
