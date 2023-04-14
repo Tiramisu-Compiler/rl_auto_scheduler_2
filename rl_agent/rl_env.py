@@ -54,7 +54,6 @@ class TiramisuRlEnv(gym.Env):
         return self.state, self.info
 
     def step(self, action):
-        self.steps += 1
         speedup, embedded_tensor, legality, actions_mask = self.apply_flattened_action(
             action=action)
         instant_speedup = 1

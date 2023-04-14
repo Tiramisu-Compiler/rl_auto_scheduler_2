@@ -7,7 +7,7 @@ torch, nn = try_import_torch()
 
 class PolicyNN(TorchModelV2, nn.Module):
     def __init__(self, obs_space, action_space, num_outputs, model_config,
-                 name):
+                 name,dropout_rate,policy_hidden_layers,vf_hidden_layers):
         
         TorchModelV2.__init__(self, obs_space, action_space, num_outputs,
                               model_config, name)
@@ -15,11 +15,11 @@ class PolicyNN(TorchModelV2, nn.Module):
 
         self.share_weights = model_config["vf_share_layers"]
 
-        dropout = model_config["custom_model_config"]["dropout_rate"]
+        dropout = dropout_rate
         input_size = obs_space.original_space["embedding"].shape[0]
 
         # Policy network
-        policy_hidden_sizes = model_config["custom_model_config"]["policy_hidden_layers"]
+        policy_hidden_sizes = policy_hidden_layers
         policy_output_size = num_outputs
 
         self.policy_layers = nn.ModuleList()
@@ -39,7 +39,7 @@ class PolicyNN(TorchModelV2, nn.Module):
         nn.init.xavier_uniform_(self.logits_layer.weight)
 
         # Value separate network
-        value_hidden_sizes = model_config["custom_model_config"]["vf_hidden_layers"]
+        value_hidden_sizes = vf_hidden_layers
         value_output_size = 1
 
         self.value_layers = nn.ModuleList()
