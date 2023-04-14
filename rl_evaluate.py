@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 from pathlib import Path
 import time
@@ -6,6 +7,7 @@ import ray
 import random
 from ray.rllib.models import ModelCatalog
 from env_api.core.services.compiling_service import CompilingService
+from env_api.core.services.converting_service import ConvertService
 from rl_agent.rl_env import TiramisuRlEnv
 from ray.rllib.algorithms.ppo import PPO, PPOConfig
 from ray.rllib.algorithms.algorithm_config import AlgorithmConfig
@@ -32,12 +34,13 @@ parser.add_argument(
 )
 parser.add_argument(
     "--output-path",
-    default="./workspace/",
+    default="./workspace/schedules",
     help="The DL framework specifier.",
 )
 parser.add_argument("--num-workers", default=-1, type=int)
 
 
+# Benchmark actor is used to explore schedules for benchmarks in a distributed way
 @ray.remote
 class BenchmarkActor:
     def __init__(self, config: AutoSchedulerConfig, args: dict, num_programs_to_do: int):
@@ -75,22 +78,40 @@ class BenchmarkActor:
         self.algo.restore(config.ray.restore_checkpoint)
         self.num_programs_done = 0
 
+    # explore schedules for benchmarks
     def explore_benchmarks(self):
+        # store explored programs and their schedules
+        explored_programs = {}
+
+        # explore schedules for each program
         for i in range(self.num_programs_to_do):
+            observation, _ = self.env.reset()
             print(
                 f"Running program {self.env.current_program}, num programs done: {self.num_programs_done} / {self.num_programs_to_do}")
-            observation, _ = self.env.reset()
+
             episode_done = False
 
+            # explore schedule for current program
             while not episode_done:
+                # get action from policy
                 action = self.algo.compute_single_action(
                     observation=observation, explore=False)
+                # take action in environment and get new observation
                 observation, reward, episode_done, _, _ = self.env.step(action)
+
+            # when episode is done, write cpp code to file
             cpp_code = CompilingService.get_schedule_code(
                 self.env.tiramisu_api.scheduler_service.schedule_object, self.env.tiramisu_api.scheduler_service.schedule_list)
             CompilingService.write_cpp_code(cpp_code, os.path.join(
                 args.output_path, self.env.current_program))
+
+            # store explored program and its schedule
+            explored_programs[self.env.current_program] = {
+                "schedule": ConvertService.build_sched_string(self.env.tiramisu_api.scheduler_service.schedule_list)
+            }
             self.num_programs_done += 1
+
+        return explored_programs
 
     def get_progress(self) -> float:
         return self.num_programs_done
@@ -107,7 +128,6 @@ if __name__ == "__main__":
 
     ModelCatalog.register_custom_model("policy_nn", PolicyNN)
     dataset_size = ray.get(dataset_actor.get_dataset_size.remote())
-
     num_workers = args.num_workers
     if (num_workers == -1):
         num_workers = int(ray.available_resources()['CPU'])
@@ -121,6 +141,8 @@ if __name__ == "__main__":
 
     start_time = time.time()
     actors = []
+    explorations = []
+    explored_programs = {}
     for i in range(num_workers):
         num_programs_to_do = num_programs_per_task
 
@@ -132,14 +154,25 @@ if __name__ == "__main__":
 
         actors.append(benchmark_actor)
 
-        benchmark_actor.explore_benchmarks.remote()
-    
-    while True:
-        time.sleep(1)
+        explorations.append(benchmark_actor.explore_benchmarks.remote())
+
+    print(len(explorations))
+    while len(explorations) > 0:
+        # Wait for actors to finish their exploration
+        done, explorations = ray.wait(explorations)
+        print(
+            f"Done this iteration: {len(done)} / Remaining {len(explorations)}")
+        # retrieve explored programs from actors that finished their exploration
+        for actor in done:
+            actor_programs = ray.get(actor)
+            explored_programs.update(actor_programs)
+
         progress = ray.get([actor.get_progress.remote() for actor in actors])
         print(f"Progress: {sum(progress)} / {dataset_size}")
-        if sum(progress) == dataset_size:
-            break
-    
+
     end_time = time.time()
     print(f"Total time: {end_time - start_time}")
+
+    # write explored programs to file
+    with open(os.path.join(args.output_path, "explored_programs.json"), "w") as f:
+        json.dump(explored_programs, f)
