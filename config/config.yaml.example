@@ -36,10 +36,13 @@ experiment:
     # Training parameters
     train_batch_size: 1024
     lr: 0.00005
+    # Policy model type
+    policy_model: "lstm" | "ff" #feed-forward
+    # In mode "ff" set vf_share_layers to True if you want to use shared weights between policy and value function 
+    # in mode "lstm" , you must make vf_share_layers = True
+    vf_share_layers: True
 
 policy_network:
-    # Set this to True if you want to use shared weights between policy and value function
-    vf_share_layers: False
     policy_hidden_layers: 
         - 2048
         - 512 
@@ -49,4 +52,10 @@ policy_network:
         - 512 
         - 64
     dropout_rate: 0.2
+
+lstm_policy:
+    fc_size: 1024
+    lstm_state_size: 256
+    num_layers: 1
+    
     
