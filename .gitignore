@@ -14,4 +14,4 @@ benchmark/
 datasets/
 config/config.yaml
 .venv
-./workspace/
+workspace/

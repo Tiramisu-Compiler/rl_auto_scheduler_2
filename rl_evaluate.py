@@ -3,11 +3,13 @@ from ray.rllib.models import ModelCatalog
 from rl_agent.rl_env import TiramisuRlEnv
 from ray.rllib.algorithms.ppo import PPO, PPOConfig
 from ray.rllib.algorithms.algorithm_config import AlgorithmConfig
-from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor, DatasetFormat
-from rllib_ray_utils.dataset_actor import DatasetActor
-from config.config import Config
+from rl_agent.rl_policy_lstm import PolicyLSTM
+from config.config import Config, DatasetFormat
 from rl_agent.rl_policy_nn import PolicyNN
 from ray.air.checkpoint import Checkpoint
+import numpy as np
+
+from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
 
 parser = argparse.ArgumentParser()
 
@@ -28,14 +30,16 @@ if __name__ == "__main__":
 
     Config.init()
     Config.config.dataset.is_benchmark = True
-    dataset_actor = DatasetActor.remote(
-        dataset_path=Config.config.dataset.benchmark_path,
-        use_dataset=True,
-        path_to_save_dataset=Config.config.dataset.save_path,
-        dataset_format=DatasetFormat.PICKLE,
-    )
 
-    ModelCatalog.register_custom_model("policy_nn", PolicyNN)
+    dataset_actor = DatasetActor.remote(Config.config.dataset)
+
+    match (Config.config.experiment.policy_model):
+        case "lstm":
+            ModelCatalog.register_custom_model("policy_nn", PolicyLSTM)
+            model_custom_config = Config.config.lstm_policy.__dict__ 
+        case "ff":
+            ModelCatalog.register_custom_model("policy_nn", PolicyNN)
+            model_custom_config = Config.config.policy_network.__dict__
 
     config = PPOConfig().framework(args.framework).environment(
         TiramisuRlEnv,
@@ -48,13 +52,8 @@ if __name__ == "__main__":
     config = config.to_dict()
     config["model"] = {
         "custom_model": "policy_nn",
-        "vf_share_layers": Config.config.policy_network.vf_share_layers,
-        "custom_model_config": {
-            "policy_hidden_layers":
-            Config.config.policy_network.policy_hidden_layers,
-            "vf_hidden_layers": Config.config.policy_network.vf_hidden_layers,
-            "dropout_rate": Config.config.policy_network.dropout_rate
-        }
+        "vf_share_layers": Config.config.experiment.vf_share_layers,
+        "custom_model_config": model_custom_config
     }
 
     checkpoint = Checkpoint.from_directory(Config.config.ray.restore_checkpoint)
@@ -65,15 +64,37 @@ if __name__ == "__main__":
         "config": Config.config,
         "dataset_actor": dataset_actor
     })
-
-    for i in range(31):
-        observation, _ = env.reset()
-        episode_done = False
-        while not episode_done:
-            action = ppo_agent.compute_single_action(observation=observation,
-                                                     explore=False,policy_id="default_policy")
-            observation, reward, episode_done, _, _ = env.step(action)
-        else:
-            print()
+    match (Config.config.experiment.policy_model):
+        case "lstm":
+            lstm_cell_size = model_custom_config["lstm_state_size"]
+            init_state = state = [
+                np.zeros([lstm_cell_size], np.float32) for _ in range(2)
+            ]
+            for i in range(31):
+                observation, _ = env.reset()
+                episode_done = False
+                state = init_state
+                while not episode_done:
+                    action, state_out, _ = ppo_agent.compute_single_action(
+                        observation=observation,
+                        state=state,
+                        explore=False,
+                        policy_id="default_policy")
+                    observation, reward, episode_done, _, _ = env.step(action)
+                    state = state_out
+                else:
+                    env.tiramisu_api.final_speedup()
+                    print()
+        case "ff":
+            for i in range(31):
+                observation, _ = env.reset()
+                episode_done = False
+                while not episode_done:
+                    action = ppo_agent.compute_single_action(observation=observation,
+                                                            explore=False,policy_id="default_policy")
+                    observation, reward, episode_done, _, _ = env.step(action)
+                else:
+                    env.tiramisu_api.final_speedup()
+                    print()
 
     ray.shutdown()
