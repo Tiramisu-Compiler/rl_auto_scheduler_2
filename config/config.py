@@ -27,8 +27,13 @@ class TiramisuConfig:
     tiramisu_path: str = ""
     env_type: Literal["model", "cpu"] = "model"
     tags_model_weights: str = ""
-    new_tiramisu: bool = False
+    is_new_tiramisu: bool = False
     workspace: str = "./workspace/"
+    old_tiramisu_path: str = ""
+
+    def __post_init__(self):
+        if not self.is_new_tiramisu:
+            self.tiramisu_path = self.old_tiramisu_path
 
 
 @dataclass
@@ -52,8 +57,10 @@ class DatasetConfig:
         self.saving_frequency = dataset_config_dict["saving_frequency"]
 
         if dataset_config_dict['is_benchmark']:
-            self.dataset_path = dataset_config_dict["benchmark_dataset_path"]
-            self.cpps_path = dataset_config_dict["benchmark_cpp_files"]
+            self.dataset_path = dataset_config_dict["benchmark_dataset_path"] if dataset_config_dict[
+                "benchmark_dataset_path"] else self.dataset_path
+            self.cpps_path = dataset_config_dict["benchmark_cpp_files"] if dataset_config_dict[
+                "benchmark_cpp_files"] else self.cpps_path
 
 
 @dataclass
@@ -72,7 +79,7 @@ class Experiment:
     episode_reward_mean: float = 2
     legality_speedup: float = 1.0
     beam_search_order: bool = False
-    entropy_coeff:float = 0.0
+    entropy_coeff: float = 0.0
     train_batch_size: int = 1024
     lr: float = 0.001
     vf_share_layers: bool = False
@@ -86,12 +93,14 @@ class PolicyNetwork:
     vf_hidden_layers: List[int] = field(
         default_factory=lambda: [])
     dropout_rate: float = 0.2
-    
+
+
 @dataclass
 class LSTMPolicy:
-    fc_size:int = 1024
-    lstm_state_size:int = 256
-    num_layers:int = 1
+    fc_size: int = 1024
+    lstm_state_size: int = 256
+    num_layers: int = 1
+
 
 @dataclass
 class AutoSchedulerConfig:
@@ -101,7 +110,7 @@ class AutoSchedulerConfig:
     ray: Ray
     experiment: Experiment
     policy_network: PolicyNetwork
-    lstm_policy : LSTMPolicy
+    lstm_policy: LSTMPolicy
 
     def __post_init__(self):
         if isinstance(self.tiramisu, dict):
@@ -134,7 +143,7 @@ def dict_to_config(parsed_yaml: Dict[Any, Any]) -> AutoSchedulerConfig:
     experiment = Experiment(**parsed_yaml["experiment"])
     policy_network = PolicyNetwork(**parsed_yaml["policy_network"])
     lstm_policy = LSTMPolicy(**parsed_yaml["lstm_policy"])
-    return AutoSchedulerConfig(tiramisu, dataset, ray, experiment, policy_network,lstm_policy)
+    return AutoSchedulerConfig(tiramisu, dataset, ray, experiment, policy_network, lstm_policy)
 
 
 class Config(object):

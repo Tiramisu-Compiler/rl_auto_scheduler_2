@@ -4,13 +4,14 @@ from typing import List
 from env_api.scheduler.models.action import Parallelization, Unrolling
 from env_api.scheduler.models.schedule import Schedule
 from config.config import Config
-from env_api.core.models.optim_cmd import OptimizationCommand 
+from env_api.core.models.optim_cmd import OptimizationCommand
+
 
 class CompilingService():
     @classmethod
     def compile_legality(cls, schedule_object: Schedule, optims_list: list):
         tiramisu_program = schedule_object.prog
-        output_path =  Config.config.tiramisu.workspace + tiramisu_program.name + 'legal'
+        output_path = Config.config.tiramisu.workspace + tiramisu_program.name + 'legal'
 
         cpp_code = cls.get_legality_code(schedule_object=schedule_object,
                                          optims_list=optims_list)
@@ -49,10 +50,10 @@ class CompilingService():
     @classmethod
     def compile_annotations(cls, tiramisu_program):
         # TODO : add getting tree structure object from executing the file instead of building it
-        output_path =  Config.config.tiramisu.workspace + tiramisu_program.name + 'annot'
+        output_path = Config.config.tiramisu.workspace + tiramisu_program.name + 'annot'
         # Add code to the original file to get json annotations
 
-        if  Config.config.tiramisu.new_tiramisu:
+        if Config.config.tiramisu.is_new_tiramisu:
             get_json_lines = '''
                 auto ast = tiramisu::auto_scheduler::syntax_tree(tiramisu::global::get_implicit_function(), {});
                 std::string program_json = tiramisu::auto_scheduler::evaluate_by_learning_model::get_program_json(ast);
@@ -71,7 +72,7 @@ class CompilingService():
 
     @classmethod
     def run_cpp_code(cls, cpp_code: str, output_path: str):
-        if  Config.config.tiramisu.new_tiramisu:
+        if Config.config.tiramisu.is_new_tiramisu:
             # Making the tiramisu root path explicit to the env
             shell_script = [
                 # Compile intermidiate tiramisu file
@@ -164,7 +165,7 @@ class CompilingService():
         }
         
             """
-        
+
         solver_code = legality_cpp_code.replace(to_replace, solver_lines)
         output_path = Config.config.tiramisu.workspace + \
             schedule_object.prog.name + 'skew_solver'
@@ -202,7 +203,7 @@ class CompilingService():
         schedule_code = ''
         for optim in optims_list:
             schedule_code += optim.tiramisu_optim_str + '\n'
-        
+
         # Add code gen line to the schedule code
         schedule_code += '\n\t' + tiramisu_program.code_gen_line + '\n'
         # Paste the lines responsable of checking legality of schedule in the cpp file
