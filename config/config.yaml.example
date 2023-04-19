@@ -10,7 +10,7 @@ dataset:
     save_path: "path to save updated or new dataset"
     shuffle: False/True # Whether to shuffle the dataset
     seed: null # Seed for shuffle
-    saving_frequency: 10 # dataset save to disk frequency
+    saving_frequency: 10000 # dataset save to disk frequency
     # When doing evaluation on the benchmark set the value to True
     is_benchmark: False
     benchmark_cpp_files: 'path to cpp folder of benchmarks'
@@ -29,13 +29,20 @@ experiment:
     timesteps_total: 1000000
     episode_reward_mean: 2
     # Use this value to punish or tolerate illegal actions from being taken
-    legality_speedup: 0.9
+    legality_speedup: 1.0
     # Use the order of beam search 
     beam_search_order : True
+    entropy_coeff: 0.1
+    # Training parameters
+    train_batch_size: 1024
+    lr: 0.00005
+    # Policy model type
+    policy_model: "lstm" | "ff" #feed-forward
+    # In mode "ff" set vf_share_layers to True if you want to use shared weights between policy and value function 
+    # in mode "lstm" , you must make vf_share_layers = True
+    vf_share_layers: True
 
 policy_network:
-    # Set this to True if you want to use shared weights between policy and value function
-    vf_share_layers: False
     policy_hidden_layers: 
         - 2048
         - 512 
@@ -45,4 +52,10 @@ policy_network:
         - 512 
         - 64
     dropout_rate: 0.2
-    lr: 0.001
+
+lstm_policy:
+    fc_size: 1024
+    lstm_state_size: 256
+    num_layers: 1
+    
+    

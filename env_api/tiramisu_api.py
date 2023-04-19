@@ -32,7 +32,8 @@ class TiramisuEnvAPI:
         # The following attribute is independent of RL env , it is used for debugging don't remove it
         self.programs = None
         # The list of program names of the dataset
-        # self.programs = self.get_programs()
+        if local_dataset:
+            self.programs = self.get_programs()
 
     # This method is used Outside of the RL env for independent testing , don't remove it in order
     # to make tiramisu_api_tutorial work
@@ -167,5 +168,15 @@ class TiramisuEnvAPI:
     def save_legality_dataset(self, suffix: str = ""):
         self.dataset_service.store_offline_dataset(suffix=suffix)
 
-    def get_current_tiramisu_program(self) -> TiramisuProgram:
-        return self.scheduler_service.schedule_object.prog
+    def get_current_tiramisu_program_dict(self) -> TiramisuProgram:
+        return {
+                "proram_annotation": self.scheduler_service.schedule_object.prog.annotations,
+                "schedules_legality": self.scheduler_service.schedule_object.prog.schedules_legality,
+                "schedules_solver": self.scheduler_service.schedule_object.prog.schedules_solver
+            }
+    
+    def final_speedup(self):
+        speedup, sch_str = self.scheduler_service.get_current_speedup()
+        print("Function : ",self.scheduler_service.schedule_object.prog.name,
+              "\nFinal Schedule :", sch_str,
+                "\nFinal Speedup :", speedup)

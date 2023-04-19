@@ -21,7 +21,7 @@ class TiramisuRlEnv(gym.Env):
         self.action_space = spaces.Discrete(27)
         self.observation_space = spaces.Dict({
             "embedding":
-            spaces.Box(-np.inf, np.inf, shape=(180, )),
+            spaces.Box(-np.inf, np.inf, shape=(181, )),
             "actions_mask":
             spaces.Box(0, 1, shape=(27, ))
         })
@@ -44,25 +44,26 @@ class TiramisuRlEnv(gym.Env):
 
         self.state = {
             # Converting Tensor to numpy array
-            "embedding": embedded_tensor.numpy(),
+            "embedding": self.preprocess_embeddings(embeddings=embedded_tensor),
             "actions_mask": actions_mask
         }
         self.previous_speedup = self.reward = 1
         self.done = self.truncated = False
         self.info = {}
-        self.steps = 0
+        self.action_index = 0
         return self.state, self.info
 
     def step(self, action):
-        self.steps += 1
         speedup, embedded_tensor, legality, actions_mask = self.apply_flattened_action(
             action=action)
         instant_speedup = 1
         if (legality and not self.done):
             self.state = {
-                "embedding": embedded_tensor.numpy(),
+                "embedding": self.preprocess_embeddings(embeddings=embedded_tensor,
+                                           action=action),
                 "actions_mask": actions_mask
             }
+            self.action_index += 1
             # If the action is legal , we divide the speedup of new sequence {A_0 .. A_i+1} by the speedup of
             # the previous Sequnce {A_0 .. A_i} to get the speedup of the action {A_i+1}
             instant_speedup = speedup / self.previous_speedup
@@ -70,18 +71,12 @@ class TiramisuRlEnv(gym.Env):
 
         self.reward = math.log(instant_speedup, 4)
 
-        if (self.steps == 20):
+        if (self.action_index == 8):
             self.done = True
 
         # Update dataset on episode end
         if self.done:
-            current_tiramisu_program = self.tiramisu_api.get_current_tiramisu_program()
-            tiramisu_program_dict = {
-                "proram_annotation": current_tiramisu_program.annotations,
-                "schedules_legality": current_tiramisu_program.schedules_legality,
-                "schedules_solver": current_tiramisu_program.schedules_solver
-            }
-
+            tiramisu_program_dict = self.tiramisu_api.get_current_tiramisu_program_dict()
             self.dataset_actor.update_dataset.remote(
                 self.current_program, tiramisu_program_dict
             )
@@ -151,3 +146,7 @@ class TiramisuRlEnv(gym.Env):
             self.done = True
 
         return speedup, embedded_tensor, legality, actions_mask
+
+    def preprocess_embeddings(self, embeddings, action=0.1):
+        embeddings = np.append(embeddings, [action])
+        return embeddings
