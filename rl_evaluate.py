@@ -1,15 +1,28 @@
-import argparse, ray
+import argparse
+import json
+import os
+from pathlib import Path
+import time
+import ray
+import random
 from ray.rllib.models import ModelCatalog
+from env_api.core.services.compiling_service import CompilingService
+from env_api.core.services.converting_service import ConvertService
 from rl_agent.rl_env import TiramisuRlEnv
 from ray.rllib.algorithms.ppo import PPO, PPOConfig
 from ray.rllib.algorithms.algorithm_config import AlgorithmConfig
-from rl_agent.rl_policy_lstm import PolicyLSTM
-from config.config import Config, DatasetFormat
+from ray.rllib.policy.policy import Policy
+from config.config import AutoSchedulerConfig, Config
 from rl_agent.rl_policy_nn import PolicyNN
+from ray.rllib.algorithms.algorithm import Algorithm
 from ray.air.checkpoint import Checkpoint
+from ray.tune.registry import get_trainable_cls
+from rl_agent.rl_policy_lstm import PolicyLSTM
 import numpy as np
 
 from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
+from rllib_ray_utils.evaluators.ff_evaluator import FFBenchmarkEvaluator
+from rllib_ray_utils.evaluators.lstm_evaluator import LSTMBenchmarkEvaluator
 
 parser = argparse.ArgumentParser()
 
@@ -23,6 +36,13 @@ parser.add_argument(
     default="torch",
     help="The DL framework specifier.",
 )
+parser.add_argument(
+    "--output-path",
+    default="./workspace/schedules",
+    help="The DL framework specifier.",
+)
+parser.add_argument("--num-workers", default=-1, type=int)
+
 if __name__ == "__main__":
     args = parser.parse_args()
     print(f"Running with following CLI options: {args}")
@@ -30,71 +50,61 @@ if __name__ == "__main__":
 
     Config.init()
     Config.config.dataset.is_benchmark = True
-
     dataset_actor = DatasetActor.remote(Config.config.dataset)
+    dataset_size = ray.get(dataset_actor.get_dataset_size.remote())
+    num_workers = args.num_workers
+    if (num_workers == -1):
+        num_workers = int(ray.available_resources()['CPU'])
 
-    match (Config.config.experiment.policy_model):
-        case "lstm":
-            ModelCatalog.register_custom_model("policy_nn", PolicyLSTM)
-            model_custom_config = Config.config.lstm_policy.__dict__ 
-        case "ff":
-            ModelCatalog.register_custom_model("policy_nn", PolicyNN)
-            model_custom_config = Config.config.policy_network.__dict__
+    # print(f"num workers: {num_workers}")
 
-    config = PPOConfig().framework(args.framework).environment(
-        TiramisuRlEnv,
-        env_config={
-            "config": Config.config,
-            "dataset_actor": dataset_actor
-        }).rollouts(num_rollout_workers=1)
-    config.explore = False
+    num_programs_per_task = dataset_size // num_workers
+    programs_remaining = dataset_size % num_workers
 
-    config = config.to_dict()
-    config["model"] = {
-        "custom_model": "policy_nn",
-        "vf_share_layers": Config.config.experiment.vf_share_layers,
-        "custom_model_config": model_custom_config
-    }
+    Path(args.output_path).mkdir(parents=True, exist_ok=True)
 
-    checkpoint = Checkpoint.from_directory(Config.config.ray.restore_checkpoint)
-    ppo_agent = PPO(AlgorithmConfig.from_dict(config))
-    ppo_agent.restore(checkpoint_path=checkpoint)
+    start_time = time.time()
+    actors = []
+    explorations = []
+    explored_programs = {}
 
-    env = TiramisuRlEnv(config={
-        "config": Config.config,
-        "dataset_actor": dataset_actor
-    })
-    match (Config.config.experiment.policy_model):
-        case "lstm":
-            lstm_cell_size = model_custom_config["lstm_state_size"]
-            init_state = state = [
-                np.zeros([lstm_cell_size], np.float32) for _ in range(2)
-            ]
-            for i in range(31):
-                observation, _ = env.reset()
-                episode_done = False
-                state = init_state
-                while not episode_done:
-                    action, state_out, _ = ppo_agent.compute_single_action(
-                        observation=observation,
-                        state=state,
-                        explore=False,
-                        policy_id="default_policy")
-                    observation, reward, episode_done, _, _ = env.step(action)
-                    state = state_out
-                else:
-                    env.tiramisu_api.final_speedup()
-                    print()
-        case "ff":
-            for i in range(31):
-                observation, _ = env.reset()
-                episode_done = False
-                while not episode_done:
-                    action = ppo_agent.compute_single_action(observation=observation,
-                                                            explore=False,policy_id="default_policy")
-                    observation, reward, episode_done, _, _ = env.step(action)
-                else:
-                    env.tiramisu_api.final_speedup()
-                    print()
+    if Config.config.experiment.policy_model == "lstm":
+        Benchmarker = LSTMBenchmarkEvaluator
+    elif Config.config.experiment.policy_model == "ff":
+        Benchmarker = FFBenchmarkEvaluator
+    else:
+        raise Exception("Unknown policy model")
 
-    ray.shutdown()
+    for i in range(num_workers):
+        num_programs_to_do = num_programs_per_task
+
+        if i == num_workers-1:
+            num_programs_to_do += programs_remaining
+
+        benchmark_actor = Benchmarker.remote(
+            Config.config, args, num_programs_to_do, dataset_actor)
+
+        actors.append(benchmark_actor)
+
+        explorations.append(benchmark_actor.explore_benchmarks.remote())
+
+    print(len(explorations))
+    while len(explorations) > 0:
+        # Wait for actors to finish their exploration
+        done, explorations = ray.wait(explorations)
+        print(
+            f"Done this iteration: {len(done)} / Remaining {len(explorations)}")
+        # retrieve explored programs from actors that finished their exploration
+        for actor in done:
+            actor_programs = ray.get(actor)
+            explored_programs.update(actor_programs)
+
+        progress = ray.get([actor.get_progress.remote() for actor in actors])
+        print(f"Progress: {sum(progress)} / {dataset_size}")
+
+    end_time = time.time()
+    print(f"Total time: {end_time - start_time}")
+
+    # write explored programs to file
+    with open(os.path.join(args.output_path, "explored_programs.json"), "w") as f:
+        json.dump(explored_programs, f)

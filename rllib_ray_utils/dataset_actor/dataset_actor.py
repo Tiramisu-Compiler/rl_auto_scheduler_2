@@ -36,3 +36,7 @@ class DatasetActor:
     # Update the dataset with the new function
     def update_dataset(self, function_name: str, function_dict: dict) -> bool:
         return self.dataset_service.update_dataset(function_name, function_dict)
+
+    # Get dataset size
+    def get_dataset_size(self) -> int:
+        return self.dataset_service.dataset_size
