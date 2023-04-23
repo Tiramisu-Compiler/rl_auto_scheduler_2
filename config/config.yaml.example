@@ -2,6 +2,8 @@ tiramisu:
     tiramisu_path: "path to tiramisu root directory" 
     env_type:  "model"
     tags_model_weights: "<Your path to the repo>/env_api/scheduler/models/model_release_version.pt"
+    is_new_tiramisu: False | True 
+    workspace: "Path to compile tiramisu programs (Store compiling objects)"
 
 dataset:
     dataset_format: HYBRID | PICKLE 
