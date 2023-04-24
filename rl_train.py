@@ -81,7 +81,9 @@ if __name__ == "__main__":
             MultiCallbacks([
                 # CustomMetricCallback
             ])).rollouts(
-                num_rollout_workers=args.num_workers - 1,
+                # The reason of setting -10 , is that for larger jobs , if we use all cpus , we will have
+                # a bottlneck in performance , it is better to leave some free cpus 
+                num_rollout_workers=args.num_workers - 10,
                 batch_mode="complete_episodes",
                 enable_connectors=False).training(
                     lr=Config.config.experiment.lr,

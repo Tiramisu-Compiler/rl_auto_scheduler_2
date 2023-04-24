@@ -24,8 +24,8 @@ class TiramisuEnvAPI:
         self.scheduler_service: SchedulerService = SchedulerService()
         self.tiramisu_service: TiramisuService = TiramisuService()
         # Init database service with 2 paths :
-        # - dataset_path : 
-        # - offline_path : 
+        # - cpps_dataset_path :  pkl file containing the cpps code
+        # - offline_path : pkl file containing the schedules dictionnary
         # This step of initializing the database service must be executed first in the init of tiramisu api
         self.dataset_service = DataSetService(
             cpps_dataset_path=Config.config.dataset.cpps_path,
@@ -45,7 +45,6 @@ class TiramisuEnvAPI:
 
     def set_program(self, name: str, data: dict = None, cpp_code: str = None):
         # print("Function : ", name)
-
         if data:
         # If data is provided externally (From ray dataset actor) then we don't need to use internal
         # dataset service nor compile to get annotations of a program 
@@ -63,7 +62,6 @@ class TiramisuEnvAPI:
                     name=name, data=data,original_str=code)
             else:
                 # Load the Tiramisu model from the code string
-                
                 try:
                     tiramisu_prog = self.tiramisu_service.fetch_prog_compil(code=code)
                 except Exception as e:
