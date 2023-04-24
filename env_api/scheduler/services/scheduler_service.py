@@ -1,7 +1,6 @@
 from config.config import Config
-from env_api.core.models.optim_cmd import OptimizationCommand
-from env_api.core.services.compiling_service import CompilingService
 from env_api.core.services.converting_service import ConvertService
+from env_api.scheduler.services.legality_service import LegalityService
 from env_api.scheduler.services.prediction_service import PredictionService
 from env_api.utils.functions.fusion import transform_tree_for_fusion
 from ..models.schedule import Schedule
@@ -11,14 +10,13 @@ import logging
 
 class SchedulerService:
     def __init__(self):
-        # self.schedule_list is an array that contains a list of optimizations that has been applied on the program
-        # This list has objects of type `OptimizationCommand`
-        self.schedule_list = []
         # The Schedule object contains all the informations of a program : annotatons , tree representation ...
         self.schedule_object: Schedule = None
         # The prediction service is an object that has a value estimator `get_speedup(schedule)` of the speedup that a schedule will have
         # This estimator is a recursive model that needs the schedule representation to give speedups
         self.prediction_service = PredictionService()
+        # A schedules-legality service
+        self.legality_service = LegalityService()
 
     def set_schedule(self, schedule_object: Schedule):
         """
@@ -29,7 +27,6 @@ class SchedulerService:
             - a tuple tensor that has the ready-to-use representaion that's going to represent the new optimized program (if any optim is applied) and serves as input to the cost and policy neural networks
         """
         self.schedule_object = schedule_object
-        self.schedule_list = []
         return ConvertService.get_schedule_representation(schedule_object)
 
     def get_annotations(self):
@@ -66,7 +63,8 @@ class SchedulerService:
         output :
             - speedup : float , representation : tuple(tensor) , legality_check : bool
         """
-        legality_check = self.is_action_legal(action) == 1
+        legality_check = self.legality_service.is_action_legal(schedule_object=self.schedule_object,
+                                                               action=action)
         embedding_tensor = None
         speedup = Config.config.experiment.legality_speedup
         actions_mask = self.schedule_object.repr.action_mask
@@ -84,7 +82,6 @@ class SchedulerService:
                                            loop_level2=action.params[1])
                     self.schedule_object.transformed += 1
 
-                # TODO : recheck if this is an efficient modeling
                 elif isinstance(action, Tiling):
                     self.apply_tiling(params=action.params)
 
@@ -123,118 +120,6 @@ class SchedulerService:
             beam_search_order=Config.config.experiment.beam_search_order)
 
         return speedup, embedding_tensor, legality_check, actions_mask
-
-    def is_action_legal(self, action: Action):
-        """
-        Checks the legality of action
-        input :
-            - an action that represents an optimization from the 7 types : Parallelization,Skewing,Interchange,Fusion,Reversal,Tiling,Unrolling
-        output :
-            - legality_check : int , if it is 1 it means it is legal, otherwise it is illegal
-        """
-
-        # Before checking legality from dataset or by compiling , we see if the iterators are included in the common iterators
-        if (not isinstance(action, Unrolling)):
-            num_iter = self.schedule_object.common_it.__len__()
-            if isinstance(action, Tiling):
-                # Becuase the second half of action.params contains tiling size, so we need only the first half of the vector
-                params = action.params[:len(action.params) // 2]
-            else:
-                params = action.params
-            for param in params:
-                if param >= num_iter:
-                    return 0
-
-        if isinstance(action, Fusion):
-            if (len(self.schedule_object.comps) <= 1):
-                # If the program has a single computation , then fusion is illegal
-                return 0
-            requested_comps = [
-                comp for comp in self.schedule_object.it_dict
-                if action.params[0] in self.schedule_object.it_dict[comp]
-            ]
-            if (len(requested_comps) <= 1):
-                # If there are many computations but , at the fusion loop level there is less than 2 computations
-                # then fusion will be illegal
-                return 0
-
-        # TODO : remove this condition when we apply the new method
-        elif isinstance(action, Unrolling):
-            # In this case we unroll all the computations
-            requested_comps = self.schedule_object.comps
-            # We look for the last iterator of each computation and save it in the params
-            unrolling_factor = action.params[0]
-            action.params = {}
-            for comp in self.schedule_object.it_dict:
-                loop_level = len(self.schedule_object.it_dict[comp].keys()) - 1
-                action.params[comp] = [loop_level, unrolling_factor]
-
-        # For skewing action we need first to get the skewing params : a list of 2 int
-        elif isinstance(action, Skewing):
-            # construct the schedule string to check if it is legal or not
-            schdule_str = ConvertService.build_sched_string(self.schedule_list)
-            #
-            requested_comps = self.schedule_object.comps
-            # check if results of skewing solver exist in the dataset
-            if schdule_str in self.schedule_object.prog.schedules_solver:
-                factors = self.schedule_object.prog.schedules_solver[schdule_str]
-
-            else:
-
-                if (not self.schedule_object.prog.original_str):
-                    # Loading function code lines
-                    self.schedule_object.prog.load_code_lines()
-                # Call the skewing solver
-                factors = CompilingService.call_skewing_solver(
-                    schedule_object=self.schedule_object,
-                    optim_list=self.schedule_list,
-                    params=action.params)
-
-                # Save the results of skewing solver in the dataset
-                self.schedule_object.prog.schedules_solver[schdule_str] = factors
-            if (factors == None):
-                return 0
-            else:
-                action.params.extend(factors)
-        else:
-            requested_comps = self.schedule_object.comps
-        # Assign the requested comps to the action
-        # TODO : This field comps is recently added , propagate the use of it in all the actions methods
-        action.comps = requested_comps
-        optim_command = OptimizationCommand(action, requested_comps)
-        # Add the command to the array of schedule
-        self.schedule_list.append(optim_command)
-        # Building schedule string
-        schdule_str = ConvertService.build_sched_string(self.schedule_list)
-        # Check if the action is legal or no to be applied on self.schedule_object.prog
-        # prog.schedules_legality only has data when it is fetched from the offline dataset so no need to compile to get the legality
-        if schdule_str in self.schedule_object.prog.schedules_legality:
-            legality_check = int(
-                self.schedule_object.prog.schedules_legality[schdule_str])
-        else:
-            # To run the legality we need the original function code to generate legality code
-            if (not self.schedule_object.prog.original_str):
-                # Loading function code lines
-                self.schedule_object.prog.load_code_lines()
-            try:
-                legality_check = int(
-                    CompilingService.compile_legality(
-                        schedule_object=self.schedule_object,
-                        optims_list=self.schedule_list))
-
-                # Saving the legality of the new schedule
-                self.schedule_object.prog.schedules_legality[schdule_str] = (
-                    legality_check == 1)
-
-            except ValueError as e:
-                legality_check = 0
-                print("Legality error :", e)
-        if legality_check != 1:
-            self.schedule_list.pop()
-            schdule_str = ConvertService.build_sched_string(self.schedule_list)
-
-        self.schedule_object.schedule_str = schdule_str
-        return legality_check
 
     def apply_parallelization(self, loop_level):
         # Get any computation since we are using common iterators in a single root programs to apply action parallelization
