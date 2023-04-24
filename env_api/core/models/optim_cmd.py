@@ -2,11 +2,11 @@ from env_api.scheduler.models.action import *
 
 
 class OptimizationCommand:
-    def __init__(self, action: Action, comps):
+    def __init__(self, action: Action):
         self.params_list = action.params
         self.action = action
         # A list of concerned computations of the actions
-        self.comps = comps
+        self.comps = action.comps
         # We save the schedule of an action in each comp individually to form the whole schedule of a program later
         self.comps_schedule = {}
         self.tiramisu_optim_str = self.get_tiramisu_optim_str()

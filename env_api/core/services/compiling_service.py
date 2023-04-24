@@ -197,7 +197,8 @@ class CompilingService():
             return None
 
     @classmethod
-    def get_schedule_code(cls, schedule_object: Schedule, optims_list: List[OptimizationCommand]):
+    def get_schedule_code(cls, schedule_object: Schedule):
+        optims_list: List[OptimizationCommand] = schedule_object.schedule_list
         tiramisu_program = schedule_object.prog
         # Add code to the original file to get the schedule code
         schedule_code = ''
