@@ -8,9 +8,8 @@ class TiramisuService:
     def __init__(self):
         pass
 
-    def fetch_prog_compil(self, path: str):
-        # This function takes a path and creates a tiramisu program from compiling the file to get the annotations and all the infos
-        tiramisu_prog = TiramisuProgram(file_path=path)
+    def fetch_prog_compil(self, code: str):
+        tiramisu_prog = TiramisuProgram(code=code)
         tiramisu_prog.annotations = self.get_annotations(tiramisu_prog)
         return tiramisu_prog
 

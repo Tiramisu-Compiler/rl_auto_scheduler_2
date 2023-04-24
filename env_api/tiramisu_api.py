@@ -17,18 +17,19 @@ class TiramisuEnvAPI:
                         when this variable is False , it means we are using an external service to manage dataset or pure 
                         compilation.
         '''
+        self.local_dataset = local_dataset
         # Make the root to tiramisu root path explicit to the env in order to compile programs
         os.environ["TIRAMISU_ROOT"] = Config.config.tiramisu.tiramisu_path
         # The services of the environment
         self.scheduler_service: SchedulerService = SchedulerService()
         self.tiramisu_service: TiramisuService = TiramisuService()
         # Init database service with 2 paths :
-        # - dataset_path : Contains the original program folder
-        # - copy_path : Contains the path to store the chosen programs that are going to be optimized
+        # - dataset_path : 
+        # - offline_path : 
         # This step of initializing the database service must be executed first in the init of tiramisu api
         self.dataset_service = DataSetService(
-            dataset_path=Config.config.dataset.cpps_path,
-            offline_path=Config.config.dataset.dataset_path if local_dataset else None)
+            cpps_dataset_path=Config.config.dataset.cpps_path,
+            schedules_dataset_path=Config.config.dataset.dataset_path if local_dataset else None)
         # The following attribute is independent of RL env , it is used for debugging don't remove it
         self.programs = None
         # The list of program names of the dataset
@@ -39,34 +40,32 @@ class TiramisuEnvAPI:
     # to make tiramisu_api_tutorial work
     def get_programs(self):
         if self.programs == None:
-            # If the offline dataset exists , get the program names from it
-            if self.dataset_service.offline_dataset != None:
-                self.programs = list(
-                    self.dataset_service.offline_dataset.keys())
-            # Else get them from the repository by calling system functions
-            else:
-                self.programs = os.listdir(self.dataset_service.dataset_path)
+            self.programs = list(self.dataset_service.cpps_dataset.keys())
         return sorted(self.programs)
 
     def set_program(self, name: str, data: dict = None, cpp_code: str = None):
         # print("Function : ", name)
+
         if data:
+        # If data is provided externally (From ray dataset actor) then we don't need to use internal
+        # dataset service nor compile to get annotations of a program 
             tiramisu_prog = self.tiramisu_service.fetch_prog_offline(name=name,
                                                                      data=data,
                                                                      original_str=cpp_code)
         else:
-            # Get the file path for the program with the given name
-            file_path, exist_offline = self.dataset_service.get_file_path(name)
-            # if exist_offline is True , then we can fetch the data from the offline dataset if the program name is saved there
-            if (exist_offline):
+            code = self.dataset_service.get_prog_code(name=name)
+            # This case applies when data == None, or we are using tiramisu api in isolation mode from rl env
+            annotations_exitst = self.dataset_service.in_schedule_dataset(name)
+            # if annotations_exitst is True , then we can fetch the data from the offline dataset if the program name is saved there
+            if (annotations_exitst):
                 data = self.dataset_service.get_offline_prog_data(name=name)
                 tiramisu_prog = self.tiramisu_service.fetch_prog_offline(
-                    name=name, data=data)
+                    name=name, data=data,original_str=code)
             else:
-                # Load the Tiramisu model from the file
+                # Load the Tiramisu model from the code string
+                
                 try:
-                    tiramisu_prog = self.tiramisu_service.fetch_prog_compil(
-                        path=file_path)
+                    tiramisu_prog = self.tiramisu_service.fetch_prog_compil(code=code)
                 except Exception as e:
                     if isinstance(e, LoopsDepthException):
                         print("Program has an unsupported loop level")
