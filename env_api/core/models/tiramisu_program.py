@@ -4,16 +4,15 @@ import config.config as cfg
 
 
 class TiramisuProgram():
-    def __init__(self, file_path: str):
-        self.file_path = file_path
+    def __init__(self, code: str):
         self.annotations = None
         self.comps = None
         self.name = None
         self.schedules_legality = {}
         self.schedules_solver = {}
         self.original_str = None
-        if (file_path):
-            self.load_code_lines()
+        if (code):
+            self.load_code_lines(original_str=code)
 
     # Since there is no factory constructors in python, I am creating this class method to replace the factory pattern
     @classmethod
@@ -37,25 +36,11 @@ class TiramisuProgram():
         '''
         This function loads the file code , it is necessary to generate legality check code and annotations
         '''
-        if (self.name):
-            # if self.name is None the program doesn't exist in the offline dataset but built from compiling
-            # if self.name has a value than it is fetched from the dataset, we need the full path to read
-            # the lines of the real function to execute legality code
-            func_name = self.name
-            file_name = func_name + "_generator.cpp"
-            file_path = cfg.Config.config.dataset.cpps_path + func_name + "/" + file_name
-            self.file_path = file_path
-        else:
-            file_path = self.file_path
-
         if original_str:
             self.original_str = original_str
-        else:
-            with open(file_path, 'r') as f:
-                self.original_str = f.read()
+        else :
+            raise NotImplemented
 
-        self.func_folder = ('/'.join(Path(file_path).parts[:-1])
-                            if len(Path(file_path).parts) > 1 else '.') + '/'
         self.body = re.findall(r'(tiramisu::init(?s:.)+)tiramisu::codegen',
                                self.original_str)[0]
         self.name = re.findall(r'tiramisu::init\(\"(\w+)\"\);',
