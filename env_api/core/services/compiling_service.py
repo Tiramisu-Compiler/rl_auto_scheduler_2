@@ -13,7 +13,8 @@ class CompilingService():
     @classmethod
     def compile_legality(cls, schedule_object: Schedule, optims_list: list):
         tiramisu_program = schedule_object.prog
-        output_path = Config.config.tiramisu.workspace + tiramisu_program.name + 'legal'
+        output_path = os.path.join(
+            Config.config.tiramisu.workspace, f'{tiramisu_program.name}legal')
 
         cpp_code = cls.get_legality_code(schedule_object=schedule_object,
                                          optims_list=optims_list)
@@ -52,7 +53,8 @@ class CompilingService():
     @classmethod
     def compile_annotations(cls, tiramisu_program):
         # TODO : add getting tree structure object from executing the file instead of building it
-        output_path = Config.config.tiramisu.workspace + tiramisu_program.name + 'annot'
+        output_path = os.path.join(
+            Config.config.tiramisu.workspace, f'{tiramisu_program.name}annot')
         # Add code to the original file to get json annotations
 
         if Config.config.tiramisu.is_new_tiramisu:
@@ -169,8 +171,8 @@ class CompilingService():
             """
 
         solver_code = legality_cpp_code.replace(to_replace, solver_lines)
-        output_path = Config.config.tiramisu.workspace + \
-            schedule_object.prog.name + 'skew_solver'
+        output_path = os.path.join(
+            Config.config.tiramisu.workspace, f'{schedule_object.prog.name}skew_solver')
         result_str = cls.run_cpp_code(cpp_code=solver_code,
                                       output_path=output_path)
         if not result_str:
@@ -268,19 +270,23 @@ class CompilingService():
             f"./{schedule_object.prog.name}_wrapper",
 
             # Clean generated files
-            f"rm {output_path}*",
+            f"rm {schedule_object.prog.name}*",
         ]
         try:
+            # run the compilation of the generator and wrapper
             compiler = subprocess.run([" ; ".join(shell_script)],
                                       capture_output=True,
                                       text=True,
                                       shell=True,
                                       check=True)
+            # run the wrapper and get the execution times
             compiler = subprocess.run([" ; ".join(run_script)],
                                       capture_output=True,
                                       text=True,
                                       shell=True,
                                       check=True)
+
+            # Extract the execution times from the output and return the minimum
             if compiler.stdout:
                 results = [float(x) for x in compiler.stdout.split()]
                 return min(results)

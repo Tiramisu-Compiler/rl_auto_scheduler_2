@@ -2,6 +2,9 @@ tiramisu:
     tiramisu_path: "path to tiramisu root directory" 
     env_type:  "model"
     tags_model_weights: "<Your path to the repo>/env_api/scheduler/models/model_release_version.pt"
+    is_new_tiramisu: TRUE # | False what version of tiramisu to use
+    workspace: '<path to the workspace to use>'
+    max_runs: 30 # number of execution times to do to calculate the speedup (because of noise)
 
 dataset:
     dataset_format: HYBRID | PICKLE 
