@@ -12,3 +12,8 @@ outputs/
 *.pkl
 benchmark/
 datasets/
+config/config.yaml
+.venv
+workspace
+checkpoints
+lstm-ppo-policy

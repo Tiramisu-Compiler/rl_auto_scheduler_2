@@ -1,19 +1,30 @@
 import numpy as np
+from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.representation import Representation
 from env_api.scheduler.models.action import *
 
 class Schedule:
-    def __init__(self, program):
+    def __init__(self, program: TiramisuProgram):
         self.schedule_str = ""
+        # A counter of the applied affine transformations
         self.transformed = 0
         self.prog = program
+        # List of computations of the program
         self.comps = self.prog.comps
+        # The repr object has the raw data of computations , loops , expressions as tensors
         self.repr : Representation = None
+        # Iterators dictionnary
         self.it_dict = {}
+        # List of branches of the program tree
         self.branches = []
+        # A dictionnary that has the types of schedule applied on the program with their representation in the cost model
         self.schedule_dict = {}
+        # List of common iterators
         self.common_it = []
+        # self.schedule_list is an array that contains a list of optimizations that has been applied on the program
+        # This list has objects of type `OptimizationCommand`
+        self.schedule_list = []
         self.__calculate_common_it()
         self.__init_schedule_dict_tags()
         self.__init_representation()
@@ -85,7 +96,7 @@ class Schedule:
         self.branches = branchs
 
     
-    def update_actions_mask(self, action : Action,applied : bool):
+    def update_actions_mask(self, action : Action,applied : bool,beam_search_order= False):
         # Whether an action is legal or not we should mask it to not use it again
         self.repr.action_mask[action.env_id] = 1
 
@@ -108,8 +119,9 @@ class Schedule:
                 self.repr.action_mask[7:12] = 1
                 # Interchange
                 self.repr.action_mask[19:26] = 1
-            
-            self.apply_beam_search_conditions(action=action)
+                
+            if beam_search_order : 
+                self.apply_beam_search_conditions(action=action)
 
         return self.repr.action_mask
     

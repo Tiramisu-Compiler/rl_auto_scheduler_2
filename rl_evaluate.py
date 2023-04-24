@@ -1,13 +1,28 @@
-import argparse, ray
+import argparse
+import json
+import os
+from pathlib import Path
+import time
+import ray
+import random
 from ray.rllib.models import ModelCatalog
+from env_api.core.services.compiling_service import CompilingService
+from env_api.core.services.converting_service import ConvertService
 from rl_agent.rl_env import TiramisuRlEnv
 from ray.rllib.algorithms.ppo import PPO, PPOConfig
 from ray.rllib.algorithms.algorithm_config import AlgorithmConfig
-from env_api.tiramisu_api import TiramisuEnvAPI
-from rllib_ray_utils.dataset_actor import DatasetActor
-from env_api.utils.config.config import Config
-
+from ray.rllib.policy.policy import Policy
+from config.config import AutoSchedulerConfig, Config
 from rl_agent.rl_policy_nn import PolicyNN
+from ray.rllib.algorithms.algorithm import Algorithm
+from ray.air.checkpoint import Checkpoint
+from ray.tune.registry import get_trainable_cls
+from rl_agent.rl_policy_lstm import PolicyLSTM
+import numpy as np
+
+from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
+from rllib_ray_utils.evaluators.ff_evaluator import FFBenchmarkEvaluator
+from rllib_ray_utils.evaluators.lstm_evaluator import LSTMBenchmarkEvaluator
 
 parser = argparse.ArgumentParser()
 
@@ -21,45 +36,75 @@ parser.add_argument(
     default="torch",
     help="The DL framework specifier.",
 )
+parser.add_argument(
+    "--output-path",
+    default="./workspace/schedules",
+    help="The DL framework specifier.",
+)
+parser.add_argument("--num-workers", default=-1, type=int)
 
 if __name__ == "__main__":
     args = parser.parse_args()
     print(f"Running with following CLI options: {args}")
-    ray.init(num_cpus=28)
-    
+    ray.init()
+
     Config.init()
-    tiramisu_api = TiramisuEnvAPI(local_dataset = False)
-    dataset_actor = DatasetActor.remote(
-        dataset_path=Config.config.dataset.offline,
-        use_dataset=True,
-        path_to_save_dataset=Config.config.dataset.save_path,
-        dataset_format="PICKLE",
-    )
-    
-    ModelCatalog.register_custom_model("policy_nn", PolicyNN)
-    config = PPOConfig().framework(args.framework).environment(
-        TiramisuRlEnv, env_config={"tiramisu_api": tiramisu_api,
-                                   "dataset_actor": dataset_actor})
-    config = config.to_dict()
-    config["model"]["custom_model"] = "policy_nn"
+    Config.config.dataset.is_benchmark = True
+    dataset_actor = DatasetActor.remote(Config.config.dataset)
+    dataset_size = ray.get(dataset_actor.get_dataset_size.remote())
+    num_workers = args.num_workers
+    if (num_workers == -1):
+        num_workers = int(ray.available_resources()['CPU'])
 
-    ppo_agent = PPO(AlgorithmConfig.from_dict(config))
-    try : 
-        ppo_agent.restore(
-            checkpoint_path=
-            "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/ray_results/All-actions-punish-legality-beam-search-10m/PPO_TiramisuRlEnv_16641_00000_0_2023-03-27_17-12-56/checkpoint_000930"
-        )
-    except AssertionError as e :
-        print(e)
+    # print(f"num workers: {num_workers}")
 
-    # env = ppo_agent.env_creator(config["env"])
-    env = TiramisuRlEnv(config={"tiramisu_api": tiramisu_api,"dataset_actor": dataset_actor})
+    num_programs_per_task = dataset_size // num_workers
+    programs_remaining = dataset_size % num_workers
 
-    for i in range(31):
-        observation , _ = env.reset()
-        episode_done = False
-        while not episode_done :
-            action = ppo_agent.compute_single_action(observation=observation, explore=False)
-            observation, reward, episode_done, _ , _ = env.step(action)
+    Path(args.output_path).mkdir(parents=True, exist_ok=True)
 
-    ray.shutdown()
+    start_time = time.time()
+    actors = []
+    explorations = []
+    explored_programs = {}
+
+    if Config.config.experiment.policy_model == "lstm":
+        Benchmarker = LSTMBenchmarkEvaluator
+    elif Config.config.experiment.policy_model == "ff":
+        Benchmarker = FFBenchmarkEvaluator
+    else:
+        raise Exception("Unknown policy model")
+
+    for i in range(num_workers):
+        num_programs_to_do = num_programs_per_task
+
+        if i == num_workers-1:
+            num_programs_to_do += programs_remaining
+
+        benchmark_actor = Benchmarker.remote(
+            Config.config, args, num_programs_to_do, dataset_actor)
+
+        actors.append(benchmark_actor)
+
+        explorations.append(benchmark_actor.explore_benchmarks.remote())
+
+    print(len(explorations))
+    while len(explorations) > 0:
+        # Wait for actors to finish their exploration
+        done, explorations = ray.wait(explorations)
+        print(
+            f"Done this iteration: {len(done)} / Remaining {len(explorations)}")
+        # retrieve explored programs from actors that finished their exploration
+        for actor in done:
+            actor_programs = ray.get(actor)
+            explored_programs.update(actor_programs)
+
+        progress = ray.get([actor.get_progress.remote() for actor in actors])
+        print(f"Progress: {sum(progress)} / {dataset_size}")
+
+    end_time = time.time()
+    print(f"Total time: {end_time - start_time}")
+
+    # write explored programs to file
+    with open(os.path.join(args.output_path, "explored_programs.json"), "w") as f:
+        json.dump(explored_programs, f)
