@@ -14,6 +14,8 @@ class PredictionService:
         # This attribute is used to determine whether we are using the cpu speedup or the speedup from the cost model
         if Config.config.tiramisu.env_type == "cpu":
             self.is_cpu_speedup = True
+        else:
+            self.is_cpu_speedup = False
         # This model uses the tags instead of matrices
         self.tags_model = Model_Recursive_LSTM_v3(
             input_size=890, loops_tensor_size=8)
