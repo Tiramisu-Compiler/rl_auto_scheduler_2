@@ -19,6 +19,8 @@ class TiramisuEnvAPI:
         '''
         # Make the root to tiramisu root path explicit to the env in order to compile programs
         os.environ["TIRAMISU_ROOT"] = Config.config.tiramisu.tiramisu_path
+        os.environ["LD_LIBRARY_PATH"] = f'{Config.config.tiramisu.tiramisu_path}/3rdParty/Halide/build/src:{Config.config.tiramisu.tiramisu_path}/3rdParty/llvm/build/lib:{Config.config.tiramisu.tiramisu_path}/3rdParty/isl/build/lib/:'
+
         # The services of the environment
         self.scheduler_service: SchedulerService = SchedulerService()
         self.tiramisu_service: TiramisuService = TiramisuService()
@@ -48,12 +50,13 @@ class TiramisuEnvAPI:
                 self.programs = os.listdir(self.dataset_service.dataset_path)
         return sorted(self.programs)
 
-    def set_program(self, name: str, data: dict = None, cpp_code: str = None):
+    def set_program(self, name: str, data: dict = None, cpp_code: str = None, wrappers: dict = None):
         # print("Function : ", name)
         if data:
             tiramisu_prog = self.tiramisu_service.fetch_prog_offline(name=name,
                                                                      data=data,
-                                                                     original_str=cpp_code)
+                                                                     original_str=cpp_code,
+                                                                     wrappers=wrappers)
         else:
             # Get the file path for the program with the given name
             file_path, exist_offline = self.dataset_service.get_file_path(name)
@@ -88,7 +91,7 @@ class TiramisuEnvAPI:
 
         # Using the model to embed the program in a 180 sized vector
         with torch.no_grad():
-            _, embedding_tensor = self.scheduler_service.prediction_service.get_speedup(
+            _, embedding_tensor = self.scheduler_service.prediction_service.get_speedup_embedded_tensor(
                 comps_tensor, loops_tensor,
                 self.scheduler_service.schedule_object)
 
@@ -170,13 +173,13 @@ class TiramisuEnvAPI:
 
     def get_current_tiramisu_program_dict(self) -> TiramisuProgram:
         return {
-                "proram_annotation": self.scheduler_service.schedule_object.prog.annotations,
-                "schedules_legality": self.scheduler_service.schedule_object.prog.schedules_legality,
-                "schedules_solver": self.scheduler_service.schedule_object.prog.schedules_solver
-            }
-    
+            "proram_annotation": self.scheduler_service.schedule_object.prog.annotations,
+            "schedules_legality": self.scheduler_service.schedule_object.prog.schedules_legality,
+            "schedules_solver": self.scheduler_service.schedule_object.prog.schedules_solver
+        }
+
     def final_speedup(self):
         speedup, sch_str = self.scheduler_service.get_current_speedup()
-        print("Function : ",self.scheduler_service.schedule_object.prog.name,
+        print("Function : ", self.scheduler_service.schedule_object.prog.name,
               "\nFinal Schedule :", sch_str,
-                "\nFinal Speedup :", speedup)
+              "\nFinal Speedup :", speedup)

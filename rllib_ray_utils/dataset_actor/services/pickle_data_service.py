@@ -1,9 +1,10 @@
 import pickle
 import random
+from typing import Literal
 
 import numpy as np
 from env_api.core.models.tiramisu_program import TiramisuProgram
-from rllib_ray_utils.dataset_actor.services.base_data_service  import (
+from rllib_ray_utils.dataset_actor.services.base_data_service import (
     BaseDataService,
 )
 
@@ -17,6 +18,8 @@ class PickleDataService(BaseDataService):
         shuffle: bool = False,
         seed: int = None,
         saving_frequency: int = 10000,
+        training_mode: Literal["model", "cpu"] = "model",
+        wrappers_path: str = None,
     ):
         super().__init__(
             dataset_path=dataset_path,
@@ -24,9 +27,12 @@ class PickleDataService(BaseDataService):
             shuffle=shuffle,
             seed=seed,
             saving_frequency=saving_frequency,
+            training_mode=training_mode,
+            wrappers_path=wrappers_path,
         )
         self.cpps_path = cpps_path
         self.cpps = {}
+        self.wrappers = {}
 
         print(
             f"reading dataset in full pkl format: dataset pkl from {self.dataset_path} and cpps pkl from {self.cpps_path}"
@@ -39,6 +45,11 @@ class PickleDataService(BaseDataService):
         with open(self.cpps_path, "rb") as f:
             self.cpps = pickle.load(f)
 
+        if training_mode == "cpu":
+            print(f"reading wrappers pkl from {self.wrappers_path}")
+            with open(self.wrappers_path, "rb") as f:
+                self.wrappers = pickle.load(f)
+
         # Shuffle the dataset (can be used with random sampling turned off to get a random order)
         if self.shuffle:
             # Set the seed if specified (for reproducibility)
@@ -49,7 +60,7 @@ class PickleDataService(BaseDataService):
         self.dataset_size = len(self.function_names)
 
     # Returns next function name, function data, and function cpps
-    def get_next_function(self, random=False) -> TiramisuProgram:
+    def get_next_function(self, random=False):
         if random:
             function_name = np.random.choice(self.function_names)
         # Choose the next function sequentially
@@ -62,5 +73,13 @@ class PickleDataService(BaseDataService):
         # print(
         #     f"Selected function with index: {self.current_function_index}, name: {function_name}"
         # )
+
+        if self.training_mode == "cpu":
+            return (
+                function_name,
+                self.dataset[function_name],
+                self.cpps[function_name],
+                self.wrappers[function_name],
+            )
 
         return function_name, self.dataset[function_name], self.cpps[function_name]

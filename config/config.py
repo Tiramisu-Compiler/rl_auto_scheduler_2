@@ -30,6 +30,7 @@ class TiramisuConfig:
     is_new_tiramisu: bool = False
     workspace: str = "./workspace/"
     old_tiramisu_path: str = ""
+    max_runs: int = 30
 
     def __post_init__(self):
         if not self.is_new_tiramisu:
@@ -45,22 +46,31 @@ class DatasetConfig:
     shuffle: bool = False
     seed: int = None
     saving_frequency: int = 10000
+    wrappers_path: str = ""
 
     def __init__(self, dataset_config_dict: Dict):
         self.dataset_format = DatasetFormat.from_string(
-            dataset_config_dict["dataset_format"])
+            dataset_config_dict["dataset_format"]
+        )
         self.cpps_path = dataset_config_dict["cpps_path"]
         self.dataset_path = dataset_config_dict["dataset_path"]
         self.save_path = dataset_config_dict["save_path"]
         self.shuffle = dataset_config_dict["shuffle"]
         self.seed = dataset_config_dict["seed"]
         self.saving_frequency = dataset_config_dict["saving_frequency"]
+        self.wrappers_path = dataset_config_dict["wrappers_path"]
 
-        if dataset_config_dict['is_benchmark']:
-            self.dataset_path = dataset_config_dict["benchmark_dataset_path"] if dataset_config_dict[
-                "benchmark_dataset_path"] else self.dataset_path
-            self.cpps_path = dataset_config_dict["benchmark_cpp_files"] if dataset_config_dict[
-                "benchmark_cpp_files"] else self.cpps_path
+        if dataset_config_dict["is_benchmark"]:
+            self.dataset_path = (
+                dataset_config_dict["benchmark_dataset_path"]
+                if dataset_config_dict["benchmark_dataset_path"]
+                else self.dataset_path
+            )
+            self.cpps_path = (
+                dataset_config_dict["benchmark_cpp_files"]
+                if dataset_config_dict["benchmark_cpp_files"]
+                else self.cpps_path
+            )
 
 
 @dataclass
@@ -88,10 +98,8 @@ class Experiment:
 
 @dataclass
 class PolicyNetwork:
-    policy_hidden_layers: List[int] = field(
-        default_factory=lambda: [])
-    vf_hidden_layers: List[int] = field(
-        default_factory=lambda: [])
+    policy_hidden_layers: List[int] = field(default_factory=lambda: [])
+    vf_hidden_layers: List[int] = field(default_factory=lambda: [])
     dropout_rate: float = 0.2
 
 
@@ -104,7 +112,6 @@ class LSTMPolicy:
 
 @dataclass
 class AutoSchedulerConfig:
-
     tiramisu: TiramisuConfig
     dataset: DatasetConfig
     ray: Ray
@@ -143,7 +150,9 @@ def dict_to_config(parsed_yaml: Dict[Any, Any]) -> AutoSchedulerConfig:
     experiment = Experiment(**parsed_yaml["experiment"])
     policy_network = PolicyNetwork(**parsed_yaml["policy_network"])
     lstm_policy = LSTMPolicy(**parsed_yaml["lstm_policy"])
-    return AutoSchedulerConfig(tiramisu, dataset, ray, experiment, policy_network, lstm_policy)
+    return AutoSchedulerConfig(
+        tiramisu, dataset, ray, experiment, policy_network, lstm_policy
+    )
 
 
 class Config(object):

@@ -1,5 +1,7 @@
+import os
 import subprocess
 import re
+from time import sleep
 from typing import List
 from env_api.scheduler.models.action import Parallelization, Unrolling
 from env_api.scheduler.models.schedule import Schedule
@@ -214,6 +216,81 @@ class CompilingService():
         return cpp_code
 
     @classmethod
-    def write_cpp_code(cls, cpp_code: str, output_path: str):
-        with open(output_path + '.cpp', 'w') as f:
+    def write_to_disk(cls, cpp_code: str, output_path: str, extension: str = '.cpp'):
+        with open(output_path + extension, 'w') as f:
             f.write(cpp_code)
+
+    @classmethod
+    def get_cpu_speedup(cls, schedule_object: Schedule, optims_list: List[OptimizationCommand]):
+        # Get the code of the schedule
+        cpp_code = cls.get_schedule_code(schedule_object, optims_list)
+        # Write the code to a file
+        output_path = os.path.join(
+            Config.config.tiramisu.workspace, schedule_object.prog.name)
+
+        cpp_file_path = output_path + '_schedule.cpp'
+        cls.write_to_disk(cpp_code, output_path + '_schedule')
+
+        # write the wrappers
+        cls.write_to_disk(
+            schedule_object.prog.wrappers['cpp'], output_path + '_wrapper')
+        cls.write_to_disk(
+            schedule_object.prog.wrappers['h'], output_path + '_wrapper', '.h')
+
+        if Config.config.tiramisu.is_new_tiramisu:
+            # Making the tiramisu root path explicit to the env
+            shell_script = [
+                f"cd {Config.config.tiramisu.workspace}",
+                # Compile intermidiate tiramisu file
+                f"$CXX -I$TIRAMISU_ROOT/3rdParty/Halide/install/include -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/isl/include  -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -std=c++17 -O0 -o {schedule_object.prog.name}.o -c {cpp_file_path}",
+                # Link generated file with executer
+                f"$CXX -Wl,--no-as-needed -ldl -g -fno-rtti -lpthread -std=c++17 -O0 {schedule_object.prog.name}.o -o {schedule_object.prog.name}.out   -L$TIRAMISU_ROOT/build  -L$TIRAMISU_ROOT/3rdParty/Halide/install/lib64  -L$TIRAMISU_ROOT/3rdParty/isl/build/lib  -Wl,-rpath,$TIRAMISU_ROOT/build:$TIRAMISU_ROOT/3rdParty/Halide/install/lib64:$TIRAMISU_ROOT/3rdParty/isl/build/lib -ltiramisu -ltiramisu_auto_scheduler -lHalide -lisl",
+                # Run the generator
+                f"./{schedule_object.prog.name}.out",
+                # compile the wrapper
+                f"$CXX -shared -o {schedule_object.prog.name}.o.so {schedule_object.prog.name}.o",
+                f"$CXX -std=c++17 -fno-rtti -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/Halide/install/include -I$TIRAMISU_ROOT/3rdParty/isl/include/ -I$TIRAMISU_ROOT/benchmarks -L$TIRAMISU_ROOT/build -L$TIRAMISU_ROOT/3rdParty/Halide/install/lib64/ -L$TIRAMISU_ROOT/3rdParty/isl/build/lib -o {schedule_object.prog.name}_wrapper -ltiramisu -lHalide -ldl -lpthread -lm -Wl,-rpath,$TIRAMISU_ROOT/build {schedule_object.prog.name}_wrapper.cpp {schedule_object.prog.name}.o.so -ltiramisu -lHalide -ldl -lpthread -lm -lisl",
+            ]
+
+        else:
+            # TODO
+            raise NotImplementedError
+
+        run_script = [
+            # cd to the workspace
+            f"cd {Config.config.tiramisu.workspace}",
+
+            #  set the env variables
+            f"export DYNAMIC_RUNS=0",
+            f"export MAX_RUNS={Config.config.tiramisu.max_runs}",
+
+            # run the wrapper
+            f"./{schedule_object.prog.name}_wrapper",
+
+            # Clean generated files
+            f"rm {output_path}*",
+        ]
+        try:
+            compiler = subprocess.run([" ; ".join(shell_script)],
+                                      capture_output=True,
+                                      text=True,
+                                      shell=True,
+                                      check=True)
+            compiler = subprocess.run([" ; ".join(run_script)],
+                                      capture_output=True,
+                                      text=True,
+                                      shell=True,
+                                      check=True)
+            if compiler.stdout:
+                results = [float(x) for x in compiler.stdout.split()]
+                return min(results)
+            else:
+                raise Exception("No output from the compiler")
+        except subprocess.CalledProcessError as e:
+            print("Process terminated with error code", e.returncode)
+            print("Error output:", e.stderr)
+            print("Output:", e.stdout)
+            raise e
+        except Exception as e:
+            print(e)
+            raise e

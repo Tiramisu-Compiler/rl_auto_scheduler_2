@@ -1,3 +1,4 @@
+from typing import Literal
 import ray
 import config.config as cfg
 import env_api.core.models.tiramisu_program as tiramisu_program
@@ -18,19 +19,34 @@ class DatasetActor:
     """
 
     def __init__(
-        self,
-        config: cfg.DatasetConfig,
+        self, config: cfg.DatasetConfig, training_mode: Literal["model", "cpu"]
     ):
         if config.dataset_format == cfg.DatasetFormat.PICKLE:
             self.dataset_service = PickleDataService(
-                config.dataset_path, config.cpps_path, config.save_path, config.shuffle, config.seed, config.saving_frequency)
+                config.dataset_path,
+                config.cpps_path,
+                config.save_path,
+                config.shuffle,
+                config.seed,
+                config.saving_frequency,
+                training_mode,
+                config.wrappers_path,
+            )
         elif config.dataset_format == cfg.DatasetFormat.HYBRID:
             self.dataset_service = HybridDataService(
-                config.dataset_path, config.cpps_path, config.save_path, config.shuffle, config.seed, config.saving_frequency)
+                config.dataset_path,
+                config.cpps_path,
+                config.save_path,
+                config.shuffle,
+                config.seed,
+                config.saving_frequency,
+                training_mode,
+                config.wrappers_path,
+            )
         else:
             raise ValueError("Unknown dataset format")
 
-    def get_next_function(self, random=False) -> tiramisu_program.TiramisuProgram:
+    def get_next_function(self, random=False):
         return self.dataset_service.get_next_function(random)
 
     # Update the dataset with the new function

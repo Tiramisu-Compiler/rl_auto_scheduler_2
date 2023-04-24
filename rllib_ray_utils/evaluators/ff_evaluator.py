@@ -8,7 +8,8 @@ from env_api.core.services.compiling_service import CompilingService
 from rl_agent.rl_env import TiramisuRlEnv
 from rl_agent.rl_policy_nn import PolicyNN
 from ray.rllib.models import ModelCatalog
-from ray.rllib.algorithms.ppo import  PPOConfig
+from ray.rllib.algorithms.ppo import PPOConfig
+
 
 @ray.remote
 class FFBenchmarkEvaluator:
@@ -70,7 +71,7 @@ class FFBenchmarkEvaluator:
             # when episode is done, write cpp code to file
             cpp_code = CompilingService.get_schedule_code(
                 self.env.tiramisu_api.scheduler_service.schedule_object, self.env.tiramisu_api.scheduler_service.schedule_list)
-            CompilingService.write_cpp_code(cpp_code, os.path.join(
+            CompilingService.write_to_disk(cpp_code, os.path.join(
                 self.args.output_path, self.env.current_program))
 
             # store explored program and its schedule

@@ -12,12 +12,13 @@ class TiramisuProgram():
         self.schedules_legality = {}
         self.schedules_solver = {}
         self.original_str = None
+        self.wrappers = None
         if (file_path):
             self.load_code_lines()
 
     # Since there is no factory constructors in python, I am creating this class method to replace the factory pattern
     @classmethod
-    def from_dict(cls, name: str, data: dict, original_str: str = None):
+    def from_dict(cls, name: str, data: dict, original_str: str = None, wrappers: dict = None):
         # Initiate an instante of the TiramisuProgram class
         tiramisu_prog = cls(None)
         tiramisu_prog.name = name
@@ -29,6 +30,9 @@ class TiramisuProgram():
             tiramisu_prog.schedules_solver = data["schedules_solver"]
 
         tiramisu_prog.load_code_lines(original_str)
+
+        if wrappers:
+            tiramisu_prog.wrappers = wrappers
 
         # After taking the neccessary fields return the instance
         return tiramisu_prog

@@ -48,9 +48,9 @@ class SchedulerService:
     def get_current_speedup(self):
         repr_tensors = ConvertService.get_schedule_representation(
             self.schedule_object)
-        speedup, embedding_tensor = self.prediction_service.get_speedup(
-            *repr_tensors, self.schedule_object)
-        return speedup , self.schedule_object.schedule_str
+        speedup, embedding_tensor = self.prediction_service.get_speedup_embedded_tensor(
+            *repr_tensors, self.schedule_object, optims_list=self.schedule_list)
+        return speedup, self.schedule_object.schedule_str
 
     def get_schedule_dict(self):
         """
@@ -102,8 +102,8 @@ class SchedulerService:
                 # we need these 2 tensors for the input of the model.
                 repr_tensors = ConvertService.get_schedule_representation(
                     self.schedule_object)
-                speedup, embedding_tensor = self.prediction_service.get_speedup(
-                    *repr_tensors, self.schedule_object)
+                speedup, embedding_tensor = self.prediction_service.get_speedup_embedded_tensor(
+                    *repr_tensors, self.schedule_object, optims_list=self.schedule_list)
             except KeyError as e:
                 logging.error(f"This loop level: {e} doesn't exist")
                 legality_check = False

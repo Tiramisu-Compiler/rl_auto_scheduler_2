@@ -61,17 +61,17 @@ if __name__ == "__main__":
     Config.init()
     # DatasetActor is the responsible class of syncronizing data between rollout-workers, TiramisuEnvAPI will read
     # data from this actor.
-    dataset_actor = DatasetActor.remote(Config.config.dataset)
+    dataset_actor = DatasetActor.remote(
+        Config.config.dataset, Config.config.tiramisu.env_type)
 
     match (Config.config.experiment.policy_model):
         case "lstm":
             ModelCatalog.register_custom_model("policy_nn", PolicyLSTM)
-            model_custom_config = Config.config.lstm_policy.__dict__ 
+            model_custom_config = Config.config.lstm_policy.__dict__
         case "ff":
             ModelCatalog.register_custom_model("policy_nn", PolicyNN)
             model_custom_config = Config.config.policy_network.__dict__
 
-    
     config = get_trainable_cls(args.run).get_default_config().environment(
         TiramisuRlEnv,
         env_config={
@@ -92,7 +92,7 @@ if __name__ == "__main__":
                     }).resources(num_gpus=0).debugging(log_level="WARN")
 
     config.entropy_coeff = Config.config.experiment.entropy_coeff
-    
+
     # Setting the stop conditions
     stop = {
         "training_iteration": Config.config.experiment.training_iteration,
