@@ -1,5 +1,8 @@
+from typing import List
 from config.config import Config
+from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.converting_service import ConvertService
+from env_api.scheduler.models.branch import Branch
 from env_api.scheduler.services.legality_service import LegalityService
 from env_api.scheduler.services.prediction_service import PredictionService
 from env_api.utils.functions.fusion import transform_tree_for_fusion
@@ -12,6 +15,8 @@ class SchedulerService:
     def __init__(self):
         # The Schedule object contains all the informations of a program : annotatons , tree representation ...
         self.schedule_object: Schedule = None
+        # The branches generated from the program tree 
+        self.branches : List[Branch] = []
         # The prediction service is an object that has a value estimator `get_speedup(schedule)` of the speedup that a schedule will have
         # This estimator is a recursive model that needs the schedule representation to give speedups
         self.prediction_service = PredictionService()
@@ -27,6 +32,8 @@ class SchedulerService:
             - a tuple tensor that has the ready-to-use representaion that's going to represent the new optimized program (if any optim is applied) and serves as input to the cost and policy neural networks
         """
         self.schedule_object = schedule_object
+        # We create the branches of the program
+        self.create_branches()
         return ConvertService.get_schedule_representation(schedule_object)
 
     def get_annotations(self):
@@ -49,12 +56,17 @@ class SchedulerService:
             *repr_tensors, self.schedule_object)
         return speedup , self.schedule_object.schedule_str
 
-    def get_schedule_dict(self):
-        """
-        output :
-            - a dictionnary that contains the applied optimizations on a program in the form of tags
-        """
-        return self.schedule_object.schedule_dict
+    def create_branches(self):
+        self.branches.clear()
+        for branch in self.schedule_object.branches : 
+            program_data = {
+                "program_annotation" : branch["annotations"],
+                "schedules_legality" : {},
+                "schedules_solver" : {}
+            }
+            self.branches.append(Branch(TiramisuProgram.from_dict(self.schedule_object.prog.name,
+                                                                  data=program_data,
+                                                                  original_str="")))
 
     def apply_action(self, action: Action):
         """
