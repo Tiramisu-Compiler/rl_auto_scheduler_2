@@ -37,7 +37,7 @@ class TiramisuRlEnv(gym.Env):
             # program = random.choice(self.tiramisu_api.programs)
             prog_infos = ray.get(self.dataset_actor.get_next_function.remote())
             # The shape of embedded_tensor : (180,)
-            # Shape pf actions mask : (27,)
+            # Shape of actions mask : (27,)
             embedded_tensor, actions_mask = self.tiramisu_api.set_program(
                 *prog_infos)
             self.current_program = prog_infos[0]

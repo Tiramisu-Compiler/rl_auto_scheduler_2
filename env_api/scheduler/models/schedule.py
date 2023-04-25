@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np , copy
 from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.representation import Representation
@@ -49,8 +49,6 @@ class Schedule:
                 "iterators"
             ]
 
-
-
     def __init_schedule_dict_tags(self):
         self.schedule_dict["fusions"] = None
         for comp in self.comps:
@@ -85,15 +83,37 @@ class Schedule:
             self.it_dict[comp] = comp_it_dict
             
     def __form_branches(self):
-        branchs = []
+        branches = []
         iterators = self.prog.annotations["iterators"]
         for iterator in iterators.keys(): 
             if iterators[iterator]["computations_list"]:
-                branchs.append({
+                # If the iterator has compuations list not empty => leaf node (last iterator)
+                branch = {
                     "comps" : iterators[iterator]["computations_list"],
-                    "iterators" : self.prog.annotations["computations"][iterators[iterator]["computations_list"][0]]["iterators"]
-                })
-        self.branches = branchs
+                    "iterators" : self.prog.annotations["computations"][iterators[iterator]["computations_list"][0]]["iterators"],
+                    "annotations": {}
+                }
+                branch_annotations = {
+                    "computations" : {},
+                    "iterators": {}
+                }
+                # extract the branch specific computations annotations
+                for comp in branch["comps"]:
+                    branch_annotations["computations"][comp] = self.prog.annotations["computations"][comp]
+                
+                # extract the branch specific iterators annotations
+                for iterator in branch["iterators"]:
+                    branch_annotations["iterators"][iterator] = self.prog.annotations["iterators"][iterator]
+                    if (self.prog.annotations["iterators"][iterator]["parent_iterator"]):
+                        # Making sure that the parent node has the actual node as the only child
+                        # It may happen that the parent node has many children but in a branch it is only allowed
+                        # to have a single child to form a straight-forward branch from top to bottom
+                        parent = (branch_annotations["iterators"][iterator]["parent_iterator"])
+                        branch_annotations["iterators"][parent]["child_iterators"] = [iterator]
+                branch["annotations"] = copy.deepcopy(branch_annotations)
+                branches.append(branch)
+
+        self.branches = branches
 
     
     def update_actions_mask(self, action : Action,applied : bool,beam_search_order= False):
