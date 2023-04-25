@@ -25,12 +25,18 @@ class Schedule:
         # self.schedule_list is an array that contains a list of optimizations that has been applied on the program
         # This list has objects of type `OptimizationCommand`
         self.schedule_list = []
-        self.__calculate_common_it()
-        self.__init_schedule_dict_tags()
-        self.__init_representation()
-        self.__set_action_mask()
-        self.__form_iterators_dict()
-        self.__form_branches()
+        if((type(self).__name__) == "Schedule"):
+            self.__calculate_common_it()
+            self.__init_schedule_dict_tags()
+            self.__init_representation()
+            self.__set_action_mask()
+            self.__form_iterators_dict()
+            self.__form_branches()
+        else : 
+            self.__init_schedule_dict_tags()
+            self.__init_representation()
+            self.__set_action_mask()
+            self.__form_iterators_dict()
 
 
     def __calculate_common_it(self):
@@ -87,7 +93,6 @@ class Schedule:
         iterators = self.prog.annotations["iterators"]
         for iterator in iterators.keys(): 
             if iterators[iterator]["computations_list"]:
-                # If the iterator has compuations list not empty => leaf node (last iterator)
                 branch = {
                     "comps" : iterators[iterator]["computations_list"],
                     "iterators" : self.prog.annotations["computations"][iterators[iterator]["computations_list"][0]]["iterators"],
@@ -100,7 +105,6 @@ class Schedule:
                 # extract the branch specific computations annotations
                 for comp in branch["comps"]:
                     branch_annotations["computations"][comp] = self.prog.annotations["computations"][comp]
-                
                 # extract the branch specific iterators annotations
                 for iterator in branch["iterators"]:
                     branch_annotations["iterators"][iterator] = self.prog.annotations["iterators"][iterator]
