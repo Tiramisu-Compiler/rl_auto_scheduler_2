@@ -1,3 +1,4 @@
+from typing import List
 from env_api.core.models.optim_cmd import OptimizationCommand
 from env_api.core.services.compiling_service import CompilingService
 from env_api.core.services.converting_service import ConvertService
@@ -12,7 +13,7 @@ class LegalityService:
         '''
         pass 
 
-    def is_action_legal(self,schedule_object:Schedule, action: Action):
+    def is_action_legal(self,schedule_object: Schedule,branches: List[Schedule],current_branch:int ,action: Action):
         """
         Checks the legality of action
         input :
@@ -23,7 +24,9 @@ class LegalityService:
 
         # Check first if the iterator(s) is(are) included in the available in the current iterators
         # If not then the action is illegal by default 
-        exceeded_iterators = self.check_iterators(schedule_object=schedule_object,action=action)
+        exceeded_iterators = self.check_iterators(branches=branches,
+                                                  current_branch = current_branch,
+                                                  action=action)
         if exceeded_iterators : return False
 
         # TODO : remove this condition when we apply the new method
@@ -42,12 +45,12 @@ class LegalityService:
             # construct the schedule string to check if it is legal or not
             schdule_str = ConvertService.build_sched_string(schedule_object.schedule_list)
             action.comps = schedule_object.comps
+
             # check if results of skewing solver exist in the dataset
             if schdule_str in schedule_object.prog.schedules_solver:
                 factors = schedule_object.prog.schedules_solver[schdule_str]
 
             else:
-
                 if (not schedule_object.prog.original_str):
                     # Loading function code lines
                     schedule_object.prog.load_code_lines()
@@ -101,11 +104,11 @@ class LegalityService:
         return legality_check == 1
 
     
-    def check_iterators(self, schedule_object , action):
-        included_iterator = True
+    def check_iterators(self,branches : List[Schedule],current_branch :int, action : Action):
+        params = []
         # Before checking legality from dataset or by compiling , we see if the iterators are included in the common iterators
         if (not isinstance(action, Unrolling)):
-            num_iter = schedule_object.common_it.__len__()
+            num_iter = branches[current_branch].common_it.__len__()
             if isinstance(action, Tiling):
                 # Becuase the second half of action.params contains tiling size, so we need only the first half of the vector
                 params = action.params[:len(action.params) // 2]
@@ -113,19 +116,24 @@ class LegalityService:
                 params = action.params
             for param in params:
                 if param >= num_iter:
-                    included_iterator = False 
-
-        if isinstance(action, Fusion):
-            if (len(schedule_object.comps) <= 1):
-                # If the program has a single computation , then fusion is illegal
-                included_iterator = False 
-            action.comps = [
-                comp for comp in schedule_object.it_dict
-                if action.params[0] in schedule_object.it_dict[comp]
-            ]
-            if (len(action.comps) <= 1):
-                # If there are many computations but , at the fusion loop level there is less than 2 computations
-                # then fusion will be illegal
-                included_iterator = False 
+                    return True 
         
-        return not included_iterator
+        # We have the current branch 
+        concerned_iterators = [branches[current_branch].common_it[it] for it in params]
+        match len(concerned_iterators):
+            case 2 : 
+                for branch in branches: 
+                    if concerned_iterators[0] in branch.common_it:
+                        # If for some branch , we have the parent iterator shared with current branch but 
+                        # the child is different , this means that only the parent is shared and the children are different
+                        if not concerned_iterators[1] in branch.common_it:
+                            return True
+            case 3 : 
+                for branch in branches: 
+                    if concerned_iterators[0] in branch.common_it:
+                        if concerned_iterators[1] in branch.common_it:
+                            if not concerned_iterators[2] in branch.common_it:
+                                return True
+                        else :
+                            return True
+        return False
