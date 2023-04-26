@@ -42,13 +42,13 @@ class Schedule:
     def __calculate_common_it(self):
         if len(self.comps) != 1:  # Multi-computation program
             # comps_it is a list of lists of iterators of computations
-            self.comps_it = []
+            comps_it = []
             for comp in self.comps:
-                self.comps_it.append(
+                comps_it.append(
                     self.prog.annotations["computations"][comp]["iterators"]
                 )
-            self.common_it = self.comps_it[0]
-            for comp_it in self.comps_it[1:]:
+            self.common_it = comps_it[0]
+            for comp_it in comps_it[1:]:
                 self.common_it = [it for it in comp_it if it in self.common_it]
         else:  # A single comp program
             self.common_it = self.prog.annotations["computations"][self.comps[0]][

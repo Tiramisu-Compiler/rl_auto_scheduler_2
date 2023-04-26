@@ -1,4 +1,6 @@
 from typing import List
+
+import torch
 from config.config import Config
 from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.converting_service import ConvertService
@@ -17,6 +19,7 @@ class SchedulerService:
         self.schedule_object: Schedule = None
         # The branches generated from the program tree 
         self.branches : List[Branch] = []
+        self.current_branch = 0
         # The prediction service is an object that has a value estimator `get_speedup(schedule)` of the speedup that a schedule will have
         # This estimator is a recursive model that needs the schedule representation to give speedups
         self.prediction_service = PredictionService()
@@ -29,26 +32,23 @@ class SchedulerService:
         input :
             - schedule_object : contains all the inforamtions on a program and the schedule
         output :
-            - a tuple tensor that has the ready-to-use representaion that's going to represent the new optimized program (if any optim is applied) and serves as input to the cost and policy neural networks
+            - a tuple of vectors that represents the main program and the current branch , in addition to their respective actions mask
         """
         self.schedule_object = schedule_object
         # We create the branches of the program
         self.create_branches()
-        return ConvertService.get_schedule_representation(schedule_object)
-
-    def get_annotations(self):
-        """
-        output :
-            - a dictionary containing the annotations of a program which is stored in `self.schedule_object.prog`
-        """
-        return self.schedule_object.prog.annotations
-
-    def get_tree_tensor(self):
-        repr_tensors = ConvertService.get_schedule_representation(
-            self.schedule_object)
-        return ConvertService.get_tree_representation(*repr_tensors,
-                                                      self.schedule_object)
-
+        main_comps , main_loops = ConvertService.get_schedule_representation(schedule_object)
+        branch_comps , branch_loops = ConvertService.get_schedule_representation(self.branches[self.current_branch])
+        # Using the model to embed the program and the branch in a 180 sized vector each
+        with torch.no_grad():
+            _, main_embed = self.prediction_service.get_speedup(
+                main_comps, main_loops,schedule_object)
+            _, branch_embed = self.prediction_service.get_speedup(
+                branch_comps, branch_loops,self.branches[self.current_branch])
+        
+        return ([main_embed,torch.tensor([self.current_branch]),branch_embed], 
+                [schedule_object.repr.action_mask,self.branches[self.current_branch].repr.action_mask]
+                )
     def get_current_speedup(self):
         repr_tensors = ConvertService.get_schedule_representation(
             self.schedule_object)
@@ -64,9 +64,12 @@ class SchedulerService:
                 "schedules_legality" : {},
                 "schedules_solver" : {}
             }
-            self.branches.append(Branch(TiramisuProgram.from_dict(self.schedule_object.prog.name,
+            new_branch = Branch(TiramisuProgram.from_dict(self.schedule_object.prog.name,
                                                                   data=program_data,
-                                                                  original_str="")))
+                                                                  original_str=""))
+            new_branch.prog.load_code_lines(self.schedule_object.prog.original_str)
+            self.branches.append(new_branch)
+            
 
     def apply_action(self, action: Action):
         """
@@ -76,6 +79,8 @@ class SchedulerService:
             - speedup : float , representation : tuple(tensor) , legality_check : bool
         """
         legality_check = self.legality_service.is_action_legal(schedule_object=self.schedule_object,
+                                                               branches=self.branches,
+                                                               current_branch=self.current_branch,
                                                                action=action)
         embedding_tensor = None
         speedup = Config.config.experiment.legality_speedup

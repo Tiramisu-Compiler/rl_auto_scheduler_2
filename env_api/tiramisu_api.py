@@ -80,16 +80,10 @@ class TiramisuEnvAPI:
         schedule = Schedule(tiramisu_prog)
 
         # Use the Scheduler service to set the schedule for the Tiramisu model
-        comps_tensor, loops_tensor = self.scheduler_service.set_schedule(
+        embedding_tensor, actions_mask = self.scheduler_service.set_schedule(
             schedule_object=schedule)
 
-        # Using the model to embed the program in a 180 sized vector
-        with torch.no_grad():
-            _, embedding_tensor = self.scheduler_service.prediction_service.get_speedup(
-                comps_tensor, loops_tensor,
-                self.scheduler_service.schedule_object)
-
-        return embedding_tensor, self.scheduler_service.schedule_object.repr.action_mask
+        return embedding_tensor, actions_mask
 
     # TODO : for all these actions we need to generalize over computations and not over shared iterators
     def parallelize(self, loop_level: int, env_id: int = None):

@@ -4,6 +4,7 @@ from env_api.core.services.compiling_service import CompilingService
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.action import *
 from env_api.scheduler.models.schedule import Schedule
+import copy
 
 
 class LegalityService:
@@ -29,19 +30,8 @@ class LegalityService:
                                                   action=action)
         if exceeded_iterators : return False
 
-        # TODO : remove this condition when we apply the new method
-        if isinstance(action, Unrolling):
-            # In this case we unroll all the computations
-            action.comps = schedule_object.comps
-            # We look for the last iterator of each computation and save it in the params
-            unrolling_factor = action.params[0]
-            action.params = {}
-            for comp in schedule_object.it_dict:
-                loop_level = len(schedule_object.it_dict[comp].keys()) - 1
-                action.params[comp] = [loop_level, unrolling_factor]
-
         # For skewing action we need first to get the skewing params : a list of 2 int
-        elif isinstance(action, Skewing):
+        if isinstance(action, Skewing):
             # construct the schedule string to check if it is legal or not
             schdule_str = ConvertService.build_sched_string(schedule_object.schedule_list)
             action.comps = schedule_object.comps
@@ -66,8 +56,7 @@ class LegalityService:
                 return False
             else:
                 action.params.extend(factors)
-        else:
-            action.comps = schedule_object.comps
+
         # Assign the requested comps to the action
         optim_command = OptimizationCommand(action)
         # Add the command to the array of schedule
@@ -107,7 +96,16 @@ class LegalityService:
     def check_iterators(self,branches : List[Schedule],current_branch :int, action : Action):
         params = []
         # Before checking legality from dataset or by compiling , we see if the iterators are included in the common iterators
-        if (not isinstance(action, Unrolling)):
+        if (isinstance(action, Unrolling)):
+            # We look for the last iterator of each computation and save it in the params
+            unrolling_factor = action.params[0]
+            action.params = {}
+            for comp in branches[current_branch].comps:
+                loop_level = len(branches[current_branch].it_dict[comp].keys()) - 1
+                action.params[comp] = [loop_level, unrolling_factor]
+            action.comps = copy.deepcopy(branches[current_branch].comps)
+            return False 
+        else : 
             num_iter = branches[current_branch].common_it.__len__()
             if isinstance(action, Tiling):
                 # Becuase the second half of action.params contains tiling size, so we need only the first half of the vector
@@ -116,24 +114,35 @@ class LegalityService:
                 params = action.params
             for param in params:
                 if param >= num_iter:
-                    return True 
+                    return True
+        
         
         # We have the current branch 
         concerned_iterators = [branches[current_branch].common_it[it] for it in params]
+        concerned_comps = []
         match len(concerned_iterators):
+            case 1 : 
+                for branch in branches:
+                    if concerned_iterators[0] in branch.common_it:
+                        concerned_comps.extend(branch.comps)
             case 2 : 
                 for branch in branches: 
                     if concerned_iterators[0] in branch.common_it:
-                        # If for some branch , we have the parent iterator shared with current branch but 
-                        # the child is different , this means that only the parent is shared and the children are different
-                        if not concerned_iterators[1] in branch.common_it:
-                            return True
+                        if concerned_iterators[1] in branch.common_it:
+                            concerned_comps.extend(branch.comps)
+                        else : 
+                            # If for some branch , we have the parent iterator shared with current branch but 
+                            # the child is different , this means that only the parent is shared and the children are different
+                            return True 
             case 3 : 
                 for branch in branches: 
                     if concerned_iterators[0] in branch.common_it:
                         if concerned_iterators[1] in branch.common_it:
-                            if not concerned_iterators[2] in branch.common_it:
-                                return True
+                            if concerned_iterators[2] in branch.common_it:
+                                concerned_comps.extend(branch.comps)
+                            else: 
+                                return True 
                         else :
-                            return True
-        return False
+                            return True 
+        action.comps = copy.deepcopy(concerned_comps)
+        return False 
