@@ -9,7 +9,7 @@ from env_api.core.models.optim_cmd import OptimizationCommand
 
 class CompilingService():
     @classmethod
-    def compile_legality(cls, schedule_object: Schedule, optims_list: list):
+    def compile_legality(cls, schedule_object: Schedule, optims_list: List[OptimizationCommand]):
         tiramisu_program = schedule_object.prog
         output_path = Config.config.tiramisu.workspace + tiramisu_program.name + 'legal'
 
@@ -18,24 +18,19 @@ class CompilingService():
         return cls.run_cpp_code(cpp_code=cpp_code, output_path=output_path)
 
     @classmethod
-    def get_legality_code(cls, schedule_object: Schedule, optims_list: list):
+    def get_legality_code(cls, schedule_object: Schedule, optims_list: List[OptimizationCommand]):
         tiramisu_program = schedule_object.prog
-        comps = schedule_object.comps
-        first_comp = schedule_object.comps[0]
         # Add code to the original file to get legality result
         legality_check_lines = '''\n\tprepare_schedules_for_legality_checks();\n\tperform_full_dependency_analysis();\n\tbool is_legal=true;'''
         for optim in optims_list:
             if isinstance(optim.action, Parallelization):
                 legality_check_lines += '''\n\tis_legal &= loop_parallelization_is_legal(''' + str(
                     optim.params_list[0]
-                ) + ''', {&''' + first_comp + '''});\n'''
+                ) + ''', {&''' + optim.action.comps[0] + '''});\n'''
             elif isinstance(optim.action, Unrolling):
-                for branch in schedule_object.branches:
-                    comps = branch["comps"]
-                    level = len(branch["iterators"]) - 1
-                    legality_check_lines += '''\n\tis_legal &= loop_unrolling_is_legal(''' + str(
-                        level) + ''', {''' + ", ".join(
-                            [f"&{comp}" for comp in comps]) + '''});'''
+                legality_check_lines += '''\n\tis_legal &= loop_unrolling_is_legal(''' + str(
+                    optim.action.params[0]) + ''', {''' + ", ".join(
+                        [f"&{comp}" for comp in optim.action.comps]) + '''});'''
             legality_check_lines += optim.tiramisu_optim_str + '\n'
 
         legality_check_lines += '''

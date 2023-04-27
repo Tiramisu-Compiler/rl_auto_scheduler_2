@@ -34,7 +34,6 @@ class LegalityService:
         if isinstance(action, Skewing):
             # construct the schedule string to check if it is legal or not
             schdule_str = ConvertService.build_sched_string(schedule_object.schedule_list)
-            action.comps = schedule_object.comps
 
             # check if results of skewing solver exist in the dataset
             if schdule_str in schedule_object.prog.schedules_solver:
@@ -46,7 +45,7 @@ class LegalityService:
                     schedule_object.prog.load_code_lines()
                 # Call the skewing solver
                 factors = CompilingService.call_skewing_solver(
-                    schedule_object=schedule_object,
+                    schedule_object=branches[current_branch],
                     optim_list=schedule_object.schedule_list,
                     params=action.params)
 
@@ -55,6 +54,7 @@ class LegalityService:
             if (factors == None):
                 return False
             else:
+                # Adding the factors to the params
                 action.params.extend(factors)
 
         # Assign the requested comps to the action
@@ -76,7 +76,7 @@ class LegalityService:
             try:
                 legality_check = int(
                     CompilingService.compile_legality(
-                        schedule_object=schedule_object,
+                        schedule_object=branches[current_branch],
                         optims_list=schedule_object.schedule_list))
 
                 # Saving the legality of the new schedule
@@ -99,10 +99,8 @@ class LegalityService:
         if (isinstance(action, Unrolling)):
             # We look for the last iterator of each computation and save it in the params
             unrolling_factor = action.params[0]
-            action.params = {}
-            for comp in branches[current_branch].comps:
-                loop_level = len(branches[current_branch].it_dict[comp].keys()) - 1
-                action.params[comp] = [loop_level, unrolling_factor]
+            loop_level = len(branches[current_branch].common_it) -1
+            action.params = copy.deepcopy([loop_level, unrolling_factor])
             action.comps = copy.deepcopy(branches[current_branch].comps)
             return False 
         else : 

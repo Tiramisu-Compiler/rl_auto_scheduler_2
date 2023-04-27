@@ -46,8 +46,8 @@ class SchedulerService:
             _, branch_embed = self.prediction_service.get_speedup(
                 branch_comps, branch_loops,self.branches[self.current_branch])
         
-        return ([main_embed,torch.tensor([self.current_branch]),branch_embed], 
-                [schedule_object.repr.action_mask,self.branches[self.current_branch].repr.action_mask]
+        return ([main_embed, branch_embed], 
+                self.branches[self.current_branch].repr.action_mask
                 )
     def get_current_speedup(self):
         repr_tensors = ConvertService.get_schedule_representation(
@@ -84,40 +84,40 @@ class SchedulerService:
                                                                action=action)
         embedding_tensor = None
         speedup = Config.config.experiment.legality_speedup
-        actions_mask = self.schedule_object.repr.action_mask
         if legality_check:
             try:
                 if isinstance(action, Parallelization):
-                    self.apply_parallelization(loop_level=action.params[0])
+                    self.apply_parallelization(action=action)
 
                 elif isinstance(action, Reversal):
-                    self.apply_reversal(loop_level=action.params[0])
+                    self.apply_reversal(action=action)
                     self.schedule_object.transformed += 1
 
                 elif isinstance(action, Interchange):
-                    self.apply_interchange(loop_level1=action.params[0],
-                                           loop_level2=action.params[1])
+                    self.apply_interchange(action=action)
                     self.schedule_object.transformed += 1
 
                 elif isinstance(action, Tiling):
-                    self.apply_tiling(params=action.params)
-
-                elif isinstance(action, Fusion):
-                    self.apply_fusion(loop_level=action.params[0],
-                                      comps=action.comps)
+                    self.apply_tiling(action=action)
+                    
                 elif isinstance(action, Unrolling):
-                    self.apply_unrolling(params=action.params)
+                    self.apply_unrolling(action=action)
 
                 elif isinstance(action, Skewing):
-                    self.apply_skewing(*action.params)
+                    self.apply_skewing(action=action)
                     self.schedule_object.transformed += 1
 
                 # repr_tensors contains 2 tensors , the 1st one is related to computations and the 2nd one is related to loops,
                 # we need these 2 tensors for the input of the model.
-                repr_tensors = ConvertService.get_schedule_representation(
+                main_repr_tensors = ConvertService.get_schedule_representation(
                     self.schedule_object)
-                speedup, embedding_tensor = self.prediction_service.get_speedup(
-                    *repr_tensors, self.schedule_object)
+                branch_repr_tensors = ConvertService.get_schedule_representation(
+                    self.branches[self.current_branch])
+                speedup, main_embedding_tensor = self.prediction_service.get_speedup(
+                    *main_repr_tensors, self.schedule_object)
+                _, branch_embedding_tensor = self.prediction_service.get_speedup(
+                    *branch_repr_tensors, self.branches[self.current_branch])
+                embedding_tensor = [ main_embedding_tensor, branch_embedding_tensor]
             except KeyError as e:
                 logging.error(f"This loop level: {e} doesn't exist")
                 legality_check = False
@@ -131,26 +131,26 @@ class SchedulerService:
                 print("%" * 50)
                 legality_check = False
 
-        actions_mask = self.schedule_object.update_actions_mask(
-            action=action,
-            applied=legality_check,
-            beam_search_order=Config.config.experiment.beam_search_order)
+        return speedup, embedding_tensor, legality_check, self.branches[self.current_branch].repr.action_mask
 
-        return speedup, embedding_tensor, legality_check, actions_mask
-
-    def apply_parallelization(self, loop_level):
+    def apply_parallelization(self, action: Action):
         # Get any computation since we are using common iterators in a single root programs to apply action parallelization
         #  but #TODO : we need to fix this to support all cases
-        computation = list(self.schedule_object.it_dict.keys())[0]
+        computation = list(self.branches[self.current_branch].it_dict.keys())[0]
         # Getting the name of the iterator that points to the loop_level
-        iterator = self.schedule_object.it_dict[computation][loop_level][
+        # action.params[0]] Represents the loop level 
+        iterator = self.branches[self.current_branch].it_dict[computation][action.params[0]][
             "iterator"]
         # Add the tag of parallelized loop level to the computations
-        for comp in self.schedule_object.comps:
+        for comp in action.comps:
             self.schedule_object.schedule_dict[comp][
                 "parallelized_dim"] = iterator
+            for branch in self.branches : 
+                if (comp in branch.comps):
+                    branch.schedule_dict[comp]["parallelized_dim"] = iterator
 
-    def apply_reversal(self, loop_level):
+
+    def apply_reversal(self, action):
         # The tag representation is as follows:
         #         ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'first_skew_factor', 'second_skew_factor']
         #     Where the type_of_transformation tag is:
@@ -158,13 +158,18 @@ class SchedulerService:
         #       - 1 for loop interchange
         #       - 2 for loop reversal
         #       - 3 for loop skewing
-        transformation = [2, 0, 0, loop_level, 0, 0, 0, 0]
-        # TODO : for now this action is applied to all comps because they share all the same loop levels , need to fix this to be applied on certain comps only
-        for comp in self.schedule_object.comps:
+        transformation = [2, 0, 0, action.params[0] , 0, 0, 0, 0]
+
+        for comp in action.comps:
             self.schedule_object.schedule_dict[comp][
                 "transformations_list"].append(transformation)
+            for branch in self.branches : 
+                if (comp in branch.comps):
+                    branch.schedule_dict[comp][
+                "transformations_list"].append(transformation)
+                    branch.update_actions_mask(action=action)
 
-    def apply_interchange(self, loop_level1: int, loop_level2: int):
+    def apply_interchange(self, action):
         # The tag representation is as follows:
         #         ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'first_skew_factor', 'second_skew_factor']
         #     Where the type_of_transformation tag is:
@@ -172,14 +177,19 @@ class SchedulerService:
         #       - 1 for loop interchange
         #       - 2 for loop reversal
         #       - 3 for loop skewing
-        transformation = [1, loop_level1, loop_level2, 0, 0, 0, 0, 0]
-        # TODO : for now this action is applied to all comps because they share all the same loop levels , need to fix this to be applied on certain comps only
-        for comp in self.schedule_object.comps:
+        
+        transformation = [1, action.params[0], action.params[1], 0, 0, 0, 0, 0]
+
+        for comp in action.comps:
             self.schedule_object.schedule_dict[comp][
                 "transformations_list"].append(transformation)
+            for branch in self.branches : 
+                if (comp in branch.comps):
+                    branch.schedule_dict[comp][
+                "transformations_list"].append(transformation)
+                    branch.update_actions_mask(action=action)
 
-    def apply_skewing(self, loop_level1: int, loop_level2: int, factor1: int,
-                      factor2: int):
+    def apply_skewing(self, action):
         # The tag representation is as follows:
         #         ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'first_skew_factor', 'second_skew_factor']
         #     Where the type_of_transformation tag is:
@@ -188,16 +198,22 @@ class SchedulerService:
         #       - 2 for loop reversal
         #       - 3 for loop skewing
         transformation = [
-            3, 0, 0, 0, loop_level1, loop_level2, factor1, factor2
+            3, 0, 0, 0, action.params[0], action.params[1], action.params[2], action.params[3]
         ]
-        for comp in self.schedule_object.comps:
+        for comp in action.comps:
             self.schedule_object.schedule_dict[comp][
                 "transformations_list"].append(transformation)
+            for branch in self.branches : 
+                if (comp in branch.comps):
+                    branch.schedule_dict[comp][
+                "transformations_list"].append(transformation)
+                    branch.update_actions_mask(action=action)
 
-    def apply_tiling(self, params):
+    def apply_tiling(self, action):
+        params = action.params
         if (len(params) == 4):
             # This is the 2d tiling , 4 params becuase it has 2 loop levels and 2 dimensions x,y
-            for comp in self.schedule_object.comps:
+            for comp in action.comps:
                 tiling_depth = 2  # Because it is 2D tiling
                 tiling_factors = [str(params[-2]),
                                   str(params[-1])]  # size_x and size_y
@@ -208,7 +224,7 @@ class SchedulerService:
                 tiling_dims = [*iterators]
         elif (len(params) == 6):
             # This is the 3d tiling , 6 params becuase it has 3 loop levels and 3 dimensions x,y,z
-            for comp in self.schedule_object.comps:
+            for comp in action.comps:
                 tiling_depth = 3  # Because it is 3D tiling
                 tiling_factors = [
                     str(params[-3]),
@@ -227,7 +243,13 @@ class SchedulerService:
             'tiling_dims': tiling_dims,
             'tiling_factors': tiling_factors,
         }
-        self.schedule_object.schedule_dict[comp]["tiling"] = tiling_dict
+        for comp in action.comps:
+            self.schedule_object.schedule_dict[comp]["tiling"] = tiling_dict
+            for branch in self.branches : 
+                if (comp in branch.comps):
+                    branch.schedule_dict[comp]["tiling"] = tiling_dict
+                    branch.update_actions_mask(action=action)
+
 
     def apply_fusion(self, loop_level, comps):
         # check if fusions are empty in schedule dict
@@ -242,7 +264,8 @@ class SchedulerService:
         self.schedule_object.schedule_dict['tree_structure'] = fused_tree
 
     # TODO : change this function later
-    def apply_unrolling(self, params):
-        for comp in params:
-            self.schedule_object.schedule_dict[comp]["unrolling_factor"] = str(
-                params[comp][1])
+    def apply_unrolling(self, action):
+        for comp in action.params:
+            self.schedule_object.schedule_dict[comp]["unrolling_factor"] = str(action.params[1])
+            self.branches[self.current_branch].schedule_dict[comp]["unrolling_factor"] = str(action.params[1])
+            self.branches[self.current_branch].update_actions_mask(action=action)

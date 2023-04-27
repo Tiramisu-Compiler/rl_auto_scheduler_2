@@ -1,4 +1,5 @@
 import numpy as np , copy
+from config.config import Config
 from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.representation import Representation
@@ -120,7 +121,7 @@ class Schedule:
         self.branches = branches
 
     
-    def update_actions_mask(self, action : Action,applied : bool,beam_search_order= False):
+    def update_actions_mask(self, action : Action,applied : bool = True):
         # Whether an action is legal or not we should mask it to not use it again
         self.repr.action_mask[action.env_id] = 1
 
@@ -144,7 +145,7 @@ class Schedule:
                 # Interchange
                 self.repr.action_mask[19:26] = 1
                 
-            if beam_search_order : 
+            if Config.config.experiment.beam_search_order : 
                 self.apply_beam_search_conditions(action=action)
 
         return self.repr.action_mask
