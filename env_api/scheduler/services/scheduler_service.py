@@ -70,6 +70,22 @@ class SchedulerService:
             new_branch.prog.load_code_lines(self.schedule_object.prog.original_str)
             self.branches.append(new_branch)
             
+    def next_branch(self):
+        self.current_branch += 1
+        if (self.current_branch == len(self.branches)):
+            return None
+        main_comps , main_loops = ConvertService.get_schedule_representation(self.schedule_object)
+        branch_comps , branch_loops = ConvertService.get_schedule_representation(self.branches[self.current_branch])
+        # Using the model to embed the program and the branch in a 180 sized vector each
+        with torch.no_grad():
+            _, main_embed = self.prediction_service.get_speedup(
+                main_comps, main_loops,self.schedule_object)
+            _, branch_embed = self.prediction_service.get_speedup(
+                branch_comps, branch_loops,self.branches[self.current_branch])
+        
+        return ([main_embed, branch_embed], 
+                self.branches[self.current_branch].repr.action_mask
+                )
 
     def apply_action(self, action: Action):
         """
@@ -117,7 +133,7 @@ class SchedulerService:
                     *main_repr_tensors, self.schedule_object)
                 _, branch_embedding_tensor = self.prediction_service.get_speedup(
                     *branch_repr_tensors, self.branches[self.current_branch])
-                embedding_tensor = [ main_embedding_tensor, branch_embedding_tensor]
+                embedding_tensor = [main_embedding_tensor, branch_embedding_tensor]
             except KeyError as e:
                 logging.error(f"This loop level: {e} doesn't exist")
                 legality_check = False
@@ -148,6 +164,7 @@ class SchedulerService:
             for branch in self.branches : 
                 if (comp in branch.comps):
                     branch.schedule_dict[comp]["parallelized_dim"] = iterator
+                    branch.update_actions_mask(action=action)
 
 
     def apply_reversal(self, action):
@@ -265,7 +282,7 @@ class SchedulerService:
 
     # TODO : change this function later
     def apply_unrolling(self, action):
-        for comp in action.params:
+        for comp in action.comps:
             self.schedule_object.schedule_dict[comp]["unrolling_factor"] = str(action.params[1])
             self.branches[self.current_branch].schedule_dict[comp]["unrolling_factor"] = str(action.params[1])
             self.branches[self.current_branch].update_actions_mask(action=action)
