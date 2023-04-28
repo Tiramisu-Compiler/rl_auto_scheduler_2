@@ -37,6 +37,7 @@ class SchedulerService:
         self.schedule_object = schedule_object
         # We create the branches of the program
         self.create_branches()
+        self.current_branch = 0
         main_comps , main_loops = ConvertService.get_schedule_representation(schedule_object)
         branch_comps , branch_loops = ConvertService.get_schedule_representation(self.branches[self.current_branch])
         # Using the model to embed the program and the branch in a 180 sized vector each
@@ -94,10 +95,20 @@ class SchedulerService:
         output :
             - speedup : float , representation : tuple(tensor) , legality_check : bool
         """
+        print("&"*50)
+        print("Function : ", self.schedule_object.prog.name)
         legality_check = self.legality_service.is_action_legal(schedule_object=self.schedule_object,
                                                                branches=self.branches,
                                                                current_branch=self.current_branch,
                                                                action=action)
+        
+        print("Branch :" , self.current_branch + 1 , "/" , len(self.branches))
+        print("Comps of the branch :", self.branches[self.current_branch].comps)
+        print("Action :", action.name , *action.params)
+        print("Legal ? :", legality_check)
+        print("Comps of the action :",action.comps)
+        print("Schedule :", self.schedule_object.schedule_str)
+
         embedding_tensor = None
         speedup = Config.config.experiment.legality_speedup
         if legality_check:
@@ -107,11 +118,9 @@ class SchedulerService:
 
                 elif isinstance(action, Reversal):
                     self.apply_reversal(action=action)
-                    self.schedule_object.transformed += 1
 
                 elif isinstance(action, Interchange):
                     self.apply_interchange(action=action)
-                    self.schedule_object.transformed += 1
 
                 elif isinstance(action, Tiling):
                     self.apply_tiling(action=action)
@@ -121,7 +130,6 @@ class SchedulerService:
 
                 elif isinstance(action, Skewing):
                     self.apply_skewing(action=action)
-                    self.schedule_object.transformed += 1
 
                 # repr_tensors contains 2 tensors , the 1st one is related to computations and the 2nd one is related to loops,
                 # we need these 2 tensors for the input of the model.
@@ -141,11 +149,13 @@ class SchedulerService:
                 print("%" * 50)
                 print("Used more than 4 transformations of I,R,S")
                 print(self.schedule_object.prog.name)
-                print(self.schedule_object.schedule_str)
+                print(self.schedule_object.schedule_str) 
                 print(action.params)
                 print(action.name)
                 print("%" * 50)
                 legality_check = False
+
+        print("&"*50)
 
         return speedup, embedding_tensor, legality_check, self.branches[self.current_branch].repr.action_mask
 
@@ -184,6 +194,7 @@ class SchedulerService:
                 if (comp in branch.comps):
                     branch.schedule_dict[comp][
                 "transformations_list"].append(transformation)
+                    branch.transformed+=1
                     branch.update_actions_mask(action=action)
 
     def apply_interchange(self, action):
@@ -204,6 +215,7 @@ class SchedulerService:
                 if (comp in branch.comps):
                     branch.schedule_dict[comp][
                 "transformations_list"].append(transformation)
+                    branch.transformed+=1
                     branch.update_actions_mask(action=action)
 
     def apply_skewing(self, action):
@@ -224,6 +236,7 @@ class SchedulerService:
                 if (comp in branch.comps):
                     branch.schedule_dict[comp][
                 "transformations_list"].append(transformation)
+                    branch.transformed+=1
                     branch.update_actions_mask(action=action)
 
     def apply_tiling(self, action):

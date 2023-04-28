@@ -5,6 +5,10 @@ class Action():
         self.comps = comps
         self.env_id = env_id
 
+class AffineAction(Action):
+    def __init__(self, params: list, name: str, comps: list = [], env_id: int = None):
+        super().__init__(params, name, comps, env_id)
+
 class Parallelization(Action):
     def __init__(self, params : list,env_id : int = None):
         super().__init__(params,name="Parallelization",env_id=env_id)
@@ -17,15 +21,15 @@ class Tiling(Action):
     def __init__(self, params : list,env_id : int = None):
         super().__init__(params,name="Tiling",env_id=env_id)
 
-class Reversal(Action):
+class Reversal(AffineAction):
     def __init__(self, params : list,env_id : int = None):
         super().__init__(params,name="Reversal",env_id=env_id)
 
-class Interchange(Action):
+class Interchange(AffineAction):
     def __init__(self, params : list,env_id : int = None):
         super().__init__(params,name="Interchange",env_id=env_id)
 
-class Skewing(Action):
+class Skewing(AffineAction):
     def __init__(self, params : list,env_id : int = None):
         super().__init__(params,name="Skewing",env_id=env_id)
 

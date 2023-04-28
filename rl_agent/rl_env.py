@@ -4,6 +4,7 @@ import ray
 import gymnasium as gym
 from gymnasium import spaces
 from ray.rllib.env.env_context import EnvContext
+import torch
 
 from config.config import Config
 from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
@@ -21,7 +22,7 @@ class TiramisuRlEnv(gym.Env):
         self.action_space = spaces.Discrete(27)
         self.observation_space = spaces.Dict({
             "embedding":
-            spaces.Box(-np.inf, np.inf, shape=(181, )),
+            spaces.Box(-np.inf, np.inf, shape=(362, )),
             "actions_mask":
             spaces.Box(0, 1, shape=(27, ))
         })
@@ -70,9 +71,6 @@ class TiramisuRlEnv(gym.Env):
             self.previous_speedup = speedup
 
         self.reward = math.log(instant_speedup, 4)
-
-        if (self.action_index == 8):
-            self.done = True
 
         # Update dataset on episode end
         if self.done:
@@ -140,13 +138,18 @@ class TiramisuRlEnv(gym.Env):
                 loop_level2=loop_level + 2,
                 env_id=action)
         else:
-            # Exit case
-            speedup, embedded_tensor, legality, actions_mask = (1, None, True,
-                                                                np.zeros(27))
-            self.done = True
+            # Next case
+            next_branch = self.tiramisu_api.scheduler_service.next_branch()
+            if (next_branch == None ):
+                speedup, embedded_tensor, legality, actions_mask = (1, None, True,
+                                                                    np.zeros(27))
+                self.done = True
+            else : 
+                speedup, embedded_tensor, legality, actions_mask = (1, next_branch[0], True,
+                                                                    next_branch[1])
 
         return speedup, embedded_tensor, legality, actions_mask
 
-    def preprocess_embeddings(self, embeddings, action=0.1):
-        embeddings = np.append(embeddings, [action])
-        return embeddings
+    def preprocess_embeddings(self, embeddings : torch.Tensor, action=0.1):
+        embeddings = torch.cat((*embeddings,torch.tensor([self.tiramisu_api.scheduler_service.current_branch,action],dtype=torch.float32)),dim=0)
+        return embeddings.numpy()

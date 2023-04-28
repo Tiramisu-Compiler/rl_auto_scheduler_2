@@ -29,6 +29,9 @@ class LegalityService:
                                                   current_branch = current_branch,
                                                   action=action)
         if exceeded_iterators : return False
+        legal_affine_trans = self.check_affine_transformations(branches=branches,
+                                                            action=action)
+        if not legal_affine_trans : return False
 
         # For skewing action we need first to get the skewing params : a list of 2 int
         if isinstance(action, Skewing):
@@ -144,3 +147,11 @@ class LegalityService:
                             return True 
         action.comps = copy.deepcopy(concerned_comps)
         return False 
+    
+    def check_affine_transformations(self,branches : List[Schedule],action : Action):
+        if isinstance(action,AffineAction):
+            for branch in branches :
+                for comp in action.comps:
+                    if comp in branch.comps and branch.transformed == 4:
+                        return False
+        return True
