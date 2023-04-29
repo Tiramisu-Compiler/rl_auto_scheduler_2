@@ -22,23 +22,26 @@ class LegalityService:
         output :
             - legality_check : bool
         """
-
-        # Check first if the iterator(s) is(are) included in the available in the current iterators
+        branches[current_branch].update_actions_mask(action=action, applied=False)
+        # Check first if the iterator(s) level(s) is(are) included in the current iterators
         # If not then the action is illegal by default 
         exceeded_iterators = self.check_iterators(branches=branches,
                                                   current_branch = current_branch,
                                                   action=action)
         if exceeded_iterators : return False
+
+        # For the cost model we are only allowed to apply 4 affine transformations by branch
+        # We verify that every branch doesn't exceed that amount  
         legal_affine_trans = self.check_affine_transformations(branches=branches,
                                                             action=action)
         if not legal_affine_trans : return False
 
-        # For skewing action we need first to get the skewing params : a list of 2 int
+        # The legality of Skewing is different than the others , we need to get the skewing params from the solver
+        # If there are any , this means that skewing is legal , if the solver fails , it means that skewing is illegal  
         if isinstance(action, Skewing):
-            # construct the schedule string to check if it is legal or not
-            schdule_str = ConvertService.build_sched_string(schedule_object.schedule_list)
 
             # check if results of skewing solver exist in the dataset
+            schdule_str = ConvertService.build_sched_string(schedule_object.schedule_list)
             if schdule_str in schedule_object.prog.schedules_solver:
                 factors = schedule_object.prog.schedules_solver[schdule_str]
 
@@ -55,11 +58,19 @@ class LegalityService:
                 # Save the results of skewing solver in the dataset
                 schedule_object.prog.schedules_solver[schdule_str] = factors
             if (factors == None):
+                # The solver fails to find solutions => illegal action
                 return False
             else:
                 # Adding the factors to the params
                 action.params.extend(factors)
-
+                # Assign the requested comps to the action
+                optim_command = OptimizationCommand(action)
+                # Add the command to the array of schedule
+                schedule_object.schedule_list.append(optim_command)
+                # Storing the schedule string 
+                schedule_object.schedule_str = ConvertService.build_sched_string(schedule_object.schedule_list)
+                return True
+            
         # Assign the requested comps to the action
         optim_command = OptimizationCommand(action)
         # Add the command to the array of schedule
@@ -89,9 +100,13 @@ class LegalityService:
             except ValueError as e:
                 legality_check = 0
                 print("Legality error :", e)
+
         if legality_check != 1:
+            # If the action is not legal , remove it from the schedule list
             schedule_object.schedule_list.pop()
+            # Rebuild the scedule string after removing the action 
             schdule_str = ConvertService.build_sched_string(schedule_object.schedule_list)
+        # Storing the schedule string to use it later 
         schedule_object.schedule_str = schdule_str
         return legality_check == 1
 

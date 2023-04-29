@@ -18,6 +18,7 @@ class OptimizationCommand:
         """
 
         if isinstance(self.action, Interchange):
+            assert len(self.params_list) == 2
             interchange_str = (".interchange(" +
                                ",".join([str(p)
                                          for p in self.params_list]) + ");")

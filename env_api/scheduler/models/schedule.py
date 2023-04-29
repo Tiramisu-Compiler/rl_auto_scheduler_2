@@ -147,8 +147,6 @@ class Schedule:
                 
             if Config.config.experiment.beam_search_order : 
                 self.apply_beam_search_conditions(action=action)
-
-        return self.repr.action_mask
     
     def apply_beam_search_conditions(self, action : Action):
         # The order of actions in beam search :
