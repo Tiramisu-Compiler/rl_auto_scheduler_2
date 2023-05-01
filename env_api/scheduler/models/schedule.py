@@ -91,32 +91,60 @@ class Schedule:
             
     def __form_branches(self):
         branches = []
-        iterators = self.prog.annotations["iterators"]
-        for iterator in iterators.keys(): 
-            if iterators[iterator]["computations_list"]:
-                branch = {
-                    "comps" : iterators[iterator]["computations_list"],
-                    "iterators" : self.prog.annotations["computations"][iterators[iterator]["computations_list"][0]]["iterators"],
-                    "annotations": {}
+        iterators = copy.deepcopy(self.prog.annotations["iterators"])
+        computations = copy.deepcopy(self.prog.annotations["computations"])
+        it = {}
+        for computation in computations:
+            iterators = copy.deepcopy(self.prog.annotations["computations"][computation]["iterators"])
+            if iterators[-1] in it :
+                it[iterators[-1]]["comps"].append(computation)
+            else :
+                it[iterators[-1]] = {
+                    "comps" : [computation],
+                    "iterators" : iterators
                 }
-                branch_annotations = {
-                    "computations" : {},
-                    "iterators": {}
-                }
-                # extract the branch specific computations annotations
-                for comp in branch["comps"]:
-                    branch_annotations["computations"][comp] = self.prog.annotations["computations"][comp]
-                # extract the branch specific iterators annotations
-                for iterator in branch["iterators"]:
-                    branch_annotations["iterators"][iterator] = self.prog.annotations["iterators"][iterator]
-                    if (self.prog.annotations["iterators"][iterator]["parent_iterator"]):
-                        # Making sure that the parent node has the actual node as the only child
-                        # It may happen that the parent node has many children but in a branch it is only allowed
-                        # to have a single child to form a straight-forward branch from top to bottom
-                        parent = (branch_annotations["iterators"][iterator]["parent_iterator"])
-                        branch_annotations["iterators"][parent]["child_iterators"] = [iterator]
-                branch["annotations"] = copy.deepcopy(branch_annotations)
-                branches.append(branch)
+        
+        for iterator in it :
+            branches.append({
+                "comps" : it[iterator]["comps"],
+                "iterators" : it[iterator]["iterators"],
+                "annotations": {}
+            })
+
+        # for iterator in iterators.keys(): 
+        #     if iterators[iterator]["computations_list"]:
+        #         branch = {
+        #             "comps" : copy.deepcopy(iterators[iterator]["computations_list"]),
+        #             "iterators" : copy.deepcopy(self.prog.annotations["computations"][iterators[iterator]["computations_list"][0]]["iterators"]),
+        #             "annotations": {}
+        #         }
+        #         branch_annotations = {
+        #             "computations" : {},
+        #             "iterators": {}
+        #         }
+        #         # extract the branch specific computations annotations
+        #         for comp in branch["comps"]:
+        #             branch_annotations["computations"][comp] = copy.deepcopy(self.prog.annotations["computations"][comp])
+
+                
+        for branch in branches :
+            branch_annotations = {
+                "computations" : {},
+                "iterators": {}
+            }
+            for comp in branch["comps"]:
+                branch_annotations["computations"][comp] = copy.deepcopy(self.prog.annotations["computations"][comp])
+            # extract the branch specific iterators annotations
+            for iterator in branch["iterators"]:
+                branch_annotations["iterators"][iterator] = copy.deepcopy(self.prog.annotations["iterators"][iterator])
+                if (self.prog.annotations["iterators"][iterator]["parent_iterator"]):
+                    # Making sure that the parent node has the actual node as the only child
+                    # It may happen that the parent node has many children but in a branch it is only allowed
+                    # to have a single child to form a straight-forward branch from top to bottom
+                    parent = (branch_annotations["iterators"][iterator]["parent_iterator"])
+                    branch_annotations["iterators"][parent]["child_iterators"] = copy.deepcopy([iterator])
+                    branch_annotations["iterators"][parent]["computations_list"] = []
+            branch["annotations"] = copy.deepcopy(branch_annotations)
 
         self.branches = branches
 
