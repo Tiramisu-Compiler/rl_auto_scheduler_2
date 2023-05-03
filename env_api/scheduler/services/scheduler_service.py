@@ -1,8 +1,8 @@
 from config.config import Config
 from env_api.core.models.optim_cmd import OptimizationCommand
-from env_api.core.services.compiling_service import CompilingService
+from env_api.core.services.compiling_service import CompilingService, ScheduleExecutionCrashed
 from env_api.core.services.converting_service import ConvertService
-from env_api.scheduler.services.prediction_service import PredictionService
+from env_api.scheduler.services.speedup_service import SpeedupService
 from env_api.utils.functions.fusion import transform_tree_for_fusion
 from ..models.schedule import Schedule
 from ..models.action import *
@@ -18,7 +18,7 @@ class SchedulerService:
         self.schedule_object: Schedule = None
         # The prediction service is an object that has a value estimator `get_speedup(schedule)` of the speedup that a schedule will have
         # This estimator is a recursive model that needs the schedule representation to give speedups
-        self.prediction_service = PredictionService()
+        self.prediction_service = SpeedupService()
 
     def set_schedule(self, schedule_object: Schedule):
         """
@@ -115,6 +115,9 @@ class SchedulerService:
                 print(action.params)
                 print(action.name)
                 print("%" * 50)
+                legality_check = False
+            except ScheduleExecutionCrashed as e:
+                logging.error(e)
                 legality_check = False
 
         actions_mask = self.schedule_object.update_actions_mask(

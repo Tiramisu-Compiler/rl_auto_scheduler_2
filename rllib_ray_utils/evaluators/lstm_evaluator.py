@@ -78,7 +78,7 @@ class LSTMBenchmarkEvaluator:
             speedup, sched_str = self.env.tiramisu_api.scheduler_service.get_current_speedup()
             # when episode is done, write cpp code to file
             cpp_code = CompilingService.get_schedule_code(
-                self.env.tiramisu_api.scheduler_service.schedule_object, self.env.tiramisu_api.scheduler_service.schedule_list)
+                self.env.tiramisu_api.scheduler_service.schedule_object.prog, self.env.tiramisu_api.scheduler_service.schedule_list)
             CompilingService.write_to_disk(cpp_code, os.path.join(
                 self.args.output_path, self.env.current_program))
 

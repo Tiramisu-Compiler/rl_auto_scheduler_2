@@ -4,21 +4,7 @@ import os
 from pathlib import Path
 import time
 import ray
-import random
-from ray.rllib.models import ModelCatalog
-from env_api.core.services.compiling_service import CompilingService
-from env_api.core.services.converting_service import ConvertService
-from rl_agent.rl_env import TiramisuRlEnv
-from ray.rllib.algorithms.ppo import PPO, PPOConfig
-from ray.rllib.algorithms.algorithm_config import AlgorithmConfig
-from ray.rllib.policy.policy import Policy
-from config.config import AutoSchedulerConfig, Config
-from rl_agent.rl_policy_nn import PolicyNN
-from ray.rllib.algorithms.algorithm import Algorithm
-from ray.air.checkpoint import Checkpoint
-from ray.tune.registry import get_trainable_cls
-from rl_agent.rl_policy_lstm import PolicyLSTM
-import numpy as np
+from config.config import Config
 
 from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
 from rllib_ray_utils.evaluators.ff_evaluator import FFBenchmarkEvaluator
@@ -50,7 +36,8 @@ if __name__ == "__main__":
 
     Config.init()
     Config.config.dataset.is_benchmark = True
-    dataset_actor = DatasetActor.remote(Config.config.dataset)
+    dataset_actor = DatasetActor.remote(
+        Config.config.dataset, Config.config.tiramisu.env_type)
     dataset_size = ray.get(dataset_actor.get_dataset_size.remote())
     num_workers = args.num_workers
     if (num_workers == -1):

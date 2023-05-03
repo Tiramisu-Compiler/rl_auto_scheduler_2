@@ -171,11 +171,12 @@ class TiramisuEnvAPI:
     def save_legality_dataset(self, suffix: str = ""):
         self.dataset_service.store_offline_dataset(suffix=suffix)
 
-    def get_current_tiramisu_program_dict(self) -> TiramisuProgram:
+    def get_current_tiramisu_program_dict(self):
         return {
-            "proram_annotation": self.scheduler_service.schedule_object.prog.annotations,
+            "program_annotation": self.scheduler_service.schedule_object.prog.annotations,
             "schedules_legality": self.scheduler_service.schedule_object.prog.schedules_legality,
-            "schedules_solver": self.scheduler_service.schedule_object.prog.schedules_solver
+            "schedules_solver": self.scheduler_service.schedule_object.prog.schedules_solver,
+            "initial_execution_times": self.scheduler_service.schedule_object.prog.initial_execution_times,
         }
 
     def final_speedup(self):

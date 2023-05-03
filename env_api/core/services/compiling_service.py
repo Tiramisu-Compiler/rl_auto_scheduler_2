@@ -1,17 +1,18 @@
+import logging
 import os
 import subprocess
 import re
 from time import sleep
 from typing import List
 from env_api.scheduler.models.action import Parallelization, Unrolling
-from env_api.scheduler.models.schedule import Schedule
+import env_api.scheduler.models.schedule as ScheduleModule
 from config.config import Config
 from env_api.core.models.optim_cmd import OptimizationCommand
 
 
 class CompilingService():
     @classmethod
-    def compile_legality(cls, schedule_object: Schedule, optims_list: list):
+    def compile_legality(cls, schedule_object: ScheduleModule.Schedule, optims_list: list):
         tiramisu_program = schedule_object.prog
         output_path = os.path.join(
             Config.config.tiramisu.workspace, f'{tiramisu_program.name}legal')
@@ -21,7 +22,7 @@ class CompilingService():
         return cls.run_cpp_code(cpp_code=cpp_code, output_path=output_path)
 
     @classmethod
-    def get_legality_code(cls, schedule_object: Schedule, optims_list: list):
+    def get_legality_code(cls, schedule_object: ScheduleModule.Schedule, optims_list: list):
         tiramisu_program = schedule_object.prog
         comps = schedule_object.comps
         first_comp = schedule_object.comps[0]
@@ -201,8 +202,7 @@ class CompilingService():
             return None
 
     @classmethod
-    def get_schedule_code(cls, schedule_object: Schedule, optims_list: List[OptimizationCommand]):
-        tiramisu_program = schedule_object.prog
+    def get_schedule_code(cls, tiramisu_program, optims_list: List[OptimizationCommand]):
         # Add code to the original file to get the schedule code
         schedule_code = ''
         for optim in optims_list:
@@ -223,35 +223,35 @@ class CompilingService():
             f.write(cpp_code)
 
     @classmethod
-    def get_cpu_speedup(cls, schedule_object: Schedule, optims_list: List[OptimizationCommand]):
+    def get_cpu_exec_times(cls, tiramisu_program, optims_list: List[OptimizationCommand]) -> List[float]:
         # Get the code of the schedule
-        cpp_code = cls.get_schedule_code(schedule_object, optims_list)
+        cpp_code = cls.get_schedule_code(tiramisu_program, optims_list)
         # Write the code to a file
         output_path = os.path.join(
-            Config.config.tiramisu.workspace, schedule_object.prog.name)
+            Config.config.tiramisu.workspace, tiramisu_program.name)
 
         cpp_file_path = output_path + '_schedule.cpp'
         cls.write_to_disk(cpp_code, output_path + '_schedule')
 
         # write the wrappers
         cls.write_to_disk(
-            schedule_object.prog.wrappers['cpp'], output_path + '_wrapper')
+            tiramisu_program.wrappers['cpp'], output_path + '_wrapper')
         cls.write_to_disk(
-            schedule_object.prog.wrappers['h'], output_path + '_wrapper', '.h')
+            tiramisu_program.wrappers['h'], output_path + '_wrapper', '.h')
 
         if Config.config.tiramisu.is_new_tiramisu:
             # Making the tiramisu root path explicit to the env
             shell_script = [
                 f"cd {Config.config.tiramisu.workspace}",
                 # Compile intermidiate tiramisu file
-                f"$CXX -I$TIRAMISU_ROOT/3rdParty/Halide/install/include -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/isl/include  -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -std=c++17 -O0 -o {schedule_object.prog.name}.o -c {cpp_file_path}",
+                f"$CXX -I$TIRAMISU_ROOT/3rdParty/Halide/install/include -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/isl/include  -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -std=c++17 -O0 -o {tiramisu_program.name}.o -c {cpp_file_path}",
                 # Link generated file with executer
-                f"$CXX -Wl,--no-as-needed -ldl -g -fno-rtti -lpthread -std=c++17 -O0 {schedule_object.prog.name}.o -o {schedule_object.prog.name}.out   -L$TIRAMISU_ROOT/build  -L$TIRAMISU_ROOT/3rdParty/Halide/install/lib64  -L$TIRAMISU_ROOT/3rdParty/isl/build/lib  -Wl,-rpath,$TIRAMISU_ROOT/build:$TIRAMISU_ROOT/3rdParty/Halide/install/lib64:$TIRAMISU_ROOT/3rdParty/isl/build/lib -ltiramisu -ltiramisu_auto_scheduler -lHalide -lisl",
+                f"$CXX -Wl,--no-as-needed -ldl -g -fno-rtti -lpthread -std=c++17 -O0 {tiramisu_program.name}.o -o {tiramisu_program.name}.out   -L$TIRAMISU_ROOT/build  -L$TIRAMISU_ROOT/3rdParty/Halide/install/lib64  -L$TIRAMISU_ROOT/3rdParty/isl/build/lib  -Wl,-rpath,$TIRAMISU_ROOT/build:$TIRAMISU_ROOT/3rdParty/Halide/install/lib64:$TIRAMISU_ROOT/3rdParty/isl/build/lib -ltiramisu -ltiramisu_auto_scheduler -lHalide -lisl",
                 # Run the generator
-                f"./{schedule_object.prog.name}.out",
+                f"./{tiramisu_program.name}.out",
                 # compile the wrapper
-                f"$CXX -shared -o {schedule_object.prog.name}.o.so {schedule_object.prog.name}.o",
-                f"$CXX -std=c++17 -fno-rtti -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/Halide/install/include -I$TIRAMISU_ROOT/3rdParty/isl/include/ -I$TIRAMISU_ROOT/benchmarks -L$TIRAMISU_ROOT/build -L$TIRAMISU_ROOT/3rdParty/Halide/install/lib64/ -L$TIRAMISU_ROOT/3rdParty/isl/build/lib -o {schedule_object.prog.name}_wrapper -ltiramisu -lHalide -ldl -lpthread -lm -Wl,-rpath,$TIRAMISU_ROOT/build {schedule_object.prog.name}_wrapper.cpp {schedule_object.prog.name}.o.so -ltiramisu -lHalide -ldl -lpthread -lm -lisl",
+                f"$CXX -shared -o {tiramisu_program.name}.o.so {tiramisu_program.name}.o",
+                f"$CXX -std=c++17 -fno-rtti -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/Halide/install/include -I$TIRAMISU_ROOT/3rdParty/isl/include/ -I$TIRAMISU_ROOT/benchmarks -L$TIRAMISU_ROOT/build -L$TIRAMISU_ROOT/3rdParty/Halide/install/lib64/ -L$TIRAMISU_ROOT/3rdParty/isl/build/lib -o {tiramisu_program.name}_wrapper -ltiramisu -lHalide -ldl -lpthread -lm -Wl,-rpath,$TIRAMISU_ROOT/build {tiramisu_program.name}_wrapper.cpp {tiramisu_program.name}.o.so -ltiramisu -lHalide -ldl -lpthread -lm -lisl",
             ]
 
         else:
@@ -267,10 +267,10 @@ class CompilingService():
             f"export MAX_RUNS={Config.config.tiramisu.max_runs}",
 
             # run the wrapper
-            f"./{schedule_object.prog.name}_wrapper",
+            f"./{tiramisu_program.name}_wrapper",
 
             # Clean generated files
-            f"rm {schedule_object.prog.name}*",
+            f"rm {tiramisu_program.name}*",
         ]
         try:
             # run the compilation of the generator and wrapper
@@ -289,14 +289,26 @@ class CompilingService():
             # Extract the execution times from the output and return the minimum
             if compiler.stdout:
                 results = [float(x) for x in compiler.stdout.split()]
-                return min(results)
+                return results
             else:
-                raise Exception("No output from the compiler")
+                logging.error("No output from schedule execution")
+                logging.error(compiler.stderr)
+                logging.error(compiler.stdout)
+                logging.error(
+                    f"The following schedule execution crashed: {tiramisu_program.name}, schedule: {optims_list} \n\n {cpp_code}\n\n")
+                raise ScheduleExecutionCrashed(
+                    "No output from schedule execution")
         except subprocess.CalledProcessError as e:
             print("Process terminated with error code", e.returncode)
             print("Error output:", e.stderr)
             print("Output:", e.stdout)
-            raise e
+            raise ScheduleExecutionCrashed(
+                f"Schedule execution crashed: function: {tiramisu_program.name}, schedule: {optims_list}")
         except Exception as e:
             print(e)
             raise e
+
+
+class ScheduleExecutionCrashed(Exception):
+    "Raised when the execution of the schedule crashes"
+    pass

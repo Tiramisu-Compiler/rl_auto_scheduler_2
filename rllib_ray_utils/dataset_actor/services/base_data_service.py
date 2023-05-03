@@ -44,7 +44,7 @@ class BaseDataService:
         :param function_dict: dictionary containing the function schedules
         :return: True if the dataset was saved successfully
         """
-        for key in function_dict.keys():
+        for key in function_dict:
             self.dataset[function_name][key] = function_dict[key]
 
         self.nbr_updates += 1

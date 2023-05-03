@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 import config.config as cfg
+import env_api.core.services.compiling_service as CompilingModule
 
 
 class TiramisuProgram():
@@ -13,6 +14,8 @@ class TiramisuProgram():
         self.schedules_solver = {}
         self.original_str = None
         self.wrappers = None
+        self.initial_execution_times = {}
+        self.current_machine_initial_execution_time = None
         if (file_path):
             self.load_code_lines()
 
@@ -29,10 +32,27 @@ class TiramisuProgram():
             tiramisu_prog.schedules_legality = data["schedules_legality"]
             tiramisu_prog.schedules_solver = data["schedules_solver"]
 
+            # Initialize the initial_execution_times attribute and the current_machine_initial_execution_time attribute
+            tiramisu_prog.initial_execution_times = data["initial_execution_times"]
+            if cfg.Config.config.tiramisu.hpc_name in data["initial_execution_times"]:
+                tiramisu_prog.current_machine_initial_execution_time = min(data[
+                    "initial_execution_times"][cfg.Config.config.tiramisu.hpc_name])
+
         tiramisu_prog.load_code_lines(original_str)
 
         if wrappers:
             tiramisu_prog.wrappers = wrappers
+
+        # If the current_machine_initial_execution_time attribute is not found in the data, compute it
+        if not tiramisu_prog.current_machine_initial_execution_time:
+            tmp_exec_times = CompilingModule.CompilingService.get_cpu_exec_times(
+                tiramisu_program=tiramisu_prog, optims_list=[])
+            # Store the minimum execution time in the initial_execution_time attribute
+            tiramisu_prog.current_machine_initial_execution_time = min(
+                tmp_exec_times)
+
+            tiramisu_prog.initial_execution_times[
+                cfg.Config.config.tiramisu.hpc_name] = tmp_exec_times
 
         # After taking the neccessary fields return the instance
         return tiramisu_prog

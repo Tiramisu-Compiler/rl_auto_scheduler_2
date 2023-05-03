@@ -31,6 +31,7 @@ class TiramisuConfig:
     workspace: str = "./workspace/"
     old_tiramisu_path: str = ""
     max_runs: int = 30
+    hpc_name: str = "jubail"
 
     def __post_init__(self):
         if not self.is_new_tiramisu:
@@ -70,6 +71,11 @@ class DatasetConfig:
                 dataset_config_dict["benchmark_cpp_files"]
                 if dataset_config_dict["benchmark_cpp_files"]
                 else self.cpps_path
+            )
+            self.wrappers_path = (
+                dataset_config_dict["benchmark_wrappers_path"]
+                if dataset_config_dict["benchmark_wrappers_path"]
+                else self.wrappers_path
             )
 
 
