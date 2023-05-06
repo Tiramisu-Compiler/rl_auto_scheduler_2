@@ -40,7 +40,7 @@ class TiramisuEnvAPI:
     # to make tiramisu_api_tutorial work
     def get_programs(self):
         if self.programs == None:
-            self.programs = list(self.dataset_service.cpps_dataset.keys())
+            self.programs = list(self.dataset_service.schedules_dataset.keys())
         return sorted(self.programs)
 
     def set_program(self, name: str, data: dict = None, cpp_code: str = None):
