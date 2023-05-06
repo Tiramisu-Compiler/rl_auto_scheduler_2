@@ -71,13 +71,13 @@ class TiramisuRlEnv(gym.Env):
             instant_speedup = speedup / self.previous_speedup
             self.previous_speedup = speedup
 
-        self.reward = math.log(instant_speedup)
+        self.reward = math.log(instant_speedup, 4)
 
         # Update dataset on episode end
         if self.done:
             tiramisu_program_dict = (
                 self.tiramisu_api.get_current_tiramisu_program_dict()
-            )
+            )   
             self.dataset_actor.update_dataset.remote(
                 self.current_program, tiramisu_program_dict
             )
