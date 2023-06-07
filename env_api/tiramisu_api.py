@@ -5,8 +5,6 @@ from env_api.scheduler.models.action import *
 from env_api.scheduler.models.schedule import Schedule
 from env_api.scheduler.services.scheduler_service import SchedulerService
 import os
-import torch
-
 from config.config import Config
 
 
@@ -161,10 +159,10 @@ class TiramisuEnvAPI:
 
     def get_current_tiramisu_program_dict(self) -> TiramisuProgram:
         return {
-                "proram_annotation": self.scheduler_service.schedule_object.prog.annotations,
-                "schedules_legality": self.scheduler_service.schedule_object.prog.schedules_legality,
-                "schedules_solver": self.scheduler_service.schedule_object.prog.schedules_solver
-            }
+            "program_annotation": self.scheduler_service.schedule_object.prog.annotations,
+            "schedules_legality": self.scheduler_service.schedule_object.prog.schedules_legality,
+            "schedules_solver": self.scheduler_service.schedule_object.prog.schedules_solver
+        }
     
     def final_speedup(self):
         speedup, sch_str = self.scheduler_service.get_current_speedup()
