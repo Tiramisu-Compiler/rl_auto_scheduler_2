@@ -3,9 +3,10 @@ from ray.rllib.utils.framework import try_import_torch
 from ray.rllib.models.torch.recurrent_net import RecurrentNetwork as TorchRNN
 from ray.rllib.utils.annotations import override
 from ray.rllib.policy.rnn_sequencing import add_time_dimension
-import numpy as np 
+import numpy as np
 
 torch, nn = try_import_torch()
+
 
 class PolicyLSTM(TorchRNN, nn.Module):
     def __init__(
@@ -17,7 +18,7 @@ class PolicyLSTM(TorchRNN, nn.Module):
         name,
         fc_size=1024,
         lstm_state_size=256,
-        num_layers = 1
+        num_layers=1,
     ):
         nn.Module.__init__(self)
         super().__init__(obs_space, action_space, num_outputs, model_config, name)
@@ -29,9 +30,27 @@ class PolicyLSTM(TorchRNN, nn.Module):
 
         # Build the Module from fc + LSTM + 2xfc (action + value outs).
         self.fc1 = nn.Linear(self.obs_size, self.fc_size)
-        self.lstm = nn.LSTM(self.fc_size, self.lstm_state_size, num_layers=num_layers ,batch_first=True)
-        self.action_branch = nn.Linear(self.lstm_state_size, num_outputs)
-        self.value_branch = nn.Linear(self.lstm_state_size, 1)
+        nn.init.xavier_uniform_(self.fc1.weight)
+        self.lstm = nn.LSTM(
+            self.fc_size, self.lstm_state_size, num_layers=num_layers, batch_first=True
+        )
+        for name, param in self.lstm.named_parameters():
+            if "bias" in name:
+                nn.init.constant_(param, 0.0)
+            elif "weight" in name:
+                nn.init.xavier_uniform_(param)
+
+        # Actions branch 
+        self.actions_hidden_layer = nn.Linear(self.lstm_state_size, 256)
+        nn.init.xavier_uniform_(self.actions_hidden_layer.weight)
+        self.action_branch = nn.Linear(256, num_outputs)
+        nn.init.xavier_uniform_(self.action_branch.weight)
+
+        # Value branch 
+        self.value_hidden_layer = nn.Linear(self.lstm_state_size, 256)
+        nn.init.xavier_uniform_(self.value_hidden_layer.weight)
+        self.value_branch = nn.Linear(256, 1)
+        nn.init.xavier_uniform_(self.value_branch.weight)
         # Holds the current "base" output (before logits layer).
         self._features = None
 
@@ -41,13 +60,14 @@ class PolicyLSTM(TorchRNN, nn.Module):
             # The values of initial hidden states h_0 and c_0
             torch.tensor(np.zeros(self.lstm_state_size, np.float32)),
             torch.tensor(np.zeros(self.lstm_state_size, np.float32)),
-        ] 
+        ]
         return h
 
     @override(ModelV2)
     def value_function(self):
         assert self._features is not None, "must call forward() first"
-        return torch.reshape(self.value_branch(self._features), [-1])
+        x = nn.functional.selu(self.value_hidden_layer(self._features))
+        return torch.reshape(self.value_branch(x), [-1])
 
     @override(ModelV2)
     def forward(
@@ -55,7 +75,7 @@ class PolicyLSTM(TorchRNN, nn.Module):
         input_dict,
         state,
         seq_lens,
-    ) :
+    ):
         flat_inputs = input_dict["obs"]["embedding"].float()
         inputs = add_time_dimension(
             flat_inputs,
@@ -71,10 +91,10 @@ class PolicyLSTM(TorchRNN, nn.Module):
 
     @override(TorchRNN)
     def forward_rnn(self, inputs, state, seq_lens):
-        x = nn.functional.relu(self.fc1(inputs))
+        x = nn.functional.selu(self.fc1(inputs))
         self._features, [h, c] = self.lstm(
-            x, [torch.unsqueeze(state[0], 0),torch.unsqueeze(state[1], 0)]
+            x, [torch.unsqueeze(state[0], 0), torch.unsqueeze(state[1], 0)]
         )
-        action_out = self.action_branch(self._features)
+        y = nn.functional.selu(self.actions_hidden_layer(self._features))
+        action_out = self.action_branch(y)
         return action_out, [torch.squeeze(h, 0), torch.squeeze(c, 0)]
-

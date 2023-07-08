@@ -5,8 +5,6 @@ from env_api.scheduler.models.action import *
 from env_api.scheduler.models.schedule import Schedule
 from env_api.scheduler.services.scheduler_service import SchedulerService
 import os
-import torch
-
 from config.config import Config
 
 
@@ -40,7 +38,7 @@ class TiramisuEnvAPI:
     # to make tiramisu_api_tutorial work
     def get_programs(self):
         if self.programs == None:
-            self.programs = list(self.dataset_service.cpps_dataset.keys())
+            self.programs = list(self.dataset_service.schedules_dataset.keys())
         return sorted(self.programs)
 
     def set_program(self, name: str, data: dict = None, cpp_code: str = None):
@@ -80,16 +78,10 @@ class TiramisuEnvAPI:
         schedule = Schedule(tiramisu_prog)
 
         # Use the Scheduler service to set the schedule for the Tiramisu model
-        comps_tensor, loops_tensor = self.scheduler_service.set_schedule(
+        embedding_tensor, actions_mask = self.scheduler_service.set_schedule(
             schedule_object=schedule)
 
-        # Using the model to embed the program in a 180 sized vector
-        with torch.no_grad():
-            _, embedding_tensor = self.scheduler_service.prediction_service.get_speedup(
-                comps_tensor, loops_tensor,
-                self.scheduler_service.schedule_object)
-
-        return embedding_tensor, self.scheduler_service.schedule_object.repr.action_mask
+        return embedding_tensor, actions_mask
 
     # TODO : for all these actions we need to generalize over computations and not over shared iterators
     def parallelize(self, loop_level: int, env_id: int = None):
@@ -167,10 +159,10 @@ class TiramisuEnvAPI:
 
     def get_current_tiramisu_program_dict(self) -> TiramisuProgram:
         return {
-                "proram_annotation": self.scheduler_service.schedule_object.prog.annotations,
-                "schedules_legality": self.scheduler_service.schedule_object.prog.schedules_legality,
-                "schedules_solver": self.scheduler_service.schedule_object.prog.schedules_solver
-            }
+            "program_annotation": self.scheduler_service.schedule_object.prog.annotations,
+            "schedules_legality": self.scheduler_service.schedule_object.prog.schedules_legality,
+            "schedules_solver": self.scheduler_service.schedule_object.prog.schedules_solver
+        }
     
     def final_speedup(self):
         speedup, sch_str = self.scheduler_service.get_current_speedup()

@@ -13,7 +13,7 @@ if __name__ == "__main__":
     try:
         # Select a program randomly for example program = "function025885"
         program: str = random.choice(programs)
-        program ="function046825"
+        program = "function_matmul_LARGE"
         print("Selected function : ", program)
         # set_program(str) creates all the necessary objects to start doing operations on a program
         # it returns an encoded representation specific to the RL system
@@ -27,24 +27,30 @@ if __name__ == "__main__":
         else:
             # After setting a program and checking if it is fully supported by our RL system, you can apply any action on it in any order
             # And expect to get the speedup of the whole schedule, the representation and the result of legality check of the last operation
-            # (speedup, embedding_tensor, legality, actions_mask,
-            # ) = tiramisu_api.reverse(loop_level=1, env_id=7)
-            
+            (
+                speedup,
+                embedding_tensor,
+                legality,
+                actions_mask,
+            ) = tiramisu_api.interchange(loop_level1=1,loop_level2=2, env_id=7)
+
             # (speedup, embedding_tensor,
             #  legality,actions_mask) = tiramisu_api.skew(loop_level1=0,loop_level2=1,env_id=2)
 
-            # (speedup, embedding_tensor,
-            #  legality,actions_mask) = tiramisu_api.unroll(unrolling_factor=8,env_id=4)
+            (speedup, embedding_tensor,
+             legality,actions_mask) = tiramisu_api.parallelize(loop_level=0,env_id=4)
 
             # (speedup, embedding_tensor,
             #  legality,actions_mask) = tiramisu_api.skew(loop_level1=0,loop_level2=1,env_id=2)
-            # (speedup, embedding_tensor,
-            # legality,actions_mask) = tiramisu_api.tile2D(
-            #     loop_level1=0 , loop_level2=1,
-            #     size_x=32,size_y=32,env_id=4
-            # )
-            (speedup, embedding_tensor, legality, actions_mask,
-            ) = tiramisu_api.parallelize(loop_level=0,env_id=1)
+            (speedup, embedding_tensor, legality, actions_mask) = tiramisu_api.tile2D(
+                loop_level1=1, loop_level2=2, size_x=32, size_y=128, env_id=4
+            )
+            (
+                speedup,
+                embedding_tensor,
+                legality,
+                actions_mask,
+            ) = tiramisu_api.parallelize(loop_level=0, env_id=1)
             # (speedup, embedding_tensor, legality, actions_mask,
             # ) = tiramisu_api.reverse(loop_level=0, env_id=7)
             # (speedup, embedding_tensor,

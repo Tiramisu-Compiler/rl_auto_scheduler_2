@@ -18,6 +18,7 @@ class OptimizationCommand:
         """
 
         if isinstance(self.action, Interchange):
+            assert len(self.params_list) == 2
             interchange_str = (".interchange(" +
                                ",".join([str(p)
                                          for p in self.params_list]) + ");")
@@ -65,10 +66,10 @@ class OptimizationCommand:
             optim_str = ""
             for comp in self.comps:
                 self.comps_schedule[comp] = "U(L{},{})".format(
-                    *self.params_list[comp])
+                    *self.params_list)
                 unrolling_str = (
                     ".unroll(" +
-                    ",".join([str(p) for p in self.params_list[comp]]) + ");")
+                    ",".join([str(p) for p in self.params_list]) + ");")
                 optim_str += "\n\t{}".format(comp) + unrolling_str
             return optim_str
         elif isinstance(self.action, Reversal):

@@ -1,4 +1,5 @@
-import numpy as np
+import numpy as np , copy
+from config.config import Config
 from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.representation import Representation
@@ -25,31 +26,35 @@ class Schedule:
         # self.schedule_list is an array that contains a list of optimizations that has been applied on the program
         # This list has objects of type `OptimizationCommand`
         self.schedule_list = []
-        self.__calculate_common_it()
-        self.__init_schedule_dict_tags()
-        self.__init_representation()
-        self.__set_action_mask()
-        self.__form_iterators_dict()
-        self.__form_branches()
+        if((type(self).__name__) == "Schedule"):
+            self.__calculate_common_it()
+            self.__init_schedule_dict_tags()
+            self.__init_representation()
+            self.__set_action_mask()
+            self.__form_iterators_dict()
+            self.__form_branches()
+        else : 
+            self.__init_schedule_dict_tags()
+            self.__init_representation()
+            self.__set_action_mask()
+            self.__form_iterators_dict()
 
 
     def __calculate_common_it(self):
         if len(self.comps) != 1:  # Multi-computation program
             # comps_it is a list of lists of iterators of computations
-            self.comps_it = []
+            comps_it = []
             for comp in self.comps:
-                self.comps_it.append(
+                comps_it.append(
                     self.prog.annotations["computations"][comp]["iterators"]
                 )
-            self.common_it = self.comps_it[0]
-            for comp_it in self.comps_it[1:]:
+            self.common_it = comps_it[0]
+            for comp_it in comps_it[1:]:
                 self.common_it = [it for it in comp_it if it in self.common_it]
         else:  # A single comp program
             self.common_it = self.prog.annotations["computations"][self.comps[0]][
                 "iterators"
             ]
-
-
 
     def __init_schedule_dict_tags(self):
         self.schedule_dict["fusions"] = None
@@ -85,18 +90,66 @@ class Schedule:
             self.it_dict[comp] = comp_it_dict
             
     def __form_branches(self):
-        branchs = []
-        iterators = self.prog.annotations["iterators"]
-        for iterator in iterators.keys(): 
-            if iterators[iterator]["computations_list"]:
-                branchs.append({
-                    "comps" : iterators[iterator]["computations_list"],
-                    "iterators" : self.prog.annotations["computations"][iterators[iterator]["computations_list"][0]]["iterators"]
-                })
-        self.branches = branchs
+        branches = []
+        iterators = copy.deepcopy(self.prog.annotations["iterators"])
+        computations = copy.deepcopy(self.prog.annotations["computations"])
+        it = {}
+        for computation in computations:
+            iterators = copy.deepcopy(self.prog.annotations["computations"][computation]["iterators"])
+            if iterators[-1] in it :
+                it[iterators[-1]]["comps"].append(computation)
+            else :
+                it[iterators[-1]] = {
+                    "comps" : [computation],
+                    "iterators" : iterators
+                }
+        
+        for iterator in it :
+            branches.append({
+                "comps" : it[iterator]["comps"],
+                "iterators" : it[iterator]["iterators"],
+                "annotations": {}
+            })
+
+        # for iterator in iterators.keys(): 
+        #     if iterators[iterator]["computations_list"]:
+        #         branch = {
+        #             "comps" : copy.deepcopy(iterators[iterator]["computations_list"]),
+        #             "iterators" : copy.deepcopy(self.prog.annotations["computations"][iterators[iterator]["computations_list"][0]]["iterators"]),
+        #             "annotations": {}
+        #         }
+        #         branch_annotations = {
+        #             "computations" : {},
+        #             "iterators": {}
+        #         }
+        #         # extract the branch specific computations annotations
+        #         for comp in branch["comps"]:
+        #             branch_annotations["computations"][comp] = copy.deepcopy(self.prog.annotations["computations"][comp])
+
+                
+        for branch in branches :
+            branch_annotations = {
+                "computations" : {},
+                "iterators": {}
+            }
+            for comp in branch["comps"]:
+                branch_annotations["computations"][comp] = copy.deepcopy(self.prog.annotations["computations"][comp])
+            # extract the branch specific iterators annotations
+            for iterator in branch["iterators"]:
+                branch_annotations["iterators"][iterator] = copy.deepcopy(self.prog.annotations["iterators"][iterator])
+                if (self.prog.annotations["iterators"][iterator]["parent_iterator"]):
+                    # Making sure that the parent node has the actual node as the only child
+                    # It may happen that the parent node has many children but in a branch it is only allowed
+                    # to have a single child to form a straight-forward branch from top to bottom
+                    parent = (branch_annotations["iterators"][iterator]["parent_iterator"])
+                    branch_annotations["iterators"][parent]["child_iterators"] = copy.deepcopy([iterator])
+                    branch_annotations["iterators"][parent]["computations_list"] = []
+            branch["annotations"] = copy.deepcopy(branch_annotations)
+
+        self.branches = branches
 
     
-    def update_actions_mask(self, action : Action,applied : bool,beam_search_order= False):
+    def update_actions_mask(self, action : Action,applied : bool = True):
         # Whether an action is legal or not we should mask it to not use it again
         self.repr.action_mask[action.env_id] = 1
 
@@ -120,10 +173,8 @@ class Schedule:
                 # Interchange
                 self.repr.action_mask[19:26] = 1
                 
-            if beam_search_order : 
+            if Config.config.experiment.beam_search_order : 
                 self.apply_beam_search_conditions(action=action)
-
-        return self.repr.action_mask
     
     def apply_beam_search_conditions(self, action : Action):
         # The order of actions in beam search :

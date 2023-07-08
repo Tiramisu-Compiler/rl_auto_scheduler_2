@@ -39,7 +39,7 @@ class TiramisuProgram():
         if original_str:
             self.original_str = original_str
         else :
-            raise NotImplemented
+            return
 
         self.body = re.findall(r'(tiramisu::init(?s:.)+)tiramisu::codegen',
                                self.original_str)[0]

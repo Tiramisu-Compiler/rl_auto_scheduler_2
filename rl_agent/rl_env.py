@@ -4,6 +4,7 @@ import ray
 import gymnasium as gym
 from gymnasium import spaces
 from ray.rllib.env.env_context import EnvContext
+import torch
 
 from config.config import Config
 from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
@@ -19,12 +20,12 @@ class TiramisuRlEnv(gym.Env):
         self.dataset_actor: DatasetActor = config["dataset_actor"]
         # Define action and observation spaces
         self.action_space = spaces.Discrete(27)
-        self.observation_space = spaces.Dict({
-            "embedding":
-            spaces.Box(-np.inf, np.inf, shape=(181, )),
-            "actions_mask":
-            spaces.Box(0, 1, shape=(27, ))
-        })
+        self.observation_space = spaces.Dict(
+            {
+                "embedding": spaces.Box(-np.inf, np.inf, shape=(362,)),
+                "actions_mask": spaces.Box(0, 1, shape=(27,)),
+            }
+        )
         self.current_program = ""
         self.reset()
 
@@ -37,15 +38,14 @@ class TiramisuRlEnv(gym.Env):
             # program = random.choice(self.tiramisu_api.programs)
             prog_infos = ray.get(self.dataset_actor.get_next_function.remote())
             # The shape of embedded_tensor : (180,)
-            # Shape pf actions mask : (27,)
-            embedded_tensor, actions_mask = self.tiramisu_api.set_program(
-                *prog_infos)
+            # Shape of actions mask : (27,)
+            embedded_tensor, actions_mask = self.tiramisu_api.set_program(*prog_infos)
             self.current_program = prog_infos[0]
 
         self.state = {
             # Converting Tensor to numpy array
             "embedding": self.preprocess_embeddings(embeddings=embedded_tensor),
-            "actions_mask": actions_mask
+            "actions_mask": actions_mask,
         }
         self.previous_speedup = self.reward = 1
         self.done = self.truncated = False
@@ -55,13 +55,15 @@ class TiramisuRlEnv(gym.Env):
 
     def step(self, action):
         speedup, embedded_tensor, legality, actions_mask = self.apply_flattened_action(
-            action=action)
+            action=action
+        )
         instant_speedup = 1
-        if (legality and not self.done):
+        if legality and not self.done:
             self.state = {
-                "embedding": self.preprocess_embeddings(embeddings=embedded_tensor,
-                                           action=action),
-                "actions_mask": actions_mask
+                "embedding": self.preprocess_embeddings(
+                    embeddings=embedded_tensor, action=action
+                ),
+                "actions_mask": actions_mask,
             }
             self.action_index += 1
             # If the action is legal , we divide the speedup of new sequence {A_0 .. A_i+1} by the speedup of
@@ -71,12 +73,11 @@ class TiramisuRlEnv(gym.Env):
 
         self.reward = math.log(instant_speedup, 4)
 
-        if (self.action_index == 8):
-            self.done = True
-
         # Update dataset on episode end
         if self.done:
-            tiramisu_program_dict = self.tiramisu_api.get_current_tiramisu_program_dict()
+            tiramisu_program_dict = (
+                self.tiramisu_api.get_current_tiramisu_program_dict()
+            )   
             self.dataset_actor.update_dataset.remote(
                 self.current_program, tiramisu_program_dict
             )
@@ -84,28 +85,36 @@ class TiramisuRlEnv(gym.Env):
         return self.state, self.reward, self.done, self.truncated, self.info
 
     def apply_flattened_action(self, action):
-        if (action <= 1):
+        if action <= 1:
             # For parallelization 0 and 1
-            speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.parallelize(
-                loop_level=action, env_id=action)
-        elif (action <= 3):
+            (
+                speedup,
+                embedded_tensor,
+                legality,
+                actions_mask,
+            ) = self.tiramisu_api.parallelize(loop_level=action, env_id=action)
+        elif action <= 3:
             loop_level = action - 2
             # Skewing 0,1 and 1,2
             speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.skew(
-                loop_level1=loop_level,
-                loop_level2=loop_level + 1,
-                env_id=action)
-        elif (action <= 6):
+                loop_level1=loop_level, loop_level2=loop_level + 1, env_id=action
+            )
+        elif action <= 6:
             # Unrolling 4 , 8 , 16
             factor = action - 2
             speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.unroll(
-                unrolling_factor=2**factor, env_id=action)
-        elif (action <= 11):
+                unrolling_factor=2**factor, env_id=action
+            )
+        elif action <= 11:
             loop_level = action - 7
             # Reversal from 0 to 4
-            speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.reverse(
-                loop_level=loop_level, env_id=action)
-        elif (action <= 15):
+            (
+                speedup,
+                embedded_tensor,
+                legality,
+                actions_mask,
+            ) = self.tiramisu_api.reverse(loop_level=loop_level, env_id=action)
+        elif action <= 15:
             loop_level = action - 12
             # Tiling 2D from 0,1 to 3,4
             speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.tile2D(
@@ -113,8 +122,9 @@ class TiramisuRlEnv(gym.Env):
                 loop_level2=loop_level + 1,
                 size_x=32,
                 size_y=32,
-                env_id=action)
-        elif (action <= 18):
+                env_id=action,
+            )
+        elif action <= 18:
             loop_level = action - 16
             # Tiling 3d from 0,1,2 to 2,3,4
             speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.tile3D(
@@ -124,29 +134,66 @@ class TiramisuRlEnv(gym.Env):
                 size_x=32,
                 size_y=32,
                 size_z=32,
-                env_id=action)
-        elif (action <= 22):
+                env_id=action,
+            )
+        elif action <= 22:
             loop_level = action - 19
             # Interchange of loops 0,1 ... 4,5
-            speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.interchange(
-                loop_level1=loop_level,
-                loop_level2=loop_level + 1,
-                env_id=action)
-        elif (action <= 25):
+            (
+                speedup,
+                embedded_tensor,
+                legality,
+                actions_mask,
+            ) = self.tiramisu_api.interchange(
+                loop_level1=loop_level, loop_level2=loop_level + 1, env_id=action
+            )
+        elif action <= 25:
             loop_level = action - 23
             # Interchange of loops (0,2) , (1,3) and (2,4)
-            speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.interchange(
-                loop_level1=loop_level,
-                loop_level2=loop_level + 2,
-                env_id=action)
+            (
+                speedup,
+                embedded_tensor,
+                legality,
+                actions_mask,
+            ) = self.tiramisu_api.interchange(
+                loop_level1=loop_level, loop_level2=loop_level + 2, env_id=action
+            )
         else:
-            # Exit case
-            speedup, embedded_tensor, legality, actions_mask = (1, None, True,
-                                                                np.zeros(27))
-            self.done = True
+            # Next case
+            next_branch = self.tiramisu_api.scheduler_service.next_branch()
+            if next_branch == None:
+                speedup, embedded_tensor, legality, actions_mask = (
+                    1,
+                    None,
+                    True,
+                    np.zeros(27),
+                )
+                self.done = True
+            else:
+                speedup, embedded_tensor, legality, actions_mask = (
+                    1,
+                    next_branch[0],
+                    True,
+                    next_branch[1],
+                )
 
         return speedup, embedded_tensor, legality, actions_mask
 
-    def preprocess_embeddings(self, embeddings, action=0.1):
-        embeddings = np.append(embeddings, [action])
-        return embeddings
+    def preprocess_embeddings(self, embeddings: torch.Tensor, action=-1):
+        embeddings = torch.cat(
+            (
+                *embeddings,
+                torch.tensor(
+                    [
+                        (
+                            (self.tiramisu_api.scheduler_service.current_branch + 1)
+                            / len(self.tiramisu_api.scheduler_service.branches)
+                        ),
+                        action,
+                    ],
+                    dtype=torch.float32,
+                ),
+            ),
+            dim=0,
+        )
+        return embeddings.numpy()
