@@ -26,6 +26,8 @@ class Schedule:
         # self.schedule_list is an array that contains a list of optimizations that has been applied on the program
         # This list has objects of type `OptimizationCommand`
         self.schedule_list = []
+        # Additional loops when Tiling is applied
+        self.additional_loops = 0
         if((type(self).__name__) == "Schedule"):
             self.__calculate_common_it()
             self.__init_schedule_dict_tags()
@@ -110,22 +112,6 @@ class Schedule:
                 "iterators" : it[iterator]["iterators"],
                 "annotations": {}
             })
-
-        # for iterator in iterators.keys(): 
-        #     if iterators[iterator]["computations_list"]:
-        #         branch = {
-        #             "comps" : copy.deepcopy(iterators[iterator]["computations_list"]),
-        #             "iterators" : copy.deepcopy(self.prog.annotations["computations"][iterators[iterator]["computations_list"][0]]["iterators"]),
-        #             "annotations": {}
-        #         }
-        #         branch_annotations = {
-        #             "computations" : {},
-        #             "iterators": {}
-        #         }
-        #         # extract the branch specific computations annotations
-        #         for comp in branch["comps"]:
-        #             branch_annotations["computations"][comp] = copy.deepcopy(self.prog.annotations["computations"][comp])
-
                 
         for branch in branches :
             branch_annotations = {

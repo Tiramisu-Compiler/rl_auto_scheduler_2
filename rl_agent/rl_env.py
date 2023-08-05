@@ -26,6 +26,14 @@ class TiramisuRlEnv(gym.Env):
                 "actions_mask": spaces.Box(0, 1, shape=(27,)),
             }
         )
+        # The variable `self.worker_index` indexes which worker/actor is working on the chosen function, it will help us avoid problems during compiling,
+        # by adding the index of the worker to the name of the worker in order to not interfer with the compilation of another node
+        if(isinstance(config,ray.rllib.env.env_context.EnvContext)):
+            # This the case of training
+            self.worker_index = str(config.worker_index)
+        else :
+            # This is the case of evaluating
+            self.worker_index = ""
         self.current_program = ""
         self.reset()
 
@@ -54,6 +62,7 @@ class TiramisuRlEnv(gym.Env):
         return self.state, self.info
 
     def step(self, action):
+        self.action_index += 1
         speedup, embedded_tensor, legality, actions_mask = self.apply_flattened_action(
             action=action
         )
@@ -65,7 +74,7 @@ class TiramisuRlEnv(gym.Env):
                 ),
                 "actions_mask": actions_mask,
             }
-            self.action_index += 1
+
             # If the action is legal , we divide the speedup of new sequence {A_0 .. A_i+1} by the speedup of
             # the previous Sequnce {A_0 .. A_i} to get the speedup of the action {A_i+1}
             instant_speedup = speedup / self.previous_speedup
@@ -73,11 +82,14 @@ class TiramisuRlEnv(gym.Env):
 
         self.reward = math.log(instant_speedup, 4)
 
+        if self.action_index == 14:
+            self.done = True
+
         # Update dataset on episode end
         if self.done:
             tiramisu_program_dict = (
                 self.tiramisu_api.get_current_tiramisu_program_dict()
-            )   
+            )
             self.dataset_actor.update_dataset.remote(
                 self.current_program, tiramisu_program_dict
             )
@@ -92,18 +104,23 @@ class TiramisuRlEnv(gym.Env):
                 embedded_tensor,
                 legality,
                 actions_mask,
-            ) = self.tiramisu_api.parallelize(loop_level=action, env_id=action)
+            ) = self.tiramisu_api.parallelize(
+                loop_level=action, env_id=action, worker_id=self.worker_index
+            )
         elif action <= 3:
             loop_level = action - 2
             # Skewing 0,1 and 1,2
             speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.skew(
-                loop_level1=loop_level, loop_level2=loop_level + 1, env_id=action
+                loop_level1=loop_level,
+                loop_level2=loop_level + 1,
+                env_id=action,
+                worker_id=self.worker_index,
             )
         elif action <= 6:
             # Unrolling 4 , 8 , 16
             factor = action - 2
             speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.unroll(
-                unrolling_factor=2**factor, env_id=action
+                unrolling_factor=2**factor, env_id=action, worker_id=self.worker_index
             )
         elif action <= 11:
             loop_level = action - 7
@@ -113,7 +130,9 @@ class TiramisuRlEnv(gym.Env):
                 embedded_tensor,
                 legality,
                 actions_mask,
-            ) = self.tiramisu_api.reverse(loop_level=loop_level, env_id=action)
+            ) = self.tiramisu_api.reverse(
+                loop_level=loop_level, env_id=action, worker_id=self.worker_index
+            )
         elif action <= 15:
             loop_level = action - 12
             # Tiling 2D from 0,1 to 3,4
@@ -123,6 +142,7 @@ class TiramisuRlEnv(gym.Env):
                 size_x=32,
                 size_y=32,
                 env_id=action,
+                worker_id=self.worker_index,
             )
         elif action <= 18:
             loop_level = action - 16
@@ -135,6 +155,7 @@ class TiramisuRlEnv(gym.Env):
                 size_y=32,
                 size_z=32,
                 env_id=action,
+                worker_id=self.worker_index,
             )
         elif action <= 22:
             loop_level = action - 19
@@ -145,7 +166,10 @@ class TiramisuRlEnv(gym.Env):
                 legality,
                 actions_mask,
             ) = self.tiramisu_api.interchange(
-                loop_level1=loop_level, loop_level2=loop_level + 1, env_id=action
+                loop_level1=loop_level,
+                loop_level2=loop_level + 1,
+                env_id=action,
+                worker_id=self.worker_index,
             )
         elif action <= 25:
             loop_level = action - 23
@@ -156,7 +180,10 @@ class TiramisuRlEnv(gym.Env):
                 legality,
                 actions_mask,
             ) = self.tiramisu_api.interchange(
-                loop_level1=loop_level, loop_level2=loop_level + 2, env_id=action
+                loop_level1=loop_level,
+                loop_level2=loop_level + 2,
+                env_id=action,
+                worker_id=self.worker_index,
             )
         else:
             # Next case

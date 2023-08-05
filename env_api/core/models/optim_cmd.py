@@ -67,10 +67,11 @@ class OptimizationCommand:
             for comp in self.comps:
                 self.comps_schedule[comp] = "U(L{},{})".format(
                     *self.params_list)
-                unrolling_str = (
-                    ".unroll(" +
-                    ",".join([str(p) for p in self.params_list]) + ");")
-                optim_str += "\n\t{}".format(comp) + unrolling_str
+
+            unrolling_str = (
+                ".tag_unroll_level(" +
+                ",".join([str(p) for p in self.params_list]) + ");")
+            optim_str += "\n\t{}".format(self.comps[0]) + unrolling_str
             return optim_str
         elif isinstance(self.action, Reversal):
             reversal_str = ".loop_reversal(" + str(self.params_list[0]) + ");"

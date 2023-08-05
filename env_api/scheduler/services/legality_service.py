@@ -39,7 +39,6 @@ class LegalityService:
         # The legality of Skewing is different than the others , we need to get the skewing params from the solver
         # If there are any , this means that skewing is legal , if the solver fails , it means that skewing is illegal  
         if isinstance(action, Skewing):
-
             # check if results of skewing solver exist in the dataset
             schdule_str = ConvertService.build_sched_string(schedule_object.schedule_list)
             if schdule_str in schedule_object.prog.schedules_solver:
@@ -53,7 +52,7 @@ class LegalityService:
                 factors = CompilingService.call_skewing_solver(
                     schedule_object=branches[current_branch],
                     optim_list=schedule_object.schedule_list,
-                    params=action.params)
+                    action=action)
 
                 # Save the results of skewing solver in the dataset
                 schedule_object.prog.schedules_solver[schdule_str] = factors
@@ -90,7 +89,7 @@ class LegalityService:
             try:
                 legality_check = int(
                     CompilingService.compile_legality(
-                        schedule_object=branches[current_branch],
+                        schedule_object=schedule_object,
                         optims_list=schedule_object.schedule_list))
 
                 # Saving the legality of the new schedule
@@ -117,20 +116,28 @@ class LegalityService:
         if (isinstance(action, Unrolling)):
             # We look for the last iterator of each computation and save it in the params
             unrolling_factor = action.params[0]
-            loop_level = len(branches[current_branch].common_it) -1
+            loop_level = len(branches[current_branch].common_it) -1 + branches[current_branch].additional_loops
             action.params = copy.deepcopy([loop_level, unrolling_factor])
             action.comps = copy.deepcopy(branches[current_branch].comps)
             return False 
         else : 
             num_iter = branches[current_branch].common_it.__len__()
             if isinstance(action, Tiling):
+                # First we verify if the tiling size is bigger than the loops extent
+                # TODO : remove this strategy later
+                tiling_size = action.params[-1]
+                for iterator in branches[current_branch].prog.annotations["iterators"] :
+                    lower_bound =  int(branches[current_branch].prog.annotations["iterators"][iterator]['lower_bound'])
+                    upper_bound =  int(branches[current_branch].prog.annotations["iterators"][iterator]['upper_bound'])
+                    if(abs(upper_bound-lower_bound)<tiling_size):
+                        return True
                 # Becuase the second half of action.params contains tiling size, so we need only the first half of the vector
                 params = action.params[:len(action.params) // 2]
             else:
                 params = action.params
-            for param in params:
-                if param >= num_iter:
-                    return True
+            # Checking if the big param is smaller than the number of existing iterators
+            if params[-1] >= num_iter:
+                return True
         
         
         # We have the current branch 

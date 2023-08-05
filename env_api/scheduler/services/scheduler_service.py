@@ -25,6 +25,7 @@ class SchedulerService:
         self.prediction_service = PredictionService()
         # A schedules-legality service
         self.legality_service = LegalityService()
+        
 
     def set_schedule(self, schedule_object: Schedule):
         """
@@ -99,7 +100,6 @@ class SchedulerService:
         output :
             - speedup : float , representation : tuple(tensor) , legality_check : bool
         """
-
         legality_check = self.legality_service.is_action_legal(schedule_object=self.schedule_object,
                                                                branches=self.branches,
                                                                current_branch=self.current_branch,
@@ -125,7 +125,6 @@ class SchedulerService:
 
                 elif isinstance(action, Skewing):
                     self.apply_skewing(action=action)
-
                 # After successfuly applying an action we get the new representation of the main schedule and the branch
                 main_repr_tensors = ConvertService.get_schedule_representation(
                     self.schedule_object)
@@ -294,6 +293,8 @@ class SchedulerService:
                     branch.schedule_dict[comp]["tiling"] = tiling_dict
                     # Update the branch actions mask 
                     branch.update_actions_mask(action=action)
+                    # Update the additional loops 
+                    branch.additional_loops = tiling_depth 
 
 
     def apply_fusion(self, loop_level, comps):
