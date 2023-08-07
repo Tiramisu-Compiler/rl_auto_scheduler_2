@@ -148,7 +148,7 @@ class CompilingService():
                                    "", legality_cpp_code)
 
         solver_lines = header + "\n\tauto auto_skewing_result = fct->skewing_local_solver({" + ", ".join(
-            [f"&{comp}" for comp in schedule_object.comps
+            [f"&{comp}" for comp in action.comps
              ]) + "}" + ",{},{},1);\n".format(*params)
 
         solver_lines += """    

@@ -50,7 +50,7 @@ class LegalityService:
                     schedule_object.prog.load_code_lines()
                 # Call the skewing solver
                 factors = CompilingService.call_skewing_solver(
-                    schedule_object=branches[current_branch],
+                    schedule_object=schedule_object,
                     optim_list=schedule_object.schedule_list,
                     action=action)
 
