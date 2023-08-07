@@ -76,7 +76,7 @@ class Schedule:
         self.repr = Representation(*ConvertService.get_representation_template(self.prog.annotations,self.schedule_dict))
     
     def __set_action_mask(self):
-        self.repr.action_mask = np.zeros(27)
+        self.repr.action_mask = np.zeros(32)
 
     def __form_iterators_dict(self):
         for comp in self.comps:
@@ -141,23 +141,18 @@ class Schedule:
 
         if applied :
             # if the action is legal and applied we need to mask similar action when it comes 
-            # to Unrilling , skewing and parallelization because these action are applied once 
-            if isinstance(action, Unrolling) :
-                self.repr.action_mask[4:7] = 1
-            if isinstance(action, Tiling) :
-                self.repr.action_mask[12:19] = 1
-            if isinstance(action, Parallelization)  : 
-                self.repr.action_mask[0:2] = 1
+            # to Unrolling , skewing and parallelization because these action are applied once 
+            if isinstance(action, Parallelization) :
+                self.repr.action_mask[12:14] = 1
+            elif isinstance(action, Tiling) :
+                self.repr.action_mask[14:26] = 1
+            elif isinstance(action, Unrolling)  : 
+                self.repr.action_mask[26:31] = 1
             # The other case is for skewing , reversal and interchange 
             # for these actions we are allowed to apply them in any order under the condition of not 
             # surpassing 4 times of applying them.
             if self.transformed == 4 :
-                # Skewing
-                self.repr.action_mask[2:4] = 1
-                # Reversal
-                self.repr.action_mask[7:12] = 1
-                # Interchange
-                self.repr.action_mask[19:26] = 1
+                self.repr.action_mask[0:12] = 1
                 
             if Config.config.experiment.beam_search_order : 
                 self.apply_beam_search_conditions(action=action)
@@ -165,20 +160,11 @@ class Schedule:
     def apply_beam_search_conditions(self, action : Action):
         # The order of actions in beam search :
         # Fusion, [Interchange, reversal, skewing], parallelization, tiling, unrolling
-        if (isinstance(action,Unrolling) or isinstance(action,Tiling) or isinstance(action,Parallelization)):
-            # Skewing
-            self.repr.action_mask[2:4] = 1
-            # Reversal
-            self.repr.action_mask[7:12] = 1
-            # Interchange
-            self.repr.action_mask[19:26] = 1
+        if (isinstance(action,Parallelization)):
+            self.repr.action_mask[0:14] = 1
 
-            if (isinstance(action,Tiling)) : 
-                # Parallelization
-                self.repr.action_mask[0:2] = 1
+        elif (isinstance(action,Tiling)) : 
+            self.repr.action_mask[0:26] = 1
 
-            elif (isinstance(action,Unrolling)):
-                # Parallelization
-                self.repr.action_mask[0:2] = 1
-                # Tiling
-                self.repr.action_mask[12:19] = 1
+        elif (isinstance(action,Unrolling)):
+            self.repr.action_mask[0:31] = 1
