@@ -13,6 +13,8 @@ from rl_agent.rl_policy_nn import PolicyNN
 from rl_agent.rl_policy_lstm import PolicyLSTM
 from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
 
+from ray.rllib.algorithms.ppo import PPOConfig
+from ray.rllib.algorithms.pg import PGConfig
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -21,10 +23,18 @@ parser.add_argument(
     type=int,
     help="Number of workers to use for training",
 )
-parser.add_argument("--run",
-                    type=str,
-                    default="PPO",
-                    help="The RLlib-registered algorithm to use.")
+
+parser.add_argument(
+    "--num-gpus",
+    default=0,
+    type=int,
+    help="Number of gpus",
+)
+
+
+parser.add_argument(
+    "--run", type=str, default="PPO", help="The RLlib-registered algorithm to use."
+)
 parser.add_argument(
     "--framework",
     choices=["tf", "tf2", "torch"],
@@ -56,7 +66,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(f"Running with following CLI options: {args}")
     # If num workers > 28 => means we are using more than 1 node.
-    ray.init(address='auto') if args.num_workers > 28 else ray.init()
+    ray.init(address="auto") if args.num_workers > 208 else ray.init()
     # Config.init() is necessary to load all env variables
     Config.init()
     # DatasetActor is the responsible class of syncronizing data between rollout-workers, TiramisuEnvAPI will read
@@ -66,35 +76,53 @@ if __name__ == "__main__":
     match (Config.config.experiment.policy_model):
         case "lstm":
             ModelCatalog.register_custom_model("policy_nn", PolicyLSTM)
-            model_custom_config = Config.config.lstm_policy.__dict__ 
+            model_custom_config = Config.config.lstm_policy.__dict__
         case "ff":
             ModelCatalog.register_custom_model("policy_nn", PolicyNN)
             model_custom_config = Config.config.policy_network.__dict__
 
-    
-    config = get_trainable_cls(args.run).get_default_config().environment(
-        TiramisuRlEnv,
-        env_config={
-            "config": Config.config,
-            "dataset_actor": dataset_actor,
-        }).framework(args.framework).callbacks(
-            MultiCallbacks([
-                # CustomMetricCallback
-            ])).rollouts(
-                # The reason of setting -10 , is that for larger jobs , if we use all cpus , we will have
-                # a bottlneck in performance , it is better to leave some free cpus 
-                num_rollout_workers=args.num_workers - 10,
-                batch_mode="complete_episodes",
-                enable_connectors=False).training(
-                    lr=Config.config.experiment.lr,
-                    model={
-                        "custom_model": "policy_nn",
-                        "vf_share_layers": Config.config.experiment.vf_share_layers,
-                        "custom_model_config": model_custom_config
-                    }).resources(num_gpus=0).debugging(log_level="WARN")
+    config = (
+        get_trainable_cls(args.run)
+        .get_default_config()
+        .environment(
+            TiramisuRlEnv,
+            env_config={
+                "config": Config.config,
+                "dataset_actor": dataset_actor,
+            },
+        )
+        .framework(args.framework)
+        .callbacks(
+            MultiCallbacks(
+                [
+                    # CustomMetricCallback
+                ]
+            )
+        )
+        .rollouts(
+            num_rollout_workers=args.num_workers,
+            batch_mode="complete_episodes",
+            enable_connectors=False,
+        )
+        .training(
+            lr=Config.config.experiment.lr,
+            entropy_coeff=Config.config.experiment.entropy_coeff,
+            vf_loss_coeff=1,
+            sgd_minibatch_size=128,
+            train_batch_size=4096,
+            model={
+                "custom_model": "policy_nn",
+                "vf_share_layers": Config.config.experiment.vf_share_layers,
+                "custom_model_config": model_custom_config,
+            },
+        )
+        # .exploration(
+        #     exploration_config={"type": "EpsilonGreedy"},
+        # )
+        .resources(num_gpus=args.num_gpus)
+        .debugging(log_level="WARN")
+    )
 
-    config.entropy_coeff = Config.config.experiment.entropy_coeff
-    
     # Setting the stop conditions
     stop = {
         "training_iteration": Config.config.experiment.training_iteration,
@@ -115,8 +143,10 @@ if __name__ == "__main__":
             result = algo.train()
             print(pretty_print(result))
             # stop training of the target train steps or reward are reached
-            if (result["timesteps_total"] >= args.stop_timesteps
-                    or result["episode_reward_mean"] >= args.stop_reward):
+            if (
+                result["timesteps_total"] >= args.stop_timesteps
+                or result["episode_reward_mean"] >= args.stop_reward
+            ):
                 break
         algo.stop()
     else:
@@ -132,7 +162,8 @@ if __name__ == "__main__":
                     checkpoint_config=air.CheckpointConfig(
                         checkpoint_frequency=Config.config.experiment.checkpoint_frequency,
                         num_to_keep=Config.config.experiment.checkpoint_num_to_keep,
-                        checkpoint_at_end=True),
+                        checkpoint_at_end=True,
+                    ),
                     failure_config=air.FailureConfig(fail_fast=True),
                 ),
             )
