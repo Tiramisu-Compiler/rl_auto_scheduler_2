@@ -2,11 +2,11 @@ from env_api.scheduler.models.action import *
 
 
 class OptimizationCommand:
-    def __init__(self, action: Action, comps):
+    def __init__(self, action: Action):
         self.params_list = action.params
         self.action = action
         # A list of concerned computations of the actions
-        self.comps = comps
+        self.comps = action.comps
         # We save the schedule of an action in each comp individually to form the whole schedule of a program later
         self.comps_schedule = {}
         self.tiramisu_optim_str = self.get_tiramisu_optim_str()
@@ -18,6 +18,7 @@ class OptimizationCommand:
         """
 
         if isinstance(self.action, Interchange):
+            assert len(self.params_list) == 2
             interchange_str = (".interchange(" +
                                ",".join([str(p)
                                          for p in self.params_list]) + ");")
@@ -25,7 +26,7 @@ class OptimizationCommand:
             for comp in self.comps:
                 self.comps_schedule[comp] = "I(L{},L{})".format(
                     *self.params_list)
-                optim_str += "\n\t {}".format(comp) + interchange_str
+                optim_str += "\n\t{}".format(comp) + interchange_str
             return optim_str
         elif isinstance(self.action, Skewing):
             assert len(self.params_list) == 4
@@ -33,9 +34,9 @@ class OptimizationCommand:
                 [str(p) for p in self.params_list]) + ");"
             optim_str = ""
             for comp in self.comps:
-                self.comps_schedule[comp] ="S(L{},L{},{},{})".format(
-                        *self.params_list)
-                optim_str += "\n\t {}".format(comp) + skewing_str
+                self.comps_schedule[comp] = "S(L{},L{},{},{})".format(
+                    *self.params_list)
+                optim_str += "\n\t{}".format(comp) + skewing_str
             return optim_str
 
         elif isinstance(self.action, Parallelization):
@@ -43,7 +44,7 @@ class OptimizationCommand:
             for comp in self.comps:
                 self.comps_schedule[comp] = "P(L{})".format(
                     self.params_list[0])
-            return ("\t" + self.comps[0] + ".tag_parallel_level(" +
+            return ("\n\t" + self.comps[0] + ".tag_parallel_level(" +
                     str(self.params_list[0]) + ");")
 
         elif isinstance(self.action, Tiling):
@@ -59,16 +60,18 @@ class OptimizationCommand:
                     self.comps_schedule[
                         comp] = "T3(L{},L{},L{},{},{},{})".format(
                             *self.params_list)
-                optim_str += "\n\t {}".format(comp) + tiling_str
+                optim_str += "\n\t{}".format(comp) + tiling_str
             return optim_str
         elif isinstance(self.action, Unrolling):
             optim_str = ""
             for comp in self.comps:
-                self.comps_schedule[comp] = "U(L{},{})".format(*self.params_list[comp])
-                unrolling_str = (
-                    ".unroll(" +
-                    ",".join([str(p) for p in self.params_list[comp]]) + ");")
-                optim_str += "\n\t {}".format(comp) + unrolling_str
+                self.comps_schedule[comp] = "U(L{},{})".format(
+                    *self.params_list)
+                optim_str = f"\n\t{comp}.unroll({self.params_list[0]},{self.params_list[1]});"
+            # unrolling_str = (
+            #     ".tag_unroll_level(" +
+            #     ",".join([str(p) for p in self.params_list]) + ");")
+            # optim_str += "\n\t{}".format(self.comps[0]) + unrolling_str
             return optim_str
         elif isinstance(self.action, Reversal):
             reversal_str = ".loop_reversal(" + str(self.params_list[0]) + ");"
@@ -76,10 +79,10 @@ class OptimizationCommand:
             for comp in self.comps:
                 self.comps_schedule[comp] = "R(L{})".format(
                     self.params_list[0])
-                optim_str += "\n\t {}".format(comp) + reversal_str
+                optim_str += "\n\t{}".format(comp) + reversal_str
             return optim_str
         elif isinstance(self.action, Fusion):
-            # TODO : Recheck the right command for this 
+            # TODO : Recheck the right command for this
             optim_str = ""
             # prev_comp = self.comps[0]
             # for comp in self.comps[1:]:
@@ -92,3 +95,9 @@ class OptimizationCommand:
                 optim_str += ".then(" + comp + ","+str(self.params_list[0])+")"
             optim_str += ";"
             return optim_str
+
+    def __str__(self) -> str:
+        return f"OptimizationCommand(action={self.action.__class__.__name__}, params={self.params_list})"
+
+    def __repr__(self) -> str:
+        return self.__str__()

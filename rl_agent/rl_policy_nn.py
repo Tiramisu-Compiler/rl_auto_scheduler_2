@@ -1,45 +1,50 @@
 from ray.rllib.models.torch.torch_modelv2 import TorchModelV2
 from ray.rllib.utils.framework import try_import_torch
-import numpy as np
 
 torch, nn = try_import_torch()
 
 
 class PolicyNN(TorchModelV2, nn.Module):
-    def __init__(self, obs_space, action_space, num_outputs, model_config,
-                 name):
-        
-        TorchModelV2.__init__(self, obs_space, action_space, num_outputs,
-                              model_config, name)
+    def __init__(
+        self,
+        obs_space,
+        action_space,
+        num_outputs,
+        model_config,
+        name,
+        dropout_rate,
+        policy_hidden_layers,
+        vf_hidden_layers,
+    ):
+        TorchModelV2.__init__(
+            self, obs_space, action_space, num_outputs, model_config, name
+        )
         nn.Module.__init__(self)
 
         self.share_weights = model_config["vf_share_layers"]
 
-        dropout = model_config["custom_model_config"]["dropout_rate"]
-        input_size = 180
+        dropout = dropout_rate
+        input_size = obs_space.original_space["embedding"].shape[0]
 
         # Policy network
-        policy_hidden_sizes = model_config["custom_model_config"]["policy_hidden_layers"]
+        policy_hidden_sizes = policy_hidden_layers
         policy_output_size = num_outputs
 
         self.policy_layers = nn.ModuleList()
         policy_layers_sizes = [input_size] + policy_hidden_sizes
         for i in range(len(policy_layers_sizes) - 1):
-            layer = nn.Linear(policy_layers_sizes[i],
-                              policy_layers_sizes[i + 1])
+            layer = nn.Linear(policy_layers_sizes[i], policy_layers_sizes[i + 1])
             nn.init.xavier_uniform_(layer.weight)
             self.policy_layers.append(layer)
-            self.policy_layers.append(
-                nn.BatchNorm1d(policy_layers_sizes[i + 1]))
+            self.policy_layers.append(nn.BatchNorm1d(policy_layers_sizes[i + 1]))
             self.policy_layers.append(nn.Dropout(dropout))
 
         # Policy head
-        self.logits_layer = nn.Linear(policy_layers_sizes[-1],
-                                      policy_output_size)
+        self.logits_layer = nn.Linear(policy_layers_sizes[-1], policy_output_size)
         nn.init.xavier_uniform_(self.logits_layer.weight)
 
         # Value separate network
-        value_hidden_sizes = model_config["custom_model_config"]["vf_hidden_layers"]
+        value_hidden_sizes = vf_hidden_layers
         value_output_size = 1
 
         self.value_layers = nn.ModuleList()
@@ -52,10 +57,10 @@ class PolicyNN(TorchModelV2, nn.Module):
             self.value_layers.append(nn.Dropout(dropout))
 
         # Value head
-        if (self.share_weights):
+        if self.share_weights:
             # If value function and policy weights are shared, use last weights of the policy network
             self.value_layer = nn.Linear(policy_layers_sizes[-1], value_output_size)
-        else : 
+        else:
             self.value_layer = nn.Linear(value_layers_sizes[-1], value_output_size)
         nn.init.xavier_uniform_(self.value_layer.weight)
 
@@ -78,10 +83,10 @@ class PolicyNN(TorchModelV2, nn.Module):
         return logits, state
 
     def value_function(self):
-        if (self.share_weights):
+        if self.share_weights:
             assert self._last_flat_in is not None, "must call forward() first"
             value = self.value_layer(self._last_flat_in)
-        else :
+        else:
             assert self._features is not None, "must call forward() first"
             self._value_features = self._features
             for layer in self.value_layers:

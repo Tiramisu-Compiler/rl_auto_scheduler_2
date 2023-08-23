@@ -8,3 +8,6 @@ class NbAccessException(Exception):
 
 class LoopsDepthException(Exception):
     pass
+
+class ExecutingFunctionException(Exception):
+    pass

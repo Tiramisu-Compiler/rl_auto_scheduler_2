@@ -5,7 +5,7 @@ env_api/data/dataset/
 env_api/data/copy/
 test/
 *.txt
-ray_results/
+ray_results*/
 outputs/
 *.sh
 *.ipynb
@@ -13,3 +13,7 @@ outputs/
 benchmark/
 datasets/
 config/config.yaml
+.venv
+workspace
+checkpoints
+lstm-ppo-policy
