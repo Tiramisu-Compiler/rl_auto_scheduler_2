@@ -1,45 +1,47 @@
 tiramisu:
-    tiramisu_path: "path to tiramisu root directory" 
-    env_type:  "model"
-    tags_model_weights: "<Your path to the repo>/env_api/scheduler/models/model_release_version.pt"
-    is_new_tiramisu: False | True 
-    workspace: "Path to compile tiramisu programs (Store compiling objects)"
+    tiramisu_path: Tiramisu Path
+    env_type:  "model" # model | execution
+    tags_model_weights: path of the saved weights of the cost model
+    is_new_tiramisu: False
+    workspace: path of the workspace to generate execution files
+    old_tiramisu_path: path of old tiramisu
 
 dataset:
-    dataset_format: HYBRID | PICKLE 
-    cpps_path: "path to cpp files or cpp pickle file"
-    dataset_path: "path to dataset pkl file"
-    save_path: "path to save updated or new dataset"
-    shuffle: False/True # Whether to shuffle the dataset
-    seed: null # Seed for shuffle
-    saving_frequency: 10000 # dataset save to disk frequency
+    dataset_format: PICKLE
+    cpps_path : 
+    dataset_path: 
+    save_path: 
+    shuffle: True
+    seed: 7
+    saving_frequency: 500
     # When doing evaluation on the benchmark set the value to True
     is_benchmark: False
-    benchmark_cpp_files: 'path to cpp folder of benchmarks'
-    benchmark_dataset_path: 'path to pkl file of benchmarks of available'
 
 ray:
-    results: "path to where you want to store ray results"
-    restore_checkpoint: "path of the checkpoint you want to restore"
+    results: 
+    restore_checkpoint: 
 
 experiment:
-    name: "test"
-    checkpoint_frequency: 10
-    checkpoint_num_to_keep: 10
+    name: "fixed-bugs"
+    # name: "220k-1.5vf_coeff"
+    checkpoint_frequency: 20
+    checkpoint_num_to_keep: 30
     # The following 3 values are the values to stop the experiment if any of them is reached 
-    training_iteration: 500
-    timesteps_total: 1000000
-    episode_reward_mean: 2
+    training_iteration: 80000
+    timesteps_total: 10000000
+    episode_reward_mean: 10
     # Use this value to punish or tolerate illegal actions from being taken
     legality_speedup: 1.0
     # Use the order of beam search 
     beam_search_order : True
-    entropy_coeff: 0.1
+    entropy_coeff: 0.0001
     # Training parameters
-    train_batch_size: 1024
-    lr: 0.00005
+    train_batch_size: 4096
+    minibatch_size: 128
+    lr: 0.000004
+    vf_loss_coeff: 1
     # Policy model type
-    policy_model: "lstm" | "ff" #feed-forward
+    policy_model: "lstm" #| "ff" #feed-forward
     # In mode "ff" set vf_share_layers to True if you want to use shared weights between policy and value function 
     # in mode "lstm" , you must make vf_share_layers = True
     vf_share_layers: True
@@ -57,7 +59,6 @@ policy_network:
 
 lstm_policy:
     fc_size: 1024
-    lstm_state_size: 256
+    lstm_state_size: 512
     num_layers: 1
-    
     

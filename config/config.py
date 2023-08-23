@@ -81,6 +81,8 @@ class Experiment:
     beam_search_order: bool = False
     entropy_coeff: float = 0.0
     train_batch_size: int = 1024
+    vf_loss_coeff: int = 1
+    minibatch_size:int = 128
     lr: float = 0.001
     vf_share_layers: bool = False
     policy_model: str = ""

@@ -182,6 +182,7 @@ class TiramisuEnvAPI:
             "program_annotation": self.scheduler_service.schedule_object.prog.annotations,
             "schedules_legality": self.scheduler_service.schedule_object.prog.schedules_legality,
             "schedules_solver": self.scheduler_service.schedule_object.prog.schedules_solver,
+            "execution_times": self.scheduler_service.schedule_object.prog.execution_times
         }
 
     def final_speedup(self):

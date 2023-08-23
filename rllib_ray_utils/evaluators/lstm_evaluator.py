@@ -77,9 +77,19 @@ class LSTMBenchmarkEvaluator:
 
             speedup, sched_str = self.env.tiramisu_api.scheduler_service.get_current_speedup()
             # when episode is done, write cpp code to file
-            cpp_code = CompilingService.get_schedule_code(self.env.tiramisu_api.scheduler_service.schedule_object)
+            tiramisu_prog = self.env.tiramisu_api.scheduler_service.schedule_object.prog
+            optim_list = self.env.tiramisu_api.scheduler_service.schedule_object.schedule_list
+            branches = self.env.tiramisu_api.scheduler_service.branches
+            schedule_object = self.env.tiramisu_api.scheduler_service.schedule_object
+
+            cpp_code = CompilingService.get_schedule_code(tiramisu_program=tiramisu_prog,optims_list=optim_list,branches=branches)
+            
+            legality_code = CompilingService.get_legality_code(schedule_object=schedule_object,optims_list=optim_list,branches=branches)
             CompilingService.write_cpp_code(cpp_code, os.path.join(
                 self.args.output_path, self.env.current_program))
+
+            CompilingService.write_cpp_code(legality_code, os.path.join(
+                self.args.output_path, self.env.current_program+"_legality"))
 
             # store explored program and its schedule
             explored_programs[self.env.current_program] = {

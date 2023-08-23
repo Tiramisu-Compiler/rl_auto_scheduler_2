@@ -67,8 +67,11 @@ class FFBenchmarkEvaluator:
                 observation, reward, episode_done, _, _ = self.env.step(action)
 
             speedup, sched_str = self.env.tiramisu_api.scheduler_service.get_current_speedup()
+            tiramisu_prog = self.env.tiramisu_api.scheduler_service.schedule_object.prog
+            optim_list = self.env.tiramisu_api.scheduler_service.schedule_object.schedule_list
+            branches = self.env.tiramisu_api.scheduler_service.branches
             # when episode is done, write cpp code to file
-            cpp_code = CompilingService.get_schedule_code(self.env.tiramisu_api.scheduler_service.schedule_object)
+            cpp_code = CompilingService.get_schedule_code(tiramisu_program=tiramisu_prog,optims_list=optim_list,branches=branches)
             CompilingService.write_cpp_code(cpp_code, os.path.join(
                 self.args.output_path, self.env.current_program))
 

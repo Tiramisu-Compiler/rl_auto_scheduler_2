@@ -52,7 +52,8 @@ class LegalityService:
                 factors = CompilingService.call_skewing_solver(
                     schedule_object=schedule_object,
                     optim_list=schedule_object.schedule_list,
-                    action=action)
+                    action=action,
+                    branches=branches)
 
                 # Save the results of skewing solver in the dataset
                 schedule_object.prog.schedules_solver[schdule_str] = factors
@@ -90,7 +91,8 @@ class LegalityService:
                 legality_check = int(
                     CompilingService.compile_legality(
                         schedule_object=schedule_object,
-                        optims_list=schedule_object.schedule_list))
+                        optims_list=schedule_object.schedule_list,
+                        branches=branches))
 
                 # Saving the legality of the new schedule
                 schedule_object.prog.schedules_legality[schdule_str] = (
@@ -116,6 +118,13 @@ class LegalityService:
         if (isinstance(action, Unrolling)):
             # We look for the last iterator of each computation and save it in the params
             unrolling_factor = action.params[0]
+
+            innermost_iterator = list(branches[current_branch].prog.annotations["iterators"].keys())[-1]
+            lower_bound =  int(branches[current_branch].prog.annotations["iterators"][innermost_iterator]['lower_bound'])
+            upper_bound =  int(branches[current_branch].prog.annotations["iterators"][innermost_iterator]['upper_bound'])
+            if (abs(upper_bound-lower_bound) < unrolling_factor):
+                return True
+            
             loop_level = len(branches[current_branch].common_it) -1 + branches[current_branch].additional_loops
             action.params = copy.deepcopy([loop_level, unrolling_factor])
             action.comps = copy.deepcopy(branches[current_branch].comps)
@@ -125,11 +134,11 @@ class LegalityService:
             if isinstance(action, Tiling):
                 # First we verify if the tiling size is bigger than the loops extent
                 # TODO : remove this strategy later
-                tiling_size = action.params[-1]
+                tiling_size = max(action.params)
                 for iterator in branches[current_branch].prog.annotations["iterators"] :
                     lower_bound =  int(branches[current_branch].prog.annotations["iterators"][iterator]['lower_bound'])
                     upper_bound =  int(branches[current_branch].prog.annotations["iterators"][iterator]['upper_bound'])
-                    if(abs(upper_bound-lower_bound)<tiling_size):
+                    if(abs(upper_bound-lower_bound)< tiling_size):
                         return True
                 # Becuase the second half of action.params contains tiling size, so we need only the first half of the vector
                 params = action.params[:len(action.params) // 2]
