@@ -12,8 +12,7 @@ from ray.rllib.env.env_context import EnvContext
 
 from config.config import Config
 from env_api.tiramisu_api import TiramisuEnvAPI
-from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
-from rllib_ray_utils.dataset_actor.grpc_server import (
+from grpc_server.dataset_grpc_server.grpc_files import (
     tiramisu_function_pb2,
     tiramisu_function_pb2_grpc,
 )

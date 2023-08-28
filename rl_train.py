@@ -1,5 +1,6 @@
 import argparse
 import os
+import socket
 
 import ray
 from ray import air, tune
@@ -66,6 +67,10 @@ parser.add_argument(
     help="Resume training from a checkpoint",
 )
 
+parser.add_argument(
+    "--auto-grpc", default=False, action="store_true", help="Auto grpc address"
+)
+
 if __name__ == "__main__":
     num_cpus = os.cpu_count()
     args = parser.parse_args()
@@ -74,6 +79,9 @@ if __name__ == "__main__":
     ray.init(address="auto") if args.num_workers >= num_cpus else ray.init()
     # Config.init() is necessary to load all env variables
     Config.init()
+
+    if args.auto_grpc:
+        Config.config.dataset.ip_address = socket.gethostbyname(socket.gethostname())
     # DatasetActor is the responsible class of syncronizing data between rollout-workers, TiramisuEnvAPI will read
     # data from this actor.
     # dataset_actor = DatasetActor.remote(Config.config.dataset)
