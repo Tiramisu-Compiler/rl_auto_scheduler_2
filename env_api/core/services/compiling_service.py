@@ -1,12 +1,15 @@
+import copy
+import logging
+import re
 import subprocess
-import re,copy, logging
 from typing import List
+
+from config.config import Config
+from env_api.core.models.optim_cmd import OptimizationCommand
 from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.scheduler.models.action import Parallelization, Tiling, Unrolling
 from env_api.scheduler.models.branch import Branch
 from env_api.scheduler.models.schedule import Schedule
-from config.config import Config
-from env_api.core.models.optim_cmd import OptimizationCommand
 
 
 class CompilingService():
@@ -71,6 +74,7 @@ class CompilingService():
         legality_check_lines += f'''
             {updated_fusion}
             {unrolling_legality}
+            perform_full_dependency_analysis();
             is_legal &= check_legality_of_function();   
             std::cout << is_legal;
             '''
