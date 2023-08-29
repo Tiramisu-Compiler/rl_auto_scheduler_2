@@ -67,10 +67,6 @@ parser.add_argument(
     help="Resume training from a checkpoint",
 )
 
-parser.add_argument(
-    "--auto-grpc", default=False, action="store_true", help="Auto grpc address"
-)
-
 if __name__ == "__main__":
     num_cpus = os.cpu_count()
     args = parser.parse_args()
@@ -80,8 +76,19 @@ if __name__ == "__main__":
     # Config.init() is necessary to load all env variables
     Config.init()
 
-    if args.auto_grpc:
-        Config.config.dataset.ip_address = socket.gethostbyname(socket.gethostname())
+    # Check if the server for the dataset is ready by reading the ip and port from the server_address file
+
+    with open("./server_address", "r") as f:
+        ip_and_port = f.read()
+
+    if ip_and_port == "":
+        print("Waiting for the dataset server to be ready")
+
+    while ip_and_port == "":
+        with open("./server_address", "r") as f:
+            ip_and_port = f.read()
+
+    print(f"Dataset server is ready at {ip_and_port}")
     # DatasetActor is the responsible class of syncronizing data between rollout-workers, TiramisuEnvAPI will read
     # data from this actor.
     # dataset_actor = DatasetActor.remote(Config.config.dataset)
@@ -167,6 +174,9 @@ if __name__ == "__main__":
                 )
                 tuner = tune.Tuner.restore(
                     path=Config.config.ray.restore_checkpoint,
+                    resume_errored=True,
+                    resume_unfinished=True,
+                    restart_errored=False,
                 )
             else:
                 tuner = tune.Tuner(
@@ -181,7 +191,7 @@ if __name__ == "__main__":
                             num_to_keep=Config.config.experiment.checkpoint_num_to_keep,
                             checkpoint_at_end=True,
                         ),
-                        failure_config=air.FailureConfig(fail_fast=True),
+                        failure_config=air.FailureConfig(max_failures=-1),
                     ),
                 )
 

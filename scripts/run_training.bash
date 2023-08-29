@@ -46,6 +46,9 @@ fi
 
 srun --nodes=1 --ntasks=1 -w $head_node ray start --num-cpus "${SLURM_CPUS_PER_TASK}" --head \
 --node-ip-address="$ip_prefix" --port=$PORT --block & 
+
+python -u grpc_server/dataset_grpc_server/server.py --config=grpc_server/config.yaml --server-address=. &
+
 sleep 10
 
 echo "starting workers"
@@ -57,9 +60,5 @@ do
     sleep 10
 done
 
-python -u grpc_server/dataset_grpc_server/server.py --config=grpc_server/config.yaml &
 
-sleep 20
-
-python -u rl_train.py --num-workers=$((SLURM_JOB_NUM_NODES * SLURM_CPUS_PER_TASK - 1)) --auto-grpc
-
+python -u rl_train.py --num-workers=$((SLURM_JOB_NUM_NODES * SLURM_CPUS_PER_TASK - 1)) --resume

@@ -51,9 +51,13 @@ class TiramisuRlEnv(gym.Env):
             # There is some programs that has unsupported loop levels , acces matrices , ...
             # These programs are not supported yet so the embedded_tensor will be None
 
-            with grpc.insecure_channel(
-                f"{Config.config.dataset.ip_address}:{Config.config.dataset.port}"
-            ) as channel:
+            # read the ip and port from the server_address file
+            self.ip_and_port = ""
+            while self.ip_and_port == "":
+                with open("./server_address", "r") as f:
+                    self.ip_and_port = f.read()
+
+            with grpc.insecure_channel(self.ip_and_port) as channel:
                 stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
                 response = stub.GetTiramisuFunction(
                     tiramisu_function_pb2.TiramisuFunctionName(
@@ -119,9 +123,7 @@ class TiramisuRlEnv(gym.Env):
                 self.tiramisu_api.get_current_tiramisu_program_dict()
             )
 
-            with grpc.insecure_channel(
-                f"{Config.config.dataset.ip_address}:{Config.config.dataset.port}"
-            ) as channel:
+            with grpc.insecure_channel(self.ip_and_port) as channel:
                 stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
                 response = stub.SaveTiramisuFunction(
                     tiramisu_function_pb2.TiramisuFuction(
