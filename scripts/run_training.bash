@@ -1,20 +1,20 @@
 #!/bin/bash
 #SBATCH -p compute
-#SBATCH --nodes=2
+#SBATCH --nodes=6
 #SBATCH --exclusive
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=28
 #############SBATCH --cpus-per-task=128
 #SBATCH -t 7-0:00:00
-#SBATCH -o outputs/job.%J.out
-#SBATCH -e outputs/job.%J.err
+#SBATCH -o experiment_dir/outputs/job.%J.out
+#SBATCH -e experiment_dir/outputs/job.%J.err
 #SBATCH --mem=64G
 #SBATCH --reservation=c2
 
 WORKER_NUM=$((SLURM_JOB_NUM_NODES - 1))
 PORT=6379
-CONDA_DIR=/share/apps/NYUAD5/miniconda/3-4.11.0/
-CONDA_ENV=/scratch/sk10691/conda-envs/main/
+CONDA_DIR=/share/apps/NYUAD5/miniconda/3-4.11.0
+CONDA_ENV=/scratch/dl5133/conda-envs/tiramisu-build-env
 RAY_OBJECT_STORE_ALLOW_SLOW_STORAGE=1
 RAY_ALLOW_SLOW_STORAGE=1
 pwd=$(pwd)
@@ -61,4 +61,4 @@ do
 done
 
 
-python -u rl_train.py --num-workers=$((SLURM_JOB_NUM_NODES * SLURM_CPUS_PER_TASK - 1)) --resume
+python -u rl_train.py --num-workers=$((SLURM_JOB_NUM_NODES * SLURM_CPUS_PER_TASK - 1)) #--resume

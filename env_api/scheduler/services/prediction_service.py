@@ -5,7 +5,7 @@ from config.config import Config
 from env_api.scheduler.models.branch import Branch
 from env_api.scheduler.models.schedule import Schedule
 from env_api.utils.exceptions import ExecutingFunctionException
-from ..models.tags_cost_model import Model_Recursive_LSTM_v3
+from ..models.multi_root_model import Model_Recursive_LSTM_v2
 import torch
 
 MAX_DEPTH = 6
@@ -14,7 +14,7 @@ MAX_DEPTH = 6
 class PredictionService:
     def __init__(self):
         # This model uses the tags instead of matrices
-        self.tags_model = Model_Recursive_LSTM_v3(input_size=890, loops_tensor_size=8)
+        self.tags_model = Model_Recursive_LSTM_v2()
         # Loading the weights
         self.tags_model.load_state_dict(
             torch.load(Config.config.tiramisu.tags_model_weights, map_location="cpu")
@@ -22,9 +22,9 @@ class PredictionService:
         # Putting the model in evaluation mode to turn off Regularization layers.
         self.tags_model.eval()
 
-    def get_predicted_speedup(self, comps_tensor, loops_tensor, schedule_object):
+    def get_predicted_speedup(self, comps_tensor, loops_tensor, expr_tensor , schedule_object):
         tree_tensor = ConvertService.get_tree_representation(
-            comps_tensor, loops_tensor, schedule_object
+            comps_tensor, loops_tensor,expr_tensor, schedule_object
         )
         with torch.no_grad():
             speedup, embedded_tensor = self.tags_model.forward(tree_tensor)

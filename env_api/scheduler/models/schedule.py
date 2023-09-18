@@ -5,6 +5,8 @@ from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.representation import Representation
 from env_api.scheduler.models.action import *
 
+from env_api.utils.data_preprocessors import get_representation_template, build_tree_structure
+
 class Schedule:
     def __init__(self, program: TiramisuProgram):
         self.schedule_str = ""
@@ -68,12 +70,12 @@ class Schedule:
                 "shiftings": None,
                 "transformations_list": []
             }
-        #TODO : ReCheck for the multi root solution
+
         self.schedule_dict["tree_structure"] = {
-            "roots": [ConvertService.get_tree_structure(self.prog.annotations)]}
+            "roots": build_tree_structure(self.prog.annotations["iterators"])}
 
     def __init_representation(self):
-        self.repr = Representation(*ConvertService.get_representation_template(self.prog.annotations,self.schedule_dict))
+        self.repr = Representation(*get_representation_template(self.prog.annotations,self.schedule_dict))
     
     def __set_action_mask(self):
         self.repr.action_mask = np.zeros(32)
@@ -93,7 +95,7 @@ class Schedule:
             
     def __form_branches(self):
         branches = []
-        iterators = copy.deepcopy(self.prog.annotations["iterators"])
+
         computations = copy.deepcopy(self.prog.annotations["computations"])
         it = {}
         for computation in computations:
@@ -106,11 +108,11 @@ class Schedule:
                     "iterators" : iterators
                 }
         
+        
         for iterator in it :
             branches.append({
-                "comps" : it[iterator]["comps"],
-                "iterators" : it[iterator]["iterators"],
-                "annotations": {}
+                "comps" : copy.deepcopy(it[iterator]["comps"]),
+                "iterators" : copy.deepcopy(it[iterator]["iterators"]),
             })
                 
         for branch in branches :
@@ -123,15 +125,19 @@ class Schedule:
             # extract the branch specific iterators annotations
             for iterator in branch["iterators"]:
                 branch_annotations["iterators"][iterator] = copy.deepcopy(self.prog.annotations["iterators"][iterator])
+
+                if(branch_annotations["iterators"][iterator]["computations_list"]):
+                    branch_annotations["iterators"][iterator]["child_iterators"] = []
+
                 if (self.prog.annotations["iterators"][iterator]["parent_iterator"]):
                     # Making sure that the parent node has the actual node as the only child
                     # It may happen that the parent node has many children but in a branch it is only allowed
                     # to have a single child to form a straight-forward branch from top to bottom
-                    parent = (branch_annotations["iterators"][iterator]["parent_iterator"])
+                    parent = (branch_annotations["iterators"][copy.copy(iterator)]["parent_iterator"])
                     branch_annotations["iterators"][parent]["child_iterators"] = copy.deepcopy([iterator])
                     branch_annotations["iterators"][parent]["computations_list"] = []
-            branch["annotations"] = copy.deepcopy(branch_annotations)
-
+            branch["program_annotation"] = copy.deepcopy(branch_annotations)
+        
         self.branches = branches
 
     

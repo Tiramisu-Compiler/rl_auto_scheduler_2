@@ -120,9 +120,9 @@ class TiramisuEnvAPI:
         # Use the Scheduler to apply Skewing and return the speedup and legality
         return self.scheduler_service.apply_action(skewing)
 
-    def fuse(self, loop_level: int, env_id: int = None, worker_id=""):
+    def fuse(self, env_id: int = None, worker_id=""):
         # Create a Fusion action with given loop level 1
-        fusion = Fusion(params=[loop_level], env_id=env_id, worker_id=worker_id)
+        fusion = Fusion(params=[], env_id=env_id, worker_id=worker_id)
         # Use the Scheduler service to apply the Fusion action to the schedule
         return self.scheduler_service.apply_action(fusion)
 

@@ -139,3 +139,5 @@ class PolicyLSTM(TorchRNN, nn.Module):
         # x = nn.functional.selu(self.action_hidden_layer(self._features))
         action_out = self.action_network(self._features)
         return action_out, [torch.squeeze(h, 0), torch.squeeze(c, 0)]
+
+

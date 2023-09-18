@@ -20,6 +20,7 @@ class CompilingService():
 
         cpp_code = cls.get_legality_code(schedule_object=schedule_object,
                                          optims_list=optims_list,branches=branches)
+        print(cpp_code)
         return cls.run_cpp_code(cpp_code=cpp_code, output_path=output_path)
 
     @classmethod
@@ -273,7 +274,10 @@ class CompilingService():
                 else :
                     levels.append(level-1)
                     break
-            updated_lines.append(f".then({comps[i+1]},{levels[-1]})")
+            if levels[-1] == -1: 
+                updated_lines.append(f".then({comps[i+1]}, computation::root)")
+            else :  
+                updated_lines.append(f".then({comps[i+1]},{levels[-1]})")
 
         updated_lines[0] = comps[0]+updated_lines[0]
         updated_lines[-1] = updated_lines[-1] + ";"
