@@ -5,7 +5,7 @@ from env_api.utils.exceptions import *
 MAX_NUM_TRANSFORMATIONS = 4
 
 # Maximum size of the tags vector representing each transformation
-MAX_TAGS = 8
+MAX_TAGS = 16
 
 MAX_DEPTH = 5
 
@@ -1002,7 +1002,7 @@ class ConvertService:
         return (first_part, torch.cat(vectors[0:], dim=1), third_part)
 
     @classmethod
-    def get_tree_representation(cls, comps_tensor, loops_tensor, schedule_object):
+    def get_tree_representation(cls, comps_tensor, loops_tensor, expr_tensor, schedule_object):
         """
         This function returns the necessary dict and tensors to feed the cost model to get the speedup
         """
@@ -1020,8 +1020,7 @@ class ConvertService:
             vectors,
             third_part,
             loops_tensor,
-            schedule_object.repr.comps_expr_tensor,
-            schedule_object.repr.comps_expr_lengths,
+            expr_tensor
         )
 
     @classmethod
@@ -1197,42 +1196,28 @@ class ConvertService:
         for key in comps.keys():
             schedule_string+= "{"+key+"}:"+comps[key]
         return schedule_string
-   
-
-    # TODO : The following 2 functions exist because we are building tree structure in python
-    # Once we get it from toramisu autocsheduler they should be removed from here
-    @classmethod
-    def nest_iterators(cls, root_iterator, iterators):
-        if root_iterator["child_iterators"] == []:
-            return {
-                "loop_name": root_iterator["loop_name"],
-                "computations_list": root_iterator["computations_list"],
-                "child_list": [],
-            }
-        subtrees = []
-        for loop_name in root_iterator["child_iterators"]:
-            child_iterator = iterators[loop_name]
-            child_iterator["loop_name"] = loop_name
-            sub_tree = cls.nest_iterators(child_iterator, iterators)
-            subtrees.append(sub_tree)
-        return {
-            "loop_name": root_iterator["loop_name"],
-            "computations_list": root_iterator["computations_list"],
-            "child_list": subtrees,
-        }
 
     @classmethod
-    def get_tree_structure(cls, program_annot):
-        iterators = program_annot["iterators"]
+    def build_loop_nests(cls,parent,iterators):
+        tree = {}
+        tree["loop_name"] = parent
+        tree["computations_list"]= iterators[parent]["computations_list"]
+        child_trees = []
+        if (iterators[parent]["child_iterators"]): 
+            for iterator in iterators[parent]["child_iterators"]: 
+                child_trees.append(cls.build_loop_nests(iterator,iterators))
+            
+        tree["child_list"] = child_trees
+        return tree
+        
+            
+        
+    @classmethod
+    def build_tree_structure(cls,iters):
+        iterators = copy.deepcopy(iters)
+        roots = []
+        for iterator in iterators:
+            if (not iterators[iterator]["parent_iterator"]):
+                roots.append(copy.copy(iterator))
 
-        mentionned = []
-        for loop, content in iterators.items():
-            mentionned.extend(content["child_iterators"])
-
-        possible_root = [loop for loop in iterators if loop not in mentionned]
-        assert len(possible_root) == 1
-        root_loop_name = possible_root[0]
-
-        root_iterator = program_annot["iterators"][root_loop_name]
-        root_iterator["loop_name"] = root_loop_name
-        return cls.nest_iterators(root_iterator, iterators)
+        return [cls.build_loop_nests(it,iterators) for it in roots]

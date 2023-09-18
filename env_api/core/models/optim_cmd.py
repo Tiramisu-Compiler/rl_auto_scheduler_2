@@ -82,19 +82,8 @@ class OptimizationCommand:
                 optim_str += "\n\t{}".format(comp) + reversal_str
             return optim_str
         elif isinstance(self.action, Fusion):
-            # TODO : Recheck the right command for this
-            optim_str = ""
-            # prev_comp = self.comps[0]
-            # for comp in self.comps[1:]:
-            #     optim_str += ("\n\t {}".format(prev_comp) + ".then(" +
-            #                   str(comp) + "," + str(self.params_list[0]) +
-            #                   ");")
-            #     prev_comp = comp
-            optim_str = "\n\t"+self.comps[0]
-            for comp in self.comps[1:]:
-                optim_str += ".then(" + comp + ","+str(self.params_list[0])+")"
-            optim_str += ";"
-            return optim_str
+            self.fusion_str = f"F({self.params_list[0]},{self.params_list[1]})"
+            return ""
 
     def __str__(self) -> str:
         return f"OptimizationCommand(action={self.action.__class__.__name__}, params={self.params_list})"

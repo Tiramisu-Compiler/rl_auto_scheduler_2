@@ -13,6 +13,8 @@ from ..models.schedule import Schedule
 from ..models.action import *
 import logging
 
+from env_api.utils.data_preprocessors import linear_diophantine_default, get_representation_template, get_schedule_representation
+
 
 class SchedulerService:
     def __init__(self):
@@ -42,18 +44,19 @@ class SchedulerService:
         # Re-init the index to the 1st branch
         self.current_branch = 0
         # Getting the representation of the main schedule and the branched schedule
-        main_repr = ConvertService.get_schedule_representation(schedule_object)
-        branch_repr = ConvertService.get_schedule_representation(self.branches[self.current_branch])
+        main_repr = get_schedule_representation(schedule_object)
+        branch_repr = get_schedule_representation(self.branches[self.current_branch])
         # Using the model to embed the main program and the branch in a 180 sized vector for each
         with torch.no_grad():
             _, main_embed = self.prediction_service.get_predicted_speedup(*main_repr,schedule_object)
             _, branch_embed = self.prediction_service.get_predicted_speedup(*branch_repr,self.branches[self.current_branch])
+        
         return ([main_embed, branch_embed], 
                 self.branches[self.current_branch].repr.action_mask
                 )
     
     def get_current_speedup(self):
-        repr_tensors = ConvertService.get_schedule_representation(
+        repr_tensors = get_schedule_representation(
             self.schedule_object)
         speedup, _ = self.prediction_service.get_predicted_speedup(
             *repr_tensors, self.schedule_object)
@@ -65,7 +68,7 @@ class SchedulerService:
         for branch in self.schedule_object.branches : 
             # Create a mock-up of a program from the data of a branch
             program_data = {
-                "program_annotation" : branch["annotations"],
+                "program_annotation" : branch["program_annotation"],
                 "schedules_legality" : {},
                 "schedules_solver" : {}
             }
@@ -83,8 +86,8 @@ class SchedulerService:
         if (self.current_branch == len(self.branches)):
             # This matks the finish of exploring the branches
             return None
-        main_repr = ConvertService.get_schedule_representation(self.schedule_object)
-        branch_repr = ConvertService.get_schedule_representation(self.branches[self.current_branch])
+        main_repr = get_schedule_representation(self.schedule_object)
+        branch_repr = get_schedule_representation(self.branches[self.current_branch])
         # Using the model to embed the program and the branch in a 180 sized vector each
         with torch.no_grad():
             _, main_embed = self.prediction_service.get_predicted_speedup(*main_repr,self.schedule_object)
@@ -130,13 +133,16 @@ class SchedulerService:
                     elif isinstance(action, Skewing):
                         self.apply_skewing(action=action)
 
+                    elif isinstance(action, Fusion): 
+                        self.apply_fusion(action=action)
+
 
                     speedup = self.prediction_service.get_real_speedup(schedule_object=self.schedule_object,branches=self.branches)
     
                     # After successfuly applying an action we get the new representation of the main schedule and the branch
-                    main_repr_tensors = ConvertService.get_schedule_representation(
+                    main_repr_tensors = get_schedule_representation(
                         self.schedule_object)
-                    branch_repr_tensors = ConvertService.get_schedule_representation(
+                    branch_repr_tensors = get_schedule_representation(
                         self.branches[self.current_branch])
                     
                     # We mesure the speedup from the main schedule and we get the embeddings for both (main and branch)
@@ -179,9 +185,9 @@ class SchedulerService:
                     elif isinstance(action, Skewing):
                         self.apply_skewing(action=action)
                     # After successfuly applying an action we get the new representation of the main schedule and the branch
-                    main_repr_tensors = ConvertService.get_schedule_representation(
+                    main_repr_tensors = get_schedule_representation(
                         self.schedule_object)
-                    branch_repr_tensors = ConvertService.get_schedule_representation(
+                    branch_repr_tensors = get_schedule_representation(
                         self.branches[self.current_branch])
                     
                     # We mesure the speedup from the main schedule and we get the embeddings for both (main and branch)
@@ -227,14 +233,17 @@ class SchedulerService:
 
 
     def apply_reversal(self, action):
-        # The tag representation is as follows:
-        #         ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'first_skew_factor', 'second_skew_factor']
-        #     Where the type_of_transformation tag is:
-        #       - 0 for no transformation being applied
-        #       - 1 for loop interchange
-        #       - 2 for loop reversal
-        #       - 3 for loop skewing
-        transformation = [2, 0, 0, action.params[0] , 0, 0, 0, 0]
+        # ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 
+        # 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'third_skewing_loop', 
+        # 'skew_parameter_1', 'skew_parameter_2', 'skew_parameter_3', 'skew_parameter_4', 
+        # 'skew_parameter_5', 'skew_parameter_6', 'skew_parameter_7', 'skew_parameter_8', 'skew_parameter_9']
+        # Where the type_of_transformation tag is:
+        # 0 for no transformation being applied
+        # 1 for loop interchange
+        # 2 for loop reversal
+        # 3 for loop skewing
+        transformation = [2, 0, 0, action.params[0], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        
 
         for comp in action.comps:
             # Update main schedule
@@ -251,15 +260,17 @@ class SchedulerService:
                     branch.update_actions_mask(action=action)
 
     def apply_interchange(self, action):
-        # The tag representation is as follows:
-        #         ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'first_skew_factor', 'second_skew_factor']
-        #     Where the type_of_transformation tag is:
-        #       - 0 for no transformation being applied
-        #       - 1 for loop interchange
-        #       - 2 for loop reversal
-        #       - 3 for loop skewing
+        # ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 
+        # 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'third_skewing_loop', 
+        # 'skew_parameter_1', 'skew_parameter_2', 'skew_parameter_3', 'skew_parameter_4', 
+        # 'skew_parameter_5', 'skew_parameter_6', 'skew_parameter_7', 'skew_parameter_8', 'skew_parameter_9']
+        # Where the type_of_transformation tag is:
+        # 0 for no transformation being applied
+        # 1 for loop interchange
+        # 2 for loop reversal
+        # 3 for loop skewing
+        transformation = [1, action.params[0], action.params[1], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
         
-        transformation = [1, action.params[0], action.params[1], 0, 0, 0, 0, 0]
 
         for comp in action.comps:
             # Update main schedule
@@ -276,17 +287,20 @@ class SchedulerService:
                     branch.update_actions_mask(action=action)
 
     def apply_skewing(self, action):
-        # The tag representation is as follows:
-        #         ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'first_skew_factor', 'second_skew_factor']
-        #     Where the type_of_transformation tag is:
-        #       - 0 for no transformation being applied
-        #       - 1 for loop interchange
-        #       - 2 for loop reversal
-        #       - 3 for loop skewing
-        transformation = [
-            3, 0, 0, 0, action.params[0], action.params[1], action.params[2], action.params[3]
-        ]
+        # ['type_of_transformation', 'first_interchange_loop', 'second_interchange_loop', 
+        # 'reversed_loop', 'first_skewing_loop', 'second_skewing_loop', 'third_skewing_loop', 
+        # 'skew_parameter_1', 'skew_parameter_2', 'skew_parameter_3', 'skew_parameter_4', 
+        # 'skew_parameter_5', 'skew_parameter_6', 'skew_parameter_7', 'skew_parameter_8', 'skew_parameter_9']
+        # Where the type_of_transformation tag is:
+        # 0 for no transformation being applied
+        # 1 for loop interchange
+        # 2 for loop reversal
+        # 3 for loop skewing
+        x_1, x_2 = linear_diophantine_default(action.params[2], action.params[3])
 
+        transformation = [3, 0, 0, 0, action.params[0], action.params[1], 0, action.params[2], action.params[3],
+                          x_1, x_2, 0, 0, 0, 0, 0]
+        
         for comp in action.comps:
             # Update main schedule
             self.schedule_object.schedule_dict[comp]["transformations_list"].append(transformation)
@@ -350,17 +364,8 @@ class SchedulerService:
                     branch.additional_loops = tiling_depth 
 
 
-    def apply_fusion(self, loop_level, comps):
-        # check if fusions are empty in schedule dict
-        if not self.schedule_object.schedule_dict["fusions"]:
-            self.schedule_object.schedule_dict["fusions"] = []
-        # Form the new fusion field in schedule dict
-        fusion = [*comps, loop_level]
-        self.schedule_object.schedule_dict["fusions"].append(fusion)
-        fused_tree = transform_tree_for_fusion(
-            self.schedule_object.schedule_dict['tree_structure'],
-            self.schedule_object.schedule_dict["fusions"])
-        self.schedule_object.schedule_dict['tree_structure'] = fused_tree
+    def apply_fusion(self, action):
+        pass 
 
     def apply_unrolling(self, action):
         # Unrolling is always applied at the innermost level , so it includes only the computations from 
