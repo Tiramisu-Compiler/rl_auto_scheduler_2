@@ -28,9 +28,26 @@ class PolicyLSTM(TorchRNN, nn.Module):
         self.lstm_state_size = lstm_state_size
         self.num_layers = num_layers
 
-        # Build the Module from fc + LSTM + 2xfc (action + value outs).
-        self.fc1 = nn.Linear(self.obs_size, self.fc_size)
-        nn.init.xavier_uniform_(self.fc1.weight)
+
+        self.shared_layers = nn.Sequential(
+            nn.Linear(self.obs_size,self.fc_size),
+            nn.SELU(),
+            nn.Linear(self.fc_size,self.fc_size),
+            nn.SELU(),
+            nn.Linear(self.fc_size,self.fc_size),
+            nn.SELU(),
+            nn.Linear(self.fc_size,self.fc_size),
+            nn.SELU(),
+            nn.Linear(self.fc_size,self.fc_size),
+            nn.SELU(),
+            nn.Linear(self.fc_size,self.fc_size),
+            nn.SELU(),
+        )
+
+        for model in self.shared_layers.children():
+            if isinstance(model,nn.Linear):
+                nn.init.xavier_uniform_(model.weight)
+
         self.lstm = nn.LSTM(
             self.fc_size, self.lstm_state_size, num_layers=num_layers, batch_first=True
         )
@@ -41,16 +58,40 @@ class PolicyLSTM(TorchRNN, nn.Module):
                 nn.init.xavier_uniform_(param)
 
         # Actions branch 
-        self.actions_hidden_layer = nn.Linear(self.lstm_state_size, 256)
-        nn.init.xavier_uniform_(self.actions_hidden_layer.weight)
-        self.action_branch = nn.Linear(256, num_outputs)
-        nn.init.xavier_uniform_(self.action_branch.weight)
+        self.action_network = nn.Sequential(
+            nn.Linear(self.lstm_state_size,self.lstm_state_size),
+            nn.SELU(),
+            nn.Linear(self.lstm_state_size,self.lstm_state_size),
+            nn.SELU(),
+            nn.Linear(self.lstm_state_size, num_outputs)
+            )
+
+        for model in self.action_network.children():
+            if isinstance(model,nn.Linear):
+                nn.init.xavier_uniform_(model.weight)
+        # self.action_hidden_layer = nn.Linear(self.lstm_state_size, self.lstm_state_size)
+        # nn.init.xavier_uniform_(self.action_hidden_layer.weight)
+        # self.action_branch = nn.Linear(self.lstm_state_size, num_outputs)
+        # nn.init.xavier_uniform_(self.action_branch.weight)
 
         # Value branch 
-        self.value_hidden_layer = nn.Linear(self.lstm_state_size, 256)
-        nn.init.xavier_uniform_(self.value_hidden_layer.weight)
-        self.value_branch = nn.Linear(256, 1)
-        nn.init.xavier_uniform_(self.value_branch.weight)
+
+        self.value_network = nn.Sequential(
+            nn.Linear(self.lstm_state_size,self.lstm_state_size),
+            nn.SELU(),
+            nn.Linear(self.lstm_state_size,self.lstm_state_size),
+            nn.SELU(),
+            nn.Linear(self.lstm_state_size, 1)
+            )
+
+        for model in self.value_network.children():
+            if isinstance(model,nn.Linear):
+                nn.init.xavier_uniform_(model.weight)
+
+        # self.value_hidden_layer = nn.Linear(self.lstm_state_size, self.lstm_state_size)
+        # nn.init.xavier_uniform_(self.value_hidden_layer.weight)
+        # self.value_branch = nn.Linear(self.lstm_state_size, 1)
+        # nn.init.xavier_uniform_(self.value_branch.weight)
         # Holds the current "base" output (before logits layer).
         self._features = None
 
@@ -66,8 +107,8 @@ class PolicyLSTM(TorchRNN, nn.Module):
     @override(ModelV2)
     def value_function(self):
         assert self._features is not None, "must call forward() first"
-        x = nn.functional.selu(self.value_hidden_layer(self._features))
-        return torch.reshape(self.value_branch(x), [-1])
+        # x = nn.functional.selu(self.value_hidden_layer(self._features))
+        return torch.reshape(self.value_network(self._features), [-1])
 
     @override(ModelV2)
     def forward(
@@ -91,10 +132,10 @@ class PolicyLSTM(TorchRNN, nn.Module):
 
     @override(TorchRNN)
     def forward_rnn(self, inputs, state, seq_lens):
-        x = nn.functional.selu(self.fc1(inputs))
+        x = self.shared_layers(inputs)
         self._features, [h, c] = self.lstm(
             x, [torch.unsqueeze(state[0], 0), torch.unsqueeze(state[1], 0)]
         )
-        y = nn.functional.selu(self.actions_hidden_layer(self._features))
-        action_out = self.action_branch(y)
+        # x = nn.functional.selu(self.action_hidden_layer(self._features))
+        action_out = self.action_network(self._features)
         return action_out, [torch.squeeze(h, 0), torch.squeeze(c, 0)]

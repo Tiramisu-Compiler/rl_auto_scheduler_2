@@ -7,6 +7,7 @@ from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.branch import Branch
 from env_api.scheduler.services.legality_service import LegalityService
 from env_api.scheduler.services.prediction_service import PredictionService
+from env_api.utils.exceptions import ExecutingFunctionException
 from env_api.utils.functions.fusion import transform_tree_for_fusion
 from ..models.schedule import Schedule
 from ..models.action import *
@@ -20,11 +21,12 @@ class SchedulerService:
         # The branches generated from the program tree 
         self.branches : List[Branch] = []
         self.current_branch = 0
-        # The prediction service is an object that has a value estimator `get_speedup(schedule)` of the speedup that a schedule will have
+        # The prediction service is an object that has a value estimator `get_predicted_speedup(schedule)` of the speedup that a schedule will have
         # This estimator is a recursive model that needs the schedule representation to give speedups
         self.prediction_service = PredictionService()
         # A schedules-legality service
         self.legality_service = LegalityService()
+        
 
     def set_schedule(self, schedule_object: Schedule):
         """
@@ -44,8 +46,8 @@ class SchedulerService:
         branch_repr = ConvertService.get_schedule_representation(self.branches[self.current_branch])
         # Using the model to embed the main program and the branch in a 180 sized vector for each
         with torch.no_grad():
-            _, main_embed = self.prediction_service.get_speedup(*main_repr,schedule_object)
-            _, branch_embed = self.prediction_service.get_speedup(*branch_repr,self.branches[self.current_branch])
+            _, main_embed = self.prediction_service.get_predicted_speedup(*main_repr,schedule_object)
+            _, branch_embed = self.prediction_service.get_predicted_speedup(*branch_repr,self.branches[self.current_branch])
         return ([main_embed, branch_embed], 
                 self.branches[self.current_branch].repr.action_mask
                 )
@@ -53,7 +55,7 @@ class SchedulerService:
     def get_current_speedup(self):
         repr_tensors = ConvertService.get_schedule_representation(
             self.schedule_object)
-        speedup, _ = self.prediction_service.get_speedup(
+        speedup, _ = self.prediction_service.get_predicted_speedup(
             *repr_tensors, self.schedule_object)
         return speedup , self.schedule_object.schedule_str
 
@@ -85,8 +87,8 @@ class SchedulerService:
         branch_repr = ConvertService.get_schedule_representation(self.branches[self.current_branch])
         # Using the model to embed the program and the branch in a 180 sized vector each
         with torch.no_grad():
-            _, main_embed = self.prediction_service.get_speedup(*main_repr,self.schedule_object)
-            _, branch_embed = self.prediction_service.get_speedup(*branch_repr,self.branches[self.current_branch])
+            _, main_embed = self.prediction_service.get_predicted_speedup(*main_repr,self.schedule_object)
+            _, branch_embed = self.prediction_service.get_predicted_speedup(*branch_repr,self.branches[self.current_branch])
         
         return ([main_embed, branch_embed], 
                 self.branches[self.current_branch].repr.action_mask
@@ -99,7 +101,6 @@ class SchedulerService:
         output :
             - speedup : float , representation : tuple(tensor) , legality_check : bool
         """
-
         legality_check = self.legality_service.is_action_legal(schedule_object=self.schedule_object,
                                                                branches=self.branches,
                                                                current_branch=self.current_branch,
@@ -107,51 +108,102 @@ class SchedulerService:
         embedding_tensor = None
         speedup = Config.config.experiment.legality_speedup
         if legality_check:
-            try:
-                if isinstance(action, Parallelization):
-                    self.apply_parallelization(action=action)
+            if (Config.config.tiramisu.env_type == "execution"):
+                # We are going to get the speedup by execution
+                try : 
 
-                elif isinstance(action, Reversal):
-                    self.apply_reversal(action=action)
+                    if isinstance(action, Parallelization):
+                        self.apply_parallelization(action=action)
 
-                elif isinstance(action, Interchange):
-                    self.apply_interchange(action=action)
+                    elif isinstance(action, Reversal):
+                        self.apply_reversal(action=action)
 
-                elif isinstance(action, Tiling):
-                    self.apply_tiling(action=action)
+                    elif isinstance(action, Interchange):
+                        self.apply_interchange(action=action)
+
+                    elif isinstance(action, Tiling):
+                        self.apply_tiling(action=action)
+                        
+                    elif isinstance(action, Unrolling):
+                        self.apply_unrolling(action=action)
+
+                    elif isinstance(action, Skewing):
+                        self.apply_skewing(action=action)
+
+
+                    speedup = self.prediction_service.get_real_speedup(schedule_object=self.schedule_object,branches=self.branches)
+    
+                    # After successfuly applying an action we get the new representation of the main schedule and the branch
+                    main_repr_tensors = ConvertService.get_schedule_representation(
+                        self.schedule_object)
+                    branch_repr_tensors = ConvertService.get_schedule_representation(
+                        self.branches[self.current_branch])
                     
-                elif isinstance(action, Unrolling):
-                    self.apply_unrolling(action=action)
+                    # We mesure the speedup from the main schedule and we get the embeddings for both (main and branch)
+                    _, main_embedding_tensor = self.prediction_service.get_predicted_speedup(
+                        *main_repr_tensors, self.schedule_object)
+                    _, branch_embedding_tensor = self.prediction_service.get_predicted_speedup(
+                        *branch_repr_tensors, self.branches[self.current_branch])
+                    
+                    # We pach the 2 tensors to represent the program and the current branch
+                    embedding_tensor = [main_embedding_tensor, branch_embedding_tensor]
 
-                elif isinstance(action, Skewing):
-                    self.apply_skewing(action=action)
+                except ExecutingFunctionException as e :
+                    # If the execution went wring remove it from the schedule list
+                    self.schedule_object.schedule_list.pop()
+                    # Rebuild the scedule string after removing the action 
+                    schdule_str = ConvertService.build_sched_string(self.schedule_object.schedule_list)
+                    # Storing the schedule string to use it later 
+                    self.schedule_object.schedule_str = schdule_str
 
-                # After successfuly applying an action we get the new representation of the main schedule and the branch
-                main_repr_tensors = ConvertService.get_schedule_representation(
-                    self.schedule_object)
-                branch_repr_tensors = ConvertService.get_schedule_representation(
-                    self.branches[self.current_branch])
-                
-                # We mesure the speedup from the main schedule and we get the embeddings for both (main and branch)
-                speedup, main_embedding_tensor = self.prediction_service.get_speedup(
-                    *main_repr_tensors, self.schedule_object)
-                _, branch_embedding_tensor = self.prediction_service.get_speedup(
-                    *branch_repr_tensors, self.branches[self.current_branch])
-                
-                # We pach the 2 tensors to represent the program and the current branch
-                embedding_tensor = [main_embedding_tensor, branch_embedding_tensor]
-            except KeyError as e:
-                logging.error(f"This loop level: {e} doesn't exist")
-                legality_check = False
-            except AssertionError as e:
-                print("%" * 50)
-                print("Used more than 4 transformations of I,R,S")
-                print(self.schedule_object.prog.name)
-                print(self.schedule_object.schedule_str) 
-                print(action.params)
-                print(action.name)
-                print("%" * 50)
-                legality_check = False
+                    legality_check = False
+
+            else : 
+                # Case where Config.config.tiramisu.env_type == "model"
+                try:
+                    if isinstance(action, Parallelization):
+                        self.apply_parallelization(action=action)
+
+                    elif isinstance(action, Reversal):
+                        self.apply_reversal(action=action)
+
+                    elif isinstance(action, Interchange):
+                        self.apply_interchange(action=action)
+
+                    elif isinstance(action, Tiling):
+                        self.apply_tiling(action=action)
+                        
+                    elif isinstance(action, Unrolling):
+                        self.apply_unrolling(action=action)
+
+                    elif isinstance(action, Skewing):
+                        self.apply_skewing(action=action)
+                    # After successfuly applying an action we get the new representation of the main schedule and the branch
+                    main_repr_tensors = ConvertService.get_schedule_representation(
+                        self.schedule_object)
+                    branch_repr_tensors = ConvertService.get_schedule_representation(
+                        self.branches[self.current_branch])
+                    
+                    # We mesure the speedup from the main schedule and we get the embeddings for both (main and branch)
+                    speedup, main_embedding_tensor = self.prediction_service.get_predicted_speedup(
+                        *main_repr_tensors, self.schedule_object)
+                    _, branch_embedding_tensor = self.prediction_service.get_predicted_speedup(
+                        *branch_repr_tensors, self.branches[self.current_branch])
+                    
+                    # We pach the 2 tensors to represent the program and the current branch
+                    embedding_tensor = [main_embedding_tensor, branch_embedding_tensor]
+                except KeyError as e:
+                    logging.error(f"This loop level: {e} doesn't exist")
+                    legality_check = False
+                except AssertionError as e:
+                    print("%" * 50)
+                    print("Used more than 4 transformations of I,R,S")
+                    print(self.schedule_object.prog.name)
+                    print(self.schedule_object.schedule_str) 
+                    print(action.params)
+                    print(action.name)
+                    print("%" * 50)
+                    legality_check = False
 
         return speedup, embedding_tensor, legality_check, self.branches[self.current_branch].repr.action_mask
 
@@ -294,6 +346,8 @@ class SchedulerService:
                     branch.schedule_dict[comp]["tiling"] = tiling_dict
                     # Update the branch actions mask 
                     branch.update_actions_mask(action=action)
+                    # Update the additional loops 
+                    branch.additional_loops = tiling_depth 
 
 
     def apply_fusion(self, loop_level, comps):

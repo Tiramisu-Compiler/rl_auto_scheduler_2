@@ -1,7 +1,9 @@
 import subprocess
-import re
+import re,copy, logging
 from typing import List
-from env_api.scheduler.models.action import Parallelization, Unrolling
+from env_api.core.models.tiramisu_program import TiramisuProgram
+from env_api.scheduler.models.action import Parallelization, Tiling, Unrolling
+from env_api.scheduler.models.branch import Branch
 from env_api.scheduler.models.schedule import Schedule
 from config.config import Config
 from env_api.core.models.optim_cmd import OptimizationCommand
@@ -9,36 +11,72 @@ from env_api.core.models.optim_cmd import OptimizationCommand
 
 class CompilingService():
     @classmethod
-    def compile_legality(cls, schedule_object: Schedule, optims_list: List[OptimizationCommand]):
+    def compile_legality(cls, schedule_object: Schedule, optims_list: List[OptimizationCommand],branches: List[Branch]):
         tiramisu_program = schedule_object.prog
-        output_path = Config.config.tiramisu.workspace + tiramisu_program.name + 'legal'
+        output_path = Config.config.tiramisu.workspace + tiramisu_program.name + 'legal'+ optims_list[-1].action.worker_id
 
         cpp_code = cls.get_legality_code(schedule_object=schedule_object,
-                                         optims_list=optims_list)
+                                         optims_list=optims_list,branches=branches)
         return cls.run_cpp_code(cpp_code=cpp_code, output_path=output_path)
 
     @classmethod
-    def get_legality_code(cls, schedule_object: Schedule, optims_list: List[OptimizationCommand]):
+    def get_legality_code(cls, schedule_object: Schedule, optims_list: List[OptimizationCommand],branches: List[Branch]):
         tiramisu_program = schedule_object.prog
+        cpp_code = tiramisu_program.original_str
+        updated_fusion = ""
+        unrolling_legality = ""
+        comps_dict = {}
+        d = schedule_object.prog.annotations["computations"]
+        for comp in d:
+            comps_dict[comp] = copy.deepcopy(d[comp]["iterators"])
         # Add code to the original file to get legality result
-        legality_check_lines = '''\n\tprepare_schedules_for_legality_checks();\n\tperform_full_dependency_analysis();\n\tbool is_legal=true;'''
-        for optim in optims_list:
-            if isinstance(optim.action, Parallelization):
-                legality_check_lines += '''\n\tis_legal &= loop_parallelization_is_legal(''' + str(
-                    optim.params_list[0]
-                ) + ''', {&''' + optim.action.comps[0] + '''});\n'''
-            elif isinstance(optim.action, Unrolling):
-                legality_check_lines += '''\n\tis_legal &= loop_unrolling_is_legal(''' + str(
-                    optim.action.params[0]) + ''', {''' + ", ".join(
-                        [f"&{comp}" for comp in optim.action.comps]) + '''});'''
-            legality_check_lines += optim.tiramisu_optim_str + '\n'
+        legality_check_lines = '''
+        prepare_schedules_for_legality_checks();
+        perform_full_dependency_analysis();
+        clear_implicit_function_sched_graph();
+        bool is_legal=true;'''
+        for i in range(len(optims_list)):
+            optim = optims_list[i]
+            if (not isinstance(optim.action,Unrolling)):
+                if isinstance(optim.action, Tiling):
+                    #  Add the tiling new loops to comps_dict
+                    for impacted_comp in optim.action.comps:
+                        for loop_index in optim.action.params[:len(optim.action.params)//2]:
+                            comps_dict[impacted_comp].insert(loop_index+1,f"t{loop_index}")
+                    
+                elif isinstance(optim.action, Parallelization):
+                    legality_check_lines += '''\n\tis_legal &= loop_parallelization_is_legal(''' + str(
+                        optim.params_list[0]
+                    ) + ''', {&''' + optim.action.comps[0] + '''});\n'''
+                legality_check_lines += optim.tiramisu_optim_str + '\n'
+            else :
+                unchanged = True
+                comp = optim.action.comps[0]
+                for op in optims_list[i+1:]:
+                    if isinstance(op.action,Tiling) and (comp in op.comps):
+                        # TODO : Check the the params here
+                        unrolling_legality += '''\n\tis_legal &= loop_unrolling_is_legal(''' + str(
+                            optim.action.params[0] + 2) + ''', {''' + ", ".join(
+                                [f"&{comp}" for comp in optim.action.comps]) + '''});\n'''   
+                        unrolling_legality += comp +f".tag_unroll_level({optim.action.params[0] + 2},{optim.action.params[1]});\n"                     
+                        unchanged = False
+                if unchanged : 
+                    unrolling_legality += '''\n\tis_legal &= loop_unrolling_is_legal(''' + str(
+                        optim.action.params[0]) + ''', {''' + ", ".join(
+                            [f"&{comp}" for comp in optim.action.comps]) + '''});\n'''
+                    unrolling_legality += comp +f".tag_unroll_level({optim.action.params[0]},{optim.action.params[1]});\n" 
+        
+        updated_fusion,cpp_code = cls.fuse_tiling_loops(code=cpp_code,comps_dict=comps_dict)
 
-        legality_check_lines += '''
+        legality_check_lines += f'''
+            {updated_fusion}
+            {unrolling_legality}
             is_legal &= check_legality_of_function();   
             std::cout << is_legal;
             '''
+        
         # Paste the lines responsable of checking legality of schedule in the cpp file
-        cpp_code = tiramisu_program.original_str.replace(
+        cpp_code = cpp_code.replace(
             tiramisu_program.code_gen_line, legality_check_lines)
         return cpp_code
 
@@ -56,9 +94,9 @@ class CompilingService():
                 '''
         else:
             get_json_lines = '''
-                auto ast = tiramisu::auto_scheduler::syntax_tree(tiramisu::global::get_implicit_function());
-                std::string program_json = tiramisu::auto_scheduler::evaluate_by_learning_model::get_program_json(ast);
-                std::cout << program_json;
+            auto ast = tiramisu::auto_scheduler::syntax_tree(tiramisu::global::get_implicit_function(), {});
+            std::string program_json = tiramisu::auto_scheduler::evaluate_by_learning_model::get_program_json(ast);
+            std::cout << program_json;
                 '''
         # Paste the lines responsable of generating the program json tree in the cpp file
         cpp_code = tiramisu_program.original_str.replace(
@@ -92,7 +130,7 @@ class CompilingService():
                 # Run the program
                 "{}.out".format(output_path),
                 # Clean generated files
-                "rm {}*".format(output_path)
+                "rm {}.out {}.o".format(output_path,output_path)
             ]
         try:
             compiler = subprocess.run(["\n".join(shell_script)],
@@ -111,8 +149,9 @@ class CompilingService():
             return "0"
 
     @classmethod
-    def call_skewing_solver(cls, schedule_object, optim_list, params):
-        legality_cpp_code = cls.get_legality_code(schedule_object, optim_list)
+    def call_skewing_solver(cls, schedule_object, optim_list, action,branches):
+        params = action.params
+        legality_cpp_code = cls.get_legality_code(schedule_object, optim_list,branches)
         to_replace = re.findall(r'std::cout << is_legal;',
                                 legality_cpp_code)[0]
         header = """
@@ -128,7 +167,7 @@ class CompilingService():
                                    "", legality_cpp_code)
 
         solver_lines = header + "\n\tauto auto_skewing_result = fct->skewing_local_solver({" + ", ".join(
-            [f"&{comp}" for comp in schedule_object.comps
+            [f"&{comp}" for comp in action.comps
              ]) + "}" + ",{},{},1);\n".format(*params)
 
         solver_lines += """    
@@ -163,7 +202,7 @@ class CompilingService():
 
         solver_code = legality_cpp_code.replace(to_replace, solver_lines)
         output_path = Config.config.tiramisu.workspace + \
-            schedule_object.prog.name + 'skew_solver'
+            schedule_object.prog.name + 'skew_solver' + action.worker_id
         result_str = cls.run_cpp_code(cpp_code=solver_code,
                                       output_path=output_path)
         if not result_str:
@@ -190,16 +229,98 @@ class CompilingService():
             return fac1, fac2
         else:
             return None
+    
+    @classmethod
+    def fuse_tiling_loops(cls,code:str,comps_dict:dict):
+        fusion_code = ""
+        pattern = r'[\w]*\d*.then[\d\w()\t\n,]*.*'
+        # This pattern will detect lines that looks like this :
+        # ['comp00.then(comp01, i2)',
+        # '.then(comp02, i1)',
+        # '.then(comp03, i3)',
+        # '.then(comp04, i1);'] 
+        # It will be used to extract the lines of code that has the `.then` opertator
+        results = re.findall(pattern,code)
+        if(not results):
+            return fusion_code,code
+        # From the list commented above we notice that the 1st element is different than the others
+        # we need to extract the 1st and 2nd comp  
+        initial_comp,residual = results[0].split(".then(")
+        second_comp = residual.split(",")[0]
+        comps = [initial_comp,second_comp]
+        # After storing the first comps we are going to store the rest if any in order inside comps list
+        for result in results[1:]:
+            comps.append(result.split(".then(")[1].split(",")[0])
+
+        # levels indicates which loop level the 2 comps will be seperated in
+        levels = []
+        # updated_lines will contain new lines of code with the new seperated levels
+        updated_lines = []
+        # Defining intersection between comps' iterators
+        for i in range(len(comps)-1):
+            level = 0
+            while(True):
+                if(comps_dict[comps[i]][level] == comps_dict[comps[i+1]][level]):
+                    if(level+1 == comps_dict[comps[i]].__len__() or 
+                    level+1 == comps_dict[comps[i+1]].__len__()):
+                        levels.append(level)
+                        break
+                    level+=1
+                else :
+                    levels.append(level-1)
+                    break
+            updated_lines.append(f".then({comps[i+1]},{levels[-1]})")
+
+        updated_lines[0] = comps[0]+updated_lines[0]
+        updated_lines[-1] = updated_lines[-1] + ";"
+
+        for line in range(len(results)) :
+            # code = code.replace(results[line],"")
+            fusion_code += updated_lines[line]
+
+        return fusion_code,code
 
     @classmethod
-    def get_schedule_code(cls, schedule_object: Schedule):
-        optims_list: List[OptimizationCommand] = schedule_object.schedule_list
-        tiramisu_program = schedule_object.prog
-        # Add code to the original file to get the schedule code
-        schedule_code = ''
-        for optim in optims_list:
-            schedule_code += optim.tiramisu_optim_str + '\n'
+    def get_schedule_code(cls, tiramisu_program : TiramisuProgram, optims_list: List[OptimizationCommand], branches: List[Branch]):
 
+        cpp_code = tiramisu_program.original_str
+        updated_fusion = ""
+        unrolling_updated = ""
+        comps_dict = {}
+        d = tiramisu_program.annotations["computations"]
+        for comp in d:
+            comps_dict[comp] = copy.deepcopy(d[comp]["iterators"])
+        # Add code to the original file to get legality result
+        schedule_code = "\n\tclear_implicit_function_sched_graph();"
+        for i in range(len(optims_list)):
+            optim = optims_list[i]
+            if (not isinstance(optim.action,Unrolling)):
+                if isinstance(optim.action, Tiling):
+                    #  Add the tiling new loops to comps_dict
+                    for impacted_comp in optim.action.comps:
+                        for loop_index in optim.action.params[:len(optim.action.params)//2]:
+                            comps_dict[impacted_comp].insert(loop_index+1,f"t{loop_index}")
+                schedule_code += optim.tiramisu_optim_str + '\n'
+            else :
+                unchanged = True
+                comp = optim.action.comps[0]
+                factor = optim.action.params[-1]
+                for branch in branches : 
+                    if comp in branch.comps : 
+                        for c in branch.comps : 
+                        # unrolling_updated += comp +f".tag_unroll_level({len(branch.common_it) -1 + branch.additional_loops},{factor});\n"
+                            unrolling_updated += f"\n\t{c}.unroll({len(branch.common_it) -1 + branch.additional_loops},{factor});"
+                        unchanged = False
+                if unchanged : 
+                    unrolling_updated += optim.tiramisu_optim_str + '\n'
+        
+        updated_fusion,cpp_code = cls.fuse_tiling_loops(code=cpp_code,comps_dict=comps_dict)
+
+        schedule_code += f'''
+            {updated_fusion}
+            {unrolling_updated}
+            '''
+        
         # Add code gen line to the schedule code
         schedule_code += '\n\t' + tiramisu_program.code_gen_line + '\n'
         # Paste the lines responsable of checking legality of schedule in the cpp file
@@ -213,3 +334,92 @@ class CompilingService():
     def write_cpp_code(cls, cpp_code: str, output_path: str):
         with open(output_path + '.cpp', 'w') as f:
             f.write(cpp_code)
+
+    @classmethod
+    def execute_code(cls, tiramisu_program : TiramisuProgram, optims_list: List[OptimizationCommand],branches : List[Branch]):
+
+        execution_time = None
+    
+        cpp_code = cls.get_schedule_code(tiramisu_program=tiramisu_program,optims_list=optims_list,branches=branches)
+
+        output_path = f"{Config.config.tiramisu.workspace}{tiramisu_program.name}"
+
+        cpp_file_path = output_path + '_schedule.cpp'
+        with open(cpp_file_path,"w") as file :
+            file.write(cpp_code)
+
+
+        wrapper_cpp , wrapper_h = tiramisu_program.build_wrappers()
+
+        wrapper_cpp_path = output_path + "_wrapper.cpp"
+        wrapper_h_path = output_path + "_wrapper.h"
+
+        with open(wrapper_cpp_path,"w") as file :
+            file.write(wrapper_cpp)
+
+        with open(wrapper_h_path,"w") as file :
+            file.write(wrapper_h)
+
+        shell_script = [
+                    f"cd {Config.config.tiramisu.workspace}",
+                    # Compile intermidiate tiramisu file
+                    f"$CXX -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/isl/include  -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -std=c++11 -O0 -o {tiramisu_program.name}.o -c {tiramisu_program.name}_schedule.cpp",
+                    # Link generated file with executer
+                    f"$CXX -Wl,--no-as-needed -ldl -g -fno-rtti -lpthread -std=c++11 -O0 {tiramisu_program.name}.o -o {tiramisu_program.name}.out   -L$TIRAMISU_ROOT/build  -L$TIRAMISU_ROOT/3rdParty/Halide/lib  -L$TIRAMISU_ROOT/3rdParty/isl/build/lib  -Wl,-rpath,$TIRAMISU_ROOT/build:$TIRAMISU_ROOT/3rdParty/Halide/lib:$TIRAMISU_ROOT/3rdParty/isl/build/lib -ltiramisu -ltiramisu_auto_scheduler -lHalide -lisl",
+                    # Run the generator
+                    f"./{tiramisu_program.name}.out",
+                    # compile the wrapper
+                    f"$CXX -shared -o {tiramisu_program.name}.o.so {tiramisu_program.name}.o",
+                    f"$CXX -std=c++11 -fno-rtti -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/3rdParty/isl/include/ -I$TIRAMISU_ROOT/benchmarks -L$TIRAMISU_ROOT/build -L$TIRAMISU_ROOT/3rdParty/Halide/lib/ -L$TIRAMISU_ROOT/3rdParty/isl/build/lib -o {tiramisu_program.name}_wrapper -ltiramisu -lHalide -ldl -lpthread -lm -Wl,-rpath,$TIRAMISU_ROOT/build {tiramisu_program.name}_wrapper.cpp ./{tiramisu_program.name}.o.so -ltiramisu -lHalide -ldl -lpthread -lm -lisl",
+
+                ]
+
+        compiler = subprocess.run(
+                [" \n ".join(shell_script)],
+                capture_output=True,
+                text=True,
+                shell=True,
+                check=True,
+            )
+        run_script = [
+                "LD_LIBRARY_PATH=${TIRAMISU_ROOT}/3rdParty/Halide/build/src:${TIRAMISU_ROOT}/3rdParty/llvm/build/lib:${TIRAMISU_ROOT}/build:${TIRAMISU_ROOT}/3rdParty/isl/build/lib",
+                "export LD_LIBRARY_PATH",
+                # cd to the workspace
+                f"cd {Config.config.tiramisu.workspace}",
+
+                # #  set the env variables
+                "export DYNAMIC_RUNS=0",
+                "export MAX_RUNS=5",
+                "export NB_EXEC=5",
+                # run the wrapper
+                f"./{tiramisu_program.name}_wrapper"
+
+                # # Clean generated files
+                # f"rm {tiramisu_program.name}*",
+            ]
+        try:
+            compiler = subprocess.run([" ; ".join(run_script)],
+                                        capture_output=True,
+                                        text=True,
+                                        shell=True,
+                                        check=True)
+
+            subprocess.run([f"rm {output_path}*"],
+                                        capture_output=True,
+                                        text=True,
+                                        shell=True,
+                                        check=True)
+            
+            numbers = compiler.stdout.split(" ")[:-1]
+            for i in range(len(numbers)):
+                numbers[i] = float(numbers[i])
+            if numbers : 
+                execution_time = min(numbers)
+        except subprocess.CalledProcessError as e:
+            logging.error(f"Process terminated with error code: {e.returncode}")
+            logging.error(f"Error output: {e.stderr}")
+            logging.error(f"Output: {e.stdout}")
+        except Exception as e:
+            pass
+
+        return execution_time

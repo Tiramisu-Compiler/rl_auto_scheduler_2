@@ -14,6 +14,7 @@ from rl_agent.rl_policy_lstm import PolicyLSTM
 from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
 
 from ray.rllib.algorithms.ppo import PPOConfig
+from ray.rllib.algorithms import Algorithm
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -124,47 +125,29 @@ if __name__ == "__main__":
         "episode_reward_mean": Config.config.experiment.episode_reward_mean,
     }
 
-    if args.no_tune:
-        print("Running manual train loop without Ray Tune.")
-        # use fixed learning rate instead of grid search (needs tune)
-        algo = config.build()
-        # run manual training loop and print results after each iteration
-        for _ in range(stop["training_iteration"]):
-            result = algo.train()
-            print(pretty_print(result))
-            # stop training of the target train steps or reward are reached
-            if (
-                result["timesteps_total"] >= stop["timesteps_total"]
-                or result["episode_reward_mean"] >= stop["episode_reward_mean"]
-            ):
-                break
-        algo.stop()
-    else:
-        print("Training automatically with Ray Tune")
-        try:
-            tuner = tune.Tuner(
-                "PPO",
-                param_space=config.to_dict(),
-                run_config=air.RunConfig(
-                    name=Config.config.experiment.name,
-                    stop=stop,
-                    local_dir=Config.config.ray.results,
-                    checkpoint_config=air.CheckpointConfig(
-                        checkpoint_frequency=Config.config.experiment.checkpoint_frequency,
-                        num_to_keep=Config.config.experiment.checkpoint_num_to_keep,
-                        checkpoint_at_end=True,
-                    ),
-                    failure_config=air.FailureConfig(fail_fast=True),
-                ),
-            )
+    
+    
+    # use fixed learning rate instead of grid search (needs tune)
+    algo = config.build()
 
-        except AssertionError as e:
-            print(e)
+    algo.restore(Config.config.ray.restore_checkpoint)
 
-        results = tuner.fit()
-
-        if args.as_test:
-            print("Checking if learning goals were achieved")
-            check_learning_achieved(results, args.stop_reward)
+    # run manual training loop and print results after each iteration
+    for iteration in range(stop["training_iteration"]):
+        print(10*"-"+f"Iteration {iteration} started"+10*"-")
+        results = algo.train()
+        # Results are the same used bu the tuner and can be saved on the disk if wanted
+        print(pretty_print(results))
+        # Saving the checkpoint
+        if(iteration % Config.config.experiment.checkpoint_frequency == 0):
+            algo.save_checkpoint(Config.config.ray.results + Config.config.experiment.name)
+        # stop training of the target train steps or reward are reached
+        if (
+            results["timesteps_total"] >= stop["timesteps_total"]
+            or results["episode_reward_mean"] >= stop["episode_reward_mean"]
+        ):
+            algo.save_checkpoint(Config.config.ray.results + Config.config.experiment.name)
+            break
+    algo.stop()
 
     ray.shutdown()
