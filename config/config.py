@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal
+
 import yaml
-import os
 
 # Enum for the dataset format
 
@@ -45,10 +45,13 @@ class DatasetConfig:
     shuffle: bool = False
     seed: int = None
     saving_frequency: int = 10000
+    ip_address: str = "localhost"
+    port: int = 50051
 
     def __init__(self, dataset_config_dict: Dict):
         self.dataset_format = DatasetFormat.from_string(
-            dataset_config_dict["dataset_format"])
+            dataset_config_dict["dataset_format"]
+        )
         self.cpps_path = dataset_config_dict["cpps_path"]
         self.dataset_path = dataset_config_dict["dataset_path"]
         self.save_path = dataset_config_dict["save_path"]
@@ -56,11 +59,23 @@ class DatasetConfig:
         self.seed = dataset_config_dict["seed"]
         self.saving_frequency = dataset_config_dict["saving_frequency"]
 
-        if dataset_config_dict['is_benchmark']:
-            self.dataset_path = dataset_config_dict["benchmark_dataset_path"] if dataset_config_dict[
-                "benchmark_dataset_path"] else self.dataset_path
-            self.cpps_path = dataset_config_dict["benchmark_cpp_files"] if dataset_config_dict[
-                "benchmark_cpp_files"] else self.cpps_path
+        if "ip_address" in dataset_config_dict:
+            self.ip_address = dataset_config_dict["ip_address"]
+
+        if "port" in dataset_config_dict:
+            self.port = dataset_config_dict["port"]
+
+        if dataset_config_dict["is_benchmark"]:
+            self.dataset_path = (
+                dataset_config_dict["benchmark_dataset_path"]
+                if dataset_config_dict["benchmark_dataset_path"]
+                else self.dataset_path
+            )
+            self.cpps_path = (
+                dataset_config_dict["benchmark_cpp_files"]
+                if dataset_config_dict["benchmark_cpp_files"]
+                else self.cpps_path
+            )
 
 
 @dataclass
@@ -82,7 +97,7 @@ class Experiment:
     entropy_coeff: float = 0.0
     train_batch_size: int = 1024
     vf_loss_coeff: int = 1
-    minibatch_size:int = 128
+    minibatch_size: int = 128
     lr: float = 0.001
     vf_share_layers: bool = False
     policy_model: str = ""
@@ -90,10 +105,8 @@ class Experiment:
 
 @dataclass
 class PolicyNetwork:
-    policy_hidden_layers: List[int] = field(
-        default_factory=lambda: [])
-    vf_hidden_layers: List[int] = field(
-        default_factory=lambda: [])
+    policy_hidden_layers: List[int] = field(default_factory=lambda: [])
+    vf_hidden_layers: List[int] = field(default_factory=lambda: [])
     dropout_rate: float = 0.2
 
 
@@ -106,7 +119,6 @@ class LSTMPolicy:
 
 @dataclass
 class AutoSchedulerConfig:
-
     tiramisu: TiramisuConfig
     dataset: DatasetConfig
     ray: Ray
@@ -145,7 +157,9 @@ def dict_to_config(parsed_yaml: Dict[Any, Any]) -> AutoSchedulerConfig:
     experiment = Experiment(**parsed_yaml["experiment"])
     policy_network = PolicyNetwork(**parsed_yaml["policy_network"])
     lstm_policy = LSTMPolicy(**parsed_yaml["lstm_policy"])
-    return AutoSchedulerConfig(tiramisu, dataset, ray, experiment, policy_network, lstm_policy)
+    return AutoSchedulerConfig(
+        tiramisu, dataset, ray, experiment, policy_network, lstm_policy
+    )
 
 
 class Config(object):

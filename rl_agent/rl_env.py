@@ -1,15 +1,21 @@
-import numpy as np
+import json
 import math
-import ray
-import gymnasium as gym
-from gymnasium import spaces
-from ray.rllib.env.env_context import EnvContext
-import torch
 import os
 
+import grpc
+import gymnasium as gym
+import numpy as np
+import ray
+import torch
+from gymnasium import spaces
+from ray.rllib.env.env_context import EnvContext
+
 from config.config import Config
-from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
 from env_api.tiramisu_api import TiramisuEnvAPI
+from grpc_server.dataset_grpc_server.grpc_files import (
+    tiramisu_function_pb2,
+    tiramisu_function_pb2_grpc,
+)
 
 
 class TiramisuRlEnv(gym.Env):
@@ -18,7 +24,7 @@ class TiramisuRlEnv(gym.Env):
         # local_dataset=False => means that we are reading data from external source than the dataservice implemented in
         # TiramisuEnvAPI, this data is the annotations of a function + the leglaity of schedules
         self.tiramisu_api = TiramisuEnvAPI(local_dataset=False)
-        self.dataset_actor: DatasetActor = config["dataset_actor"]
+        # self.dataset_actor: DatasetActor = config["dataset_actor"]
         # Define action and observation spaces
         self.action_space = spaces.Discrete(32)
         self.observation_space = spaces.Dict(
@@ -29,10 +35,10 @@ class TiramisuRlEnv(gym.Env):
         )
         # The variable `self.worker_index` indexes which worker/actor is working on the chosen function, it will help us avoid problems during compiling,
         # by adding the index of the worker to the name of the worker in order to not interfer with the compilation of another node
-        if(isinstance(config,ray.rllib.env.env_context.EnvContext)):
+        if isinstance(config, ray.rllib.env.env_context.EnvContext):
             # This the case of training
             self.worker_index = str(config.worker_index)
-        else :
+        else:
             # This is the case of evaluating
             self.worker_index = ""
         self.current_program = ""
@@ -44,8 +50,33 @@ class TiramisuRlEnv(gym.Env):
         while embedded_tensor == None:
             # There is some programs that has unsupported loop levels , acces matrices , ...
             # These programs are not supported yet so the embedded_tensor will be None
-            # program = random.choice(self.tiramisu_api.programs)
-            prog_infos = ray.get(self.dataset_actor.get_next_function.remote())
+
+            # read the ip and port from the server_address file
+            self.ip_and_port = ""
+            while self.ip_and_port == "":
+                with open("./server_address", "r") as f:
+                    self.ip_and_port = f.read()
+
+            with grpc.insecure_channel(self.ip_and_port) as channel:
+                stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
+                response = stub.GetTiramisuFunction(
+                    tiramisu_function_pb2.TiramisuFunctionName(
+                        name=""
+                    )  # You can also specify a function name like function550013
+                )
+
+            cpp = (
+                response.cpp[1:-1]
+                .replace('\\"', '"')
+                .replace("\\n", "\n")
+                .replace("\\t", "\t")
+            )
+            prog_infos = (
+                response.name,
+                json.loads(response.content),
+                cpp,
+            )
+
             # The shape of embedded_tensor : (180,)
             # Shape of actions mask : (32,)
             embedded_tensor, actions_mask = self.tiramisu_api.set_program(*prog_infos)
@@ -91,9 +122,18 @@ class TiramisuRlEnv(gym.Env):
             tiramisu_program_dict = (
                 self.tiramisu_api.get_current_tiramisu_program_dict()
             )
-            self.dataset_actor.update_dataset.remote(
-                self.current_program, tiramisu_program_dict
-            )
+
+            with grpc.insecure_channel(self.ip_and_port) as channel:
+                stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
+                response = stub.SaveTiramisuFunction(
+                    tiramisu_function_pb2.TiramisuFuction(
+                        name=self.current_program,
+                        content=json.dumps(tiramisu_program_dict),
+                    )  # You can also specify a function name like function550013
+                )
+            # self.dataset_actor.update_dataset.remote(
+            #     self.current_program, tiramisu_program_dict
+            # )
 
         return self.state, self.reward, self.done, self.truncated, self.info
 
@@ -114,7 +154,7 @@ class TiramisuRlEnv(gym.Env):
             )
         elif action < 9:
             loop_level = action - 4
-             # Reversal from 0 to 4
+            # Reversal from 0 to 4
             (
                 speedup,
                 embedded_tensor,
@@ -143,8 +183,8 @@ class TiramisuRlEnv(gym.Env):
             ) = self.tiramisu_api.parallelize(
                 loop_level=loop_level, env_id=action, worker_id=self.worker_index
             )
-        elif  action < 18:
-            loop_level= action - 14
+        elif action < 18:
+            loop_level = action - 14
 
             speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.tile2D(
                 loop_level1=loop_level,
@@ -154,8 +194,8 @@ class TiramisuRlEnv(gym.Env):
                 env_id=action,
                 worker_id=self.worker_index,
             )
-        elif  action < 22:
-            loop_level= action -18
+        elif action < 22:
+            loop_level = action - 18
 
             speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.tile2D(
                 loop_level1=loop_level,
@@ -165,8 +205,8 @@ class TiramisuRlEnv(gym.Env):
                 env_id=action,
                 worker_id=self.worker_index,
             )
-        elif  action < 26:
-            loop_level= action - 22
+        elif action < 26:
+            loop_level = action - 22
 
             speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.tile2D(
                 loop_level1=loop_level,
