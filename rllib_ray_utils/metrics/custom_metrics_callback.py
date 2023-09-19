@@ -6,6 +6,7 @@ from typing import Dict
 from ray.rllib.algorithms.algorithm import Algorithm
 import numpy as np
 
+
 class CustomMetricCallback(DefaultCallbacks):
     def on_episode_start(
         self,
@@ -39,7 +40,7 @@ class CustomMetricCallback(DefaultCallbacks):
         # Make sure this episode is ongoing.
         assert episode.length > 0, (
             "ERROR: `on_episode_step()` callback should not be called right "
-            "after env reset!" 
+            "after env reset!"
         )
         exit_action = episode.last_action_for()
         episode.user_data["exit_action"].append(exit_action)
@@ -56,7 +57,7 @@ class CustomMetricCallback(DefaultCallbacks):
     ):
         # Check if there are multiple episodes in a batch, i.e.
         # "batch_mode": "truncate_episodes".
-        
+
         if worker.policy_config["batch_mode"] == "truncate_episodes":
             # Make sure this episode is really done.
             assert episode.batch_builder.policy_collectors["default_policy"].batches[
@@ -68,5 +69,3 @@ class CustomMetricCallback(DefaultCallbacks):
         exit_action = np.mean(episode.user_data["exit_action"])
         episode.custom_metrics["exit_action"] = exit_action
         episode.hist_data["exit_action"] = episode.user_data["exit_action"]
-    
-
