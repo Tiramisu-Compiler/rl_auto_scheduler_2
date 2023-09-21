@@ -1,23 +1,24 @@
+import logging
 from typing import List
 
 import torch
+
 from config.config import Config
 from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.branch import Branch
 from env_api.scheduler.services.legality_service import LegalityService
 from env_api.scheduler.services.prediction_service import PredictionService
-from env_api.utils.exceptions import ExecutingFunctionException
-from env_api.utils.functions.fusion import transform_tree_for_fusion
-from ..models.schedule import Schedule
-from ..models.action import *
-import logging
-
 from env_api.utils.data_preprocessors import (
-    linear_diophantine_default,
     get_representation_template,
     get_schedule_representation,
+    linear_diophantine_default,
 )
+from env_api.utils.exceptions import ExecutingFunctionException
+from env_api.utils.functions.fusion import transform_tree_for_fusion
+
+from ..models.action import *
+from ..models.schedule import Schedule
 
 
 class SchedulerService:

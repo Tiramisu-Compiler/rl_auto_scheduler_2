@@ -1,6 +1,8 @@
 from unicodedata import bidirectional
+
 import torch
 from torch import nn
+
 from env_api.utils.data_preprocessors import MAX_TAGS
 
 

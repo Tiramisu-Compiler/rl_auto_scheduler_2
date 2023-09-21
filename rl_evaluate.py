@@ -1,11 +1,12 @@
 import argparse
 import json
 import os
-from pathlib import Path
 import time
-import ray
-from config.config import Config
+from pathlib import Path
 
+import ray
+
+from config.config import Config
 from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
 from rllib_ray_utils.evaluators.ff_evaluator import FFBenchmarkEvaluator
 from rllib_ray_utils.evaluators.lstm_evaluator import LSTMBenchmarkEvaluator

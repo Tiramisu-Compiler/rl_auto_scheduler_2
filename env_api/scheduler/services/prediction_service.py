@@ -1,12 +1,15 @@
 from typing import List
+
+import torch
+
+from config.config import Config
 from env_api.core.services.compiling_service import CompilingService
 from env_api.core.services.converting_service import ConvertService
-from config.config import Config
 from env_api.scheduler.models.branch import Branch
 from env_api.scheduler.models.schedule import Schedule
 from env_api.utils.exceptions import ExecutingFunctionException
+
 from ..models.multi_root_model import Model_Recursive_LSTM_v2
-import torch
 
 MAX_DEPTH = 6
 

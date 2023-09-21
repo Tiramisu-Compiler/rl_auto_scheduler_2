@@ -1,8 +1,11 @@
-from env_api.tiramisu_api import TiramisuEnvAPI
+import random
+import time
+import traceback
+
 from config.config import Config
-from env_api.utils.exceptions import *
-import random, traceback, time
 from env_api.core.services.compiling_service import CompilingService
+from env_api.tiramisu_api import TiramisuEnvAPI
+from env_api.utils.exceptions import *
 
 if __name__ == "__main__":
     start = time.time()

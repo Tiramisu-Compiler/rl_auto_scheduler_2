@@ -1,10 +1,11 @@
+import copy
 from typing import List
+
 from env_api.core.models.optim_cmd import OptimizationCommand
 from env_api.core.services.compiling_service import CompilingService
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.action import *
 from env_api.scheduler.models.schedule import Schedule
-import copy
 
 
 class LegalityService:

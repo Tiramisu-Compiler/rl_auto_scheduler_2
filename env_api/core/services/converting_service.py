@@ -1,4 +1,10 @@
-import copy, re, torch, numpy as np, json
+import copy
+import json
+import re
+
+import numpy as np
+import torch
+
 from env_api.utils.exceptions import *
 
 # Maximum sequence of transformations (reversal, interchange and skewing) allowed. Currently set to 4

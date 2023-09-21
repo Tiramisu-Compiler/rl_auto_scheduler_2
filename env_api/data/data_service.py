@@ -1,6 +1,7 @@
-from config.config import Config
 import pickle
 from datetime import date
+
+from config.config import Config
 
 
 class DataSetService:

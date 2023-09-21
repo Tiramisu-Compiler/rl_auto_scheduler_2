@@ -1,10 +1,11 @@
+from typing import Dict
+
+import numpy as np
+from ray.rllib.algorithms.algorithm import Algorithm
 from ray.rllib.algorithms.callbacks import DefaultCallbacks
 from ray.rllib.env import BaseEnv
 from ray.rllib.evaluation import Episode, RolloutWorker
 from ray.rllib.policy import Policy
-from typing import Dict
-from ray.rllib.algorithms.algorithm import Algorithm
-import numpy as np
 
 
 class CustomMetricCallback(DefaultCallbacks):

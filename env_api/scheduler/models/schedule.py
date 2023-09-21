@@ -1,13 +1,15 @@
-import numpy as np, copy
+import copy
+
+import numpy as np
+
 from config.config import Config
 from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.converting_service import ConvertService
-from env_api.scheduler.models.representation import Representation
 from env_api.scheduler.models.action import *
-
+from env_api.scheduler.models.representation import Representation
 from env_api.utils.data_preprocessors import (
-    get_representation_template,
     build_tree_structure,
+    get_representation_template,
 )
 
 
