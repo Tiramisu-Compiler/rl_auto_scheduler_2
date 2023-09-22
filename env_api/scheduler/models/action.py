@@ -1,3 +1,4 @@
+from copy import deepcopy
 from typing import Any, Dict, Tuple
 
 from env_api.utils.data_preprocessors import (
@@ -148,3 +149,89 @@ class Fusion(Action):
                 break
 
         return tree_structure
+
+    @staticmethod
+    def fuse_annotations(
+        fusion_candidates: Tuple[str, str], program_annotations_dict: Dict[str, Any]
+    ):
+        """
+        Fuses the two computations in the program annotations dictionary
+
+        Args:
+            fusion_candidates (Tuple[str, str]): The two computations to be fused
+            program_annotations_dict (Dict[str, Any]): The program annotations
+
+        Returns:
+            Dict[str, Any]: The program annotations after fusing the two computations
+        """
+        # Make a deep copy of the program annotations
+        program_annotations = deepcopy(program_annotations_dict)
+        first_comp, second_comp = fusion_candidates
+        first_comp_dict = program_annotations["computations"][first_comp]
+        second_comp_dict = program_annotations["computations"][second_comp]
+
+        assert (
+            first_comp_dict["absolute_order"] + 1 == second_comp_dict["absolute_order"]
+        ), f"The two computations to be fused are not consecutive ({first_comp_dict['absolute_order']}, {second_comp_dict['absolute_order']})"
+
+        iterator_first_comp = first_comp_dict["iterators"][-1]
+        iterator_second_comp = second_comp_dict["iterators"][-1]
+
+        assert (
+            iterator_first_comp != iterator_second_comp
+        ), "The two computations to be fused have the same parent iterator"
+
+        # Get the iterators of the computations to be fused
+        iterator_first_comp_dict = program_annotations["iterators"][iterator_first_comp]
+        iterator_second_comp_dict = program_annotations["iterators"][
+            iterator_second_comp
+        ]
+
+        # copy the child iterators and computations of the second computation iterator to the first computation
+        iterator_first_comp_dict["child_iterators"].extend(
+            iterator_second_comp_dict["child_iterators"]
+        )
+        iterator_first_comp_dict["computations_list"].extend(
+            iterator_second_comp_dict["computations_list"]
+        )
+
+        # change the parent iterator of all the sencode computation's iterators to the first computation's iterator
+        for child_iterator in iterator_second_comp_dict["child_iterators"]:
+            child_iterator_dict = program_annotations["iterators"][child_iterator]
+            child_iterator_dict["parent_iterator"] = iterator_first_comp
+            # change the ancestory of the child iterator's computations to the first computation's ancestory
+            for computation in child_iterator_dict["computations_list"]:
+                computation_dict = program_annotations["computations"][computation]
+                computation_dict["iterators"] = first_comp_dict["iterators"] + [
+                    child_iterator
+                ]
+
+        # change the ancestory of the second computation's computations to the first computation's ancestory
+        for computation in iterator_second_comp_dict["computations_list"]:
+            computation_dict = program_annotations["computations"][computation]
+            computation_dict["iterators"] = first_comp_dict["iterators"]
+
+        # empty the child iterators and computations of the second computation iterator
+        iterator_second_comp_dict["child_iterators"] = []
+        iterator_second_comp_dict["computations_list"] = []
+
+        # Loop through the ancestors of the second computation's iterator and remove all empty iterators
+        current_iterator = iterator_second_comp
+        while current_iterator is not None:
+            current_iterator_dict = program_annotations["iterators"][current_iterator]
+            if (
+                len(current_iterator_dict["child_iterators"]) == 0
+                and len(current_iterator_dict["computations_list"]) == 0
+            ):
+                parent_iterator = current_iterator_dict["parent_iterator"]
+                if parent_iterator is not None:
+                    parent_iterator_dict = program_annotations["iterators"][
+                        parent_iterator
+                    ]
+                    parent_iterator_dict["child_iterators"].remove(current_iterator)
+                program_annotations["iterators"].pop(current_iterator)
+                current_iterator = parent_iterator
+            else:
+                break
+
+        return program_annotations
