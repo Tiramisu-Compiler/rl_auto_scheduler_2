@@ -26,11 +26,11 @@ class TiramisuRlEnv(gym.Env):
         self.tiramisu_api = TiramisuEnvAPI(local_dataset=False)
         # self.dataset_actor: DatasetActor = config["dataset_actor"]
         # Define action and observation spaces
-        self.action_space = spaces.Discrete(32)
+        self.action_space = spaces.Discrete(33)
         self.observation_space = spaces.Dict(
             {
                 "embedding": spaces.Box(-np.inf, np.inf, shape=(362,)),
-                "actions_mask": spaces.Box(0, 1, shape=(32,)),
+                "actions_mask": spaces.Box(0, 1, shape=(33,)),
             }
         )
         # The variable `self.worker_index` indexes which worker/actor is working on the chosen function, it will help us avoid problems during compiling,
@@ -78,7 +78,7 @@ class TiramisuRlEnv(gym.Env):
             )
 
             # The shape of embedded_tensor : (180,)
-            # Shape of actions mask : (32,)
+            # Shape of actions mask : (33,)
             embedded_tensor, actions_mask = self.tiramisu_api.set_program(*prog_infos)
             self.current_program = prog_infos[0]
 
@@ -221,7 +221,10 @@ class TiramisuRlEnv(gym.Env):
             speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.unroll(
                 unrolling_factor=2**factor, env_id=action, worker_id=self.worker_index
             )
-
+        elif action == 31:
+            speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.fuse(
+                env_id=action, worker_id=self.worker_index
+            )
         else:
             # Next case
             next_branch = self.tiramisu_api.scheduler_service.next_branch()
@@ -230,7 +233,7 @@ class TiramisuRlEnv(gym.Env):
                     1,
                     None,
                     True,
-                    np.zeros(32),
+                    np.zeros(33),
                 )
                 self.done = True
             else:
