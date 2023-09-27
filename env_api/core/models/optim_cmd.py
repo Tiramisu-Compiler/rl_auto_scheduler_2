@@ -84,7 +84,8 @@ class OptimizationCommand:
             return optim_str
         elif isinstance(self.action, Fusion):
             self.fusion_str = f"F({self.params_list[0]},{self.params_list[1]})"
-            return ""
+            optim_str += f"{self.params_list[0]}.then({self.params_list[1]},{self.params_list[2]});"
+            return optim_str
 
     def __str__(self) -> str:
         return f"OptimizationCommand(action={self.action.__class__.__name__}, params={self.params_list})"

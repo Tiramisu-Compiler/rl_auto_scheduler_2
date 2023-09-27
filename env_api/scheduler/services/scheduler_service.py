@@ -10,7 +10,6 @@ from env_api.scheduler.models.branch import Branch
 from env_api.scheduler.services.legality_service import LegalityService
 from env_api.scheduler.services.prediction_service import PredictionService
 from env_api.utils.data_preprocessors import (
-    get_representation_template,
     get_schedule_representation,
     linear_diophantine_default,
 )
@@ -30,6 +29,9 @@ class SchedulerService:
         self.current_branch = 0
         # Fusion phase
         self.fusion_phase = True
+        # The list of comps for fusion
+        self.fusion_comps = []
+        self.current_comp = 0
         # The prediction service is an object that has a value estimator `get_predicted_speedup(schedule)` of the speedup that a schedule will have
         # This estimator is a recursive model that needs the schedule representation to give speedups
         self.prediction_service = PredictionService()
@@ -50,7 +52,41 @@ class SchedulerService:
         # Re-init the index to the 1st branch
         self.current_branch = 0
 
+        self.create_list_comps()
+
         return self.get_tensor_embeddings()
+
+    def create_list_comps(self):
+        comps = {}
+        comps_dict = self.schedule_object.prog.annotations["computations"]
+        for comp in comps_dict:
+            comps[comps_dict[comp]["absolute_order"]] = {
+                "name": comp,
+                "iterators": comps_dict[comp]["iterators"],
+            }
+        lst = []
+        for i in range(1, len(comps) + 1):
+            lst.append(comps[i])
+        # return a structure like this ordered by absolute order of comps:
+        # [{'name': 'comp00', 'depth': 2},
+        #  {'name': 'comp01', 'depth': 2},
+        #  {'name': 'comp02', 'depth': 2},
+        #  {'name': 'comp03', 'depth': 2}]
+        # The case of all comps in the same branch :
+        same_branch = True
+        its = lst[0]["iterators"]
+        for comp in lst[1:]:
+            if its != comp["iterators"]:
+                same_branch = False
+                break
+            else:
+                self.current_comp += 1
+
+        if same_branch:
+            self.fusion_phase = False
+            self.schedule_object.unmask_actions()
+        else:
+            self.fusion_comps = lst
 
     def reset_schedule(self, new_annotations):
         self.schedule_object.prog.annotations = new_annotations
@@ -107,14 +143,23 @@ class SchedulerService:
 
     def next_branch(self):
         # Switch to the next branch to optimize it
-        self.current_branch = 1
-        if self.current_branch == len(self.branches):
-            if self.fusion_phase:
-                self.fusion_phase = False
-                self.schedule_object.unmask_actions()
-                self.current_branch = -1
-                return self.next_branch()
-            else:
+        if self.fusion_phase:
+            for _ in self.fusion_comps[self.current_comp :]:
+                if self.current_camp == (len(self.fusion_comps) - 1):
+                    self.fusion_phase = False
+                    self.schedule_object.unmask_actions()
+                    break
+                elif (
+                    self.fusion_comps[self.current_camp]["iterators"]
+                    != self.fusion_comps[self.current_camp + 1]["iterators"]
+                ):
+                    break
+                else:
+                    self.current_comp += 1
+
+        else:
+            self.current_branch = +1
+            if self.current_branch == len(self.branches):
                 # This matks the finish of exploring the branches
                 return None
         return self.get_tensor_embeddings()
@@ -131,6 +176,8 @@ class SchedulerService:
         output :
             - speedup : float , representation : tuple(tensor) , legality_check : bool
         """
+        if isinstance(action, Fusion):
+            action.params = self.fusion_comps[self.current_comp : self.current_comp + 2]
         legality_check = self.legality_service.is_action_legal(
             schedule_object=self.schedule_object,
             branches=self.branches,

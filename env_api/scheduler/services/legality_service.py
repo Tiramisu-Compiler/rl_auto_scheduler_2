@@ -47,25 +47,16 @@ class LegalityService:
             return False
 
         if isinstance(action, Fusion):
-            if current_branch + 1 == len(branches):
-                return False
-            elif not (
-                branches[current_branch].common_it[0]
-                == branches[current_branch + 1].common_it[0]
-            ):
-                return False
-            elif not (
-                len(branches[current_branch].common_it)
-                == len(branches[current_branch + 1].common_it)
-            ):
+            if len(action.params[0]["iterators"]) != len(action.params[1]["iterators"]):
                 return False
 
-            current_branch_comp = branches[current_branch].comps[-1]
-            next_branch_comp = branches[current_branch + 1].comps[-1]
-
-            level = len(branches[current_branch].common_it) - 1
-
-            action.params.extend([current_branch_comp, next_branch_comp, level])
+            action.params.extend(
+                [
+                    action.params[0]["name"],
+                    action.params[1]["name"],
+                    len(action.params[1]["iterators"]),
+                ]
+            )
 
         # The legality of Skewing is different than the others , we need to get the skewing params from the solver
         # If there are any , this means that skewing is legal , if the solver fails , it means that skewing is illegal
