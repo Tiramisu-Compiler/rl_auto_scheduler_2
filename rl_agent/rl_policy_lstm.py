@@ -1,9 +1,9 @@
-from ray.rllib.models.modelv2 import ModelV2
-from ray.rllib.utils.framework import try_import_torch
-from ray.rllib.models.torch.recurrent_net import RecurrentNetwork as TorchRNN
-from ray.rllib.utils.annotations import override
-from ray.rllib.policy.rnn_sequencing import add_time_dimension
 import numpy as np
+from ray.rllib.models.modelv2 import ModelV2
+from ray.rllib.models.torch.recurrent_net import RecurrentNetwork as TorchRNN
+from ray.rllib.policy.rnn_sequencing import add_time_dimension
+from ray.rllib.utils.annotations import override
+from ray.rllib.utils.framework import try_import_torch
 
 torch, nn = try_import_torch()
 
@@ -28,24 +28,23 @@ class PolicyLSTM(TorchRNN, nn.Module):
         self.lstm_state_size = lstm_state_size
         self.num_layers = num_layers
 
-
         self.shared_layers = nn.Sequential(
-            nn.Linear(self.obs_size,self.fc_size),
+            nn.Linear(self.obs_size, self.fc_size),
             nn.SELU(),
-            nn.Linear(self.fc_size,self.fc_size),
+            nn.Linear(self.fc_size, self.fc_size),
             nn.SELU(),
-            nn.Linear(self.fc_size,self.fc_size),
+            nn.Linear(self.fc_size, self.fc_size),
             nn.SELU(),
-            nn.Linear(self.fc_size,self.fc_size),
+            nn.Linear(self.fc_size, self.fc_size),
             nn.SELU(),
-            nn.Linear(self.fc_size,self.fc_size),
+            nn.Linear(self.fc_size, self.fc_size),
             nn.SELU(),
-            nn.Linear(self.fc_size,self.fc_size),
+            nn.Linear(self.fc_size, self.fc_size),
             nn.SELU(),
         )
 
         for model in self.shared_layers.children():
-            if isinstance(model,nn.Linear):
+            if isinstance(model, nn.Linear):
                 nn.init.xavier_uniform_(model.weight)
 
         self.lstm = nn.LSTM(
@@ -57,35 +56,35 @@ class PolicyLSTM(TorchRNN, nn.Module):
             elif "weight" in name:
                 nn.init.xavier_uniform_(param)
 
-        # Actions branch 
+        # Actions branch
         self.action_network = nn.Sequential(
-            nn.Linear(self.lstm_state_size,self.lstm_state_size),
+            nn.Linear(self.lstm_state_size, self.lstm_state_size),
             nn.SELU(),
-            nn.Linear(self.lstm_state_size,self.lstm_state_size),
+            nn.Linear(self.lstm_state_size, self.lstm_state_size),
             nn.SELU(),
-            nn.Linear(self.lstm_state_size, num_outputs)
-            )
+            nn.Linear(self.lstm_state_size, num_outputs),
+        )
 
         for model in self.action_network.children():
-            if isinstance(model,nn.Linear):
+            if isinstance(model, nn.Linear):
                 nn.init.xavier_uniform_(model.weight)
         # self.action_hidden_layer = nn.Linear(self.lstm_state_size, self.lstm_state_size)
         # nn.init.xavier_uniform_(self.action_hidden_layer.weight)
         # self.action_branch = nn.Linear(self.lstm_state_size, num_outputs)
         # nn.init.xavier_uniform_(self.action_branch.weight)
 
-        # Value branch 
+        # Value branch
 
         self.value_network = nn.Sequential(
-            nn.Linear(self.lstm_state_size,self.lstm_state_size),
+            nn.Linear(self.lstm_state_size, self.lstm_state_size),
             nn.SELU(),
-            nn.Linear(self.lstm_state_size,self.lstm_state_size),
+            nn.Linear(self.lstm_state_size, self.lstm_state_size),
             nn.SELU(),
-            nn.Linear(self.lstm_state_size, 1)
-            )
+            nn.Linear(self.lstm_state_size, 1),
+        )
 
         for model in self.value_network.children():
-            if isinstance(model,nn.Linear):
+            if isinstance(model, nn.Linear):
                 nn.init.xavier_uniform_(model.weight)
 
         # self.value_hidden_layer = nn.Linear(self.lstm_state_size, self.lstm_state_size)
@@ -139,5 +138,3 @@ class PolicyLSTM(TorchRNN, nn.Module):
         # x = nn.functional.selu(self.action_hidden_layer(self._features))
         action_out = self.action_network(self._features)
         return action_out, [torch.squeeze(h, 0), torch.squeeze(c, 0)]
-
-

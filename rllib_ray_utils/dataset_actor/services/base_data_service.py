@@ -1,12 +1,19 @@
-from abc import abstractmethod
 import pickle
+from abc import abstractmethod
 from typing import Tuple
 
 from env_api.core.services.tiramisu_service import TiramisuService
 
 
-class BaseDataService():
-    def __init__(self, dataset_path: str, path_to_save_dataset: str, shuffle: bool = False, seed: int = None, saving_frequency: int = 10000) -> None:
+class BaseDataService:
+    def __init__(
+        self,
+        dataset_path: str,
+        path_to_save_dataset: str,
+        shuffle: bool = False,
+        seed: int = None,
+        saving_frequency: int = 10000,
+    ) -> None:
         self.dataset_path = dataset_path
         self.path_to_save_dataset = path_to_save_dataset
         self.shuffle = shuffle

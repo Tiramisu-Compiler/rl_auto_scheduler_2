@@ -1,8 +1,11 @@
-import re, random
+import random
+import re
 from pathlib import Path
+
 from env_api.utils.wrapper_code import WrappersCode
 
-class TiramisuProgram():
+
+class TiramisuProgram:
     def __init__(self, code: str):
         self.annotations = None
         self.comps = None
@@ -11,7 +14,7 @@ class TiramisuProgram():
         self.schedules_solver = {}
         self.execution_times = {}
         self.original_str = None
-        if (code):
+        if code:
             self.load_code_lines(original_str=code)
 
     # Since there is no factory constructors in python, I am creating this class method to replace the factory pattern
@@ -21,12 +24,11 @@ class TiramisuProgram():
         tiramisu_prog = cls(None)
         tiramisu_prog.name = name
         tiramisu_prog.annotations = data["program_annotation"]
-        if (tiramisu_prog.annotations):
-            tiramisu_prog.comps = list(
-                tiramisu_prog.annotations["computations"].keys())
+        if tiramisu_prog.annotations:
+            tiramisu_prog.comps = list(tiramisu_prog.annotations["computations"].keys())
             tiramisu_prog.schedules_legality = data["schedules_legality"]
             tiramisu_prog.schedules_solver = data["schedules_solver"]
-            if ("execution_times" in data):
+            if "execution_times" in data:
                 tiramisu_prog.execution_times = data["execution_times"]
 
         tiramisu_prog.load_code_lines(original_str)
@@ -35,29 +37,30 @@ class TiramisuProgram():
         return tiramisu_prog
 
     def load_code_lines(self, original_str: str = None):
-        '''
+        """
         This function loads the file code , it is necessary to generate legality check code and annotations
-        '''
+        """
         if original_str:
             self.original_str = original_str
-        else :
+        else:
             return
 
-        self.body = re.findall(r'(tiramisu::init(?s:.)+)tiramisu::codegen',
-                               self.original_str)[0]
-        self.name = re.findall(r'tiramisu::init\(\"(\w+)\"\);',
-                               self.original_str)[0]
+        self.body = re.findall(
+            r"(tiramisu::init(?s:.)+)tiramisu::codegen", self.original_str
+        )[0]
+        self.name = re.findall(r"tiramisu::init\(\"(\w+)\"\);", self.original_str)[0]
         # Remove the wrapper include from the original string
         self.wrapper_str = f'#include "{self.name}_wrapper.h"'
-        if (self.wrapper_str in self.original_str ):
+        if self.wrapper_str in self.original_str:
             self.original_str = self.original_str.replace(
                 self.wrapper_str, f"// {self.wrapper_str}"
             )
-        else :
+        else:
             self.original_str = self.original_str.replace(
-                "using namespace tiramisu;" , f"// {self.wrapper_str}\nusing namespace tiramisu;"
+                "using namespace tiramisu;",
+                f"// {self.wrapper_str}\nusing namespace tiramisu;",
             )
-            
+
         self.comps = re.findall(r"computation (\w+)\(", self.original_str)
         self.code_gen_line = re.findall(r"tiramisu::codegen\({.+;", self.original_str)[
             0
@@ -71,7 +74,6 @@ class TiramisuProgram():
             )[0]
             self.buffer_sizes.append(re.findall(r"\d+", sizes_vect))
 
-
     def build_wrappers(tiramisu_program):
         buffers_init_lines = ""
         for i, buffer_name in enumerate(tiramisu_program.IO_buffer_names):
@@ -83,20 +85,31 @@ class TiramisuProgram():
         if tiramisu_program.name is None:
             raise Exception("TiramisuProgram.name is None")
 
-        wrapper_cpp_code = WrappersCode.wrapper_cpp_template.replace("$func_name$", tiramisu_program.name)
+        wrapper_cpp_code = WrappersCode.wrapper_cpp_template.replace(
+            "$func_name$", tiramisu_program.name
+        )
         wrapper_cpp_code = wrapper_cpp_code.replace(
             "$buffers_init$", buffers_init_lines
         )
-    
+
         wrapper_cpp_code = wrapper_cpp_code.replace(
             "$func_params$",
-            ",".join([name + ".raw_buffer()" for name in tiramisu_program.IO_buffer_names]),
+            ",".join(
+                [name + ".raw_buffer()" for name in tiramisu_program.IO_buffer_names]
+            ),
         )
 
-        wrapper_h_code = WrappersCode.wrapper_h_template.replace("$func_name$", tiramisu_program.name)
+        wrapper_h_code = WrappersCode.wrapper_h_template.replace(
+            "$func_name$", tiramisu_program.name
+        )
         wrapper_h_code = wrapper_h_code.replace(
             "$func_params$",
-            ",".join(["halide_buffer_t *" + name for name in tiramisu_program.IO_buffer_names]),
+            ",".join(
+                [
+                    "halide_buffer_t *" + name
+                    for name in tiramisu_program.IO_buffer_names
+                ]
+            ),
         )
 
         return wrapper_cpp_code, wrapper_h_code

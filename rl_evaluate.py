@@ -1,21 +1,21 @@
 import argparse
 import json
 import os
-from pathlib import Path
 import time
-import ray
-from config.config import Config
+from pathlib import Path
 
+import ray
+
+from config.config import Config
 from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
 from rllib_ray_utils.evaluators.ff_evaluator import FFBenchmarkEvaluator
 from rllib_ray_utils.evaluators.lstm_evaluator import LSTMBenchmarkEvaluator
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("--run",
-                    type=str,
-                    default="PPO",
-                    help="The RLlib-registered algorithm to use.")
+parser.add_argument(
+    "--run", type=str, default="PPO", help="The RLlib-registered algorithm to use."
+)
 parser.add_argument(
     "--framework",
     choices=["tf", "tf2", "torch"],
@@ -39,8 +39,8 @@ if __name__ == "__main__":
     dataset_actor = DatasetActor.remote(Config.config.dataset)
     dataset_size = ray.get(dataset_actor.get_dataset_size.remote())
     num_workers = args.num_workers
-    if (num_workers == -1):
-        num_workers = int(ray.available_resources()['CPU'])
+    if num_workers == -1:
+        num_workers = int(ray.available_resources()["CPU"])
 
     # print(f"num workers: {num_workers}")
 
@@ -64,11 +64,12 @@ if __name__ == "__main__":
     for i in range(num_workers):
         num_programs_to_do = num_programs_per_task
 
-        if i == num_workers-1:
+        if i == num_workers - 1:
             num_programs_to_do += programs_remaining
 
         benchmark_actor = Benchmarker.remote(
-            Config.config, args, num_programs_to_do, dataset_actor)
+            Config.config, args, num_programs_to_do, dataset_actor
+        )
 
         actors.append(benchmark_actor)
 
@@ -78,8 +79,7 @@ if __name__ == "__main__":
     while len(explorations) > 0:
         # Wait for actors to finish their exploration
         done, explorations = ray.wait(explorations)
-        print(
-            f"Done this iteration: {len(done)} / Remaining {len(explorations)}")
+        print(f"Done this iteration: {len(done)} / Remaining {len(explorations)}")
         # retrieve explored programs from actors that finished their exploration
         for actor in done:
             actor_programs = ray.get(actor)

@@ -1,11 +1,12 @@
+import os
 import traceback
-from env_api.data.data_service import DataSetService
+
+from config.config import Config
 from env_api.core.services.tiramisu_service import *
+from env_api.data.data_service import DataSetService
 from env_api.scheduler.models.action import *
 from env_api.scheduler.models.schedule import Schedule
 from env_api.scheduler.services.scheduler_service import SchedulerService
-import os
-from config.config import Config
 
 
 class TiramisuEnvAPI:
@@ -182,7 +183,7 @@ class TiramisuEnvAPI:
             "program_annotation": self.scheduler_service.schedule_object.prog.annotations,
             "schedules_legality": self.scheduler_service.schedule_object.prog.schedules_legality,
             "schedules_solver": self.scheduler_service.schedule_object.prog.schedules_solver,
-            "execution_times": self.scheduler_service.schedule_object.prog.execution_times
+            "execution_times": self.scheduler_service.schedule_object.prog.execution_times,
         }
 
     def final_speedup(self):

@@ -1,7 +1,9 @@
+import json
+
+from env_api.utils.exceptions import *
+
 from ..models.tiramisu_program import TiramisuProgram
 from .compiling_service import CompilingService
-import json
-from env_api.utils.exceptions import *
 
 
 class TiramisuService:
@@ -13,11 +15,13 @@ class TiramisuService:
         tiramisu_prog.annotations = self.get_annotations(tiramisu_prog)
         return tiramisu_prog
 
-    def fetch_prog_offline(self,name:str,data:dict,original_str:str=None):
+    def fetch_prog_offline(self, name: str, data: dict, original_str: str = None):
         # This function fetched all the data from an offline dataset
-        tiramisu_prog = TiramisuProgram.from_dict(name=name,data=data,original_str=original_str)
+        tiramisu_prog = TiramisuProgram.from_dict(
+            name=name, data=data, original_str=original_str
+        )
         return tiramisu_prog
-    
+
     def get_annotations(self, prog: TiramisuProgram):
         max_accesses = 15
         min_accesses = 1

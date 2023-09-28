@@ -1,8 +1,11 @@
-from env_api.tiramisu_api import TiramisuEnvAPI
+import random
+import time
+import traceback
+
 from config.config import Config
-from env_api.utils.exceptions import *
-import random, traceback, time
 from env_api.core.services.compiling_service import CompilingService
+from env_api.tiramisu_api import TiramisuEnvAPI
+from env_api.utils.exceptions import *
 
 if __name__ == "__main__":
     start = time.time()
@@ -34,7 +37,6 @@ if __name__ == "__main__":
             #     actions_mask,
             # ) = tiramisu_api.interchange(loop_level1=0,loop_level2=1, env_id=7)
 
-
             # (speedup, embedding_tensor,
             #  legality,actions_mask) = tiramisu_api.skew(loop_level1=0,loop_level2=1,env_id=2)
 
@@ -49,7 +51,11 @@ if __name__ == "__main__":
             #     legality,
             #     actions_mask,
             # ) = tiramisu_api.parallelize(loop_level=0, env_id=1)
-            (speedup, embedding_tensor, legality, actions_mask,
+            (
+                speedup,
+                embedding_tensor,
+                legality,
+                actions_mask,
             ) = tiramisu_api.unroll(unrolling_factor=8, env_id=7)
 
             # tiramisu_api.scheduler_service.next_branch()
@@ -57,8 +63,6 @@ if __name__ == "__main__":
             #  legality,actions_mask) = tiramisu_api.tile2D(loop_level1=0,loop_level2=1,size_x=12,size_y=12,env_id=4)
             # (speedup, embedding_tensor, legality, actions_mask,
             # ) = tiramisu_api.unroll(unrolling_factor=16, env_id=7)
-
-
 
             # # (speedup, embedding_tensor,
             # # legality,actions_mask) = tiramisu_api.tile3D(loop_level1=0 , loop_level2=1,loop_level3=2,
