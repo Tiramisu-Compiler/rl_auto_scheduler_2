@@ -32,7 +32,6 @@ class CompilingService:
             schedule_object=schedule_object, optims_list=optims_list, branches=branches
         )
         print(cpp_code)
-        breakpoint()
         return cls.run_cpp_code(cpp_code=cpp_code, output_path=output_path)
 
     @classmethod
@@ -115,7 +114,7 @@ class CompilingService:
             updated_fusion, cpp_code = cls.fuse_tiling_loops(
                 code=cpp_code, comps_dict=comps_dict
             )
-            legality_check_lines +="""            
+            legality_check_lines += """            
             clear_implicit_function_sched_graph();
 """
 
