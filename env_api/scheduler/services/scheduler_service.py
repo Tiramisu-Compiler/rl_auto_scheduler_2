@@ -241,11 +241,11 @@ class SchedulerService:
                     embedding_tensor = [main_embedding_tensor, branch_embedding_tensor]
 
                     if isinstance(action, Fusion):
-                        new_annotations = action.fuse_annotations(
-                            fusion_candidates=(action.params[0], action.params[1]),
-                            program_annotations_dict=self.schedule_object.prog.annotations,
-                        )
-                        self.reset_schedule(new_annotations)
+                        # new_annotations = action.fuse_annotations(
+                        #     fusion_candidates=(action.params[0], action.params[1]),
+                        #     program_annotations_dict=self.schedule_object.prog.annotations,
+                        # )
+                        # self.reset_schedule(new_annotations)
                         self.fusion_phase = False
 
                 except ExecutingFunctionException as e:
@@ -280,6 +280,8 @@ class SchedulerService:
 
                     elif isinstance(action, Skewing):
                         self.apply_skewing(action=action)
+                    elif isinstance(action, Fusion):
+                        self.apply_fusion(action=action)
                     # After successfuly applying an action we get the new representation of the main schedule and the branch
                     main_repr_tensors = get_schedule_representation(
                         self.schedule_object
@@ -306,11 +308,11 @@ class SchedulerService:
                     embedding_tensor = [main_embedding_tensor, branch_embedding_tensor]
 
                     if isinstance(action, Fusion):
-                        new_annotations = action.fuse_annotations(
-                            fusion_candidates=(action.params[0], action.params[1]),
-                            program_annotations_dict=self.schedule_object.prog.annotations,
-                        )
-                        self.reset_schedule(new_annotations)
+                        # new_annotations = action.fuse_annotations(
+                        #     fusion_candidates=(action.params[0], action.params[1]),
+                        #     program_annotations_dict=self.schedule_object.prog.annotations,
+                        # )
+                        # self.reset_schedule(new_annotations)
                         self.fusion_phase = False
                 except KeyError as e:
                     logging.error(f"This loop level: {e} doesn't exist")
@@ -528,12 +530,12 @@ class SchedulerService:
                     branch.additional_loops = tiling_depth
 
     def apply_fusion(self, action: Fusion):
-        self.schedule_object.schedule_dict["fusion"] = [action.params]
+        self.schedule_object.schedule_dict["fusion"] = action.params
         new_tree = action.get_tree_structure_after_fusion(
-            fusion_candidates=(action.params[0], action.params[1]),
+            fusion_candidates=(action.params[0]["name"], action.params[1]["name"]),
             program_annotations=self.schedule_object.prog.annotations,
         )
-        self.schedule_objectlf.schedule_dict["tree_structure"] = new_tree
+        self.schedule_object.schedule_dict["tree_structure"] = new_tree
 
     def apply_unrolling(self, action):
         # Unrolling is always applied at the innermost level , so it includes only the computations from

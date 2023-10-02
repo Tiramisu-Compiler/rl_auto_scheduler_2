@@ -30,33 +30,28 @@ class LegalityService:
             - legality_check : bool
         """
         branches[current_branch].update_actions_mask(action=action, applied=False)
-        # Check first if the iterator(s) level(s) is(are) included in the current iterators
-        # If not then the action is illegal by default
-        exceeded_iterators = self.check_iterators(
-            branches=branches, current_branch=current_branch, action=action
-        )
-        if exceeded_iterators:
-            return False
-
-        # For the cost model we are only allowed to apply 4 affine transformations by branch
-        # We verify that every branch doesn't exceed that amount
-        legal_affine_trans = self.check_affine_transformations(
-            branches=branches, action=action
-        )
-        if not legal_affine_trans:
-            return False
 
         if isinstance(action, Fusion):
-            if len(action.params[0]["iterators"]) != len(action.params[1]["iterators"]):
+            if len(action.params) != 2 or len(action.params[0]["iterators"]) != len(
+                action.params[1]["iterators"]
+            ):
+                return False
+        else:
+            # Check first if the iterator(s) level(s) is(are) included in the current iterators
+            # If not then the action is illegal by default
+            exceeded_iterators = self.check_iterators(
+                branches=branches, current_branch=current_branch, action=action
+            )
+            if exceeded_iterators:
                 return False
 
-            action.params.extend(
-                [
-                    action.params[0]["name"],
-                    action.params[1]["name"],
-                    len(action.params[1]["iterators"]),
-                ]
+            # For the cost model we are only allowed to apply 4 affine transformations by branch
+            # We verify that every branch doesn't exceed that amount
+            legal_affine_trans = self.check_affine_transformations(
+                branches=branches, action=action
             )
+            if not legal_affine_trans:
+                return False
 
         # The legality of Skewing is different than the others , we need to get the skewing params from the solver
         # If there are any , this means that skewing is legal , if the solver fails , it means that skewing is illegal

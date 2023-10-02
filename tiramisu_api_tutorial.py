@@ -17,6 +17,7 @@ if __name__ == "__main__":
     try:
         # Select a program randomly for example program = "function025885"
         program: str = random.choice(programs)
+        # program = "function1363707"
         print("Selected function : ", program)
         # set_program(str) creates all the necessary objects to start doing operations on a program
         # it returns an encoded representation specific to the RL system
@@ -56,7 +57,7 @@ if __name__ == "__main__":
                 embedding_tensor,
                 legality,
                 actions_mask,
-            ) = tiramisu_api.unroll(unrolling_factor=8, env_id=7)
+            ) = tiramisu_api.fuse(env_id=31)
 
             # tiramisu_api.scheduler_service.next_branch()
             # (speedup, embedding_tensor,

@@ -32,6 +32,7 @@ class CompilingService:
             schedule_object=schedule_object, optims_list=optims_list, branches=branches
         )
         print(cpp_code)
+        breakpoint()
         return cls.run_cpp_code(cpp_code=cpp_code, output_path=output_path)
 
     @classmethod
@@ -46,6 +47,7 @@ class CompilingService:
         updated_fusion = ""
         unrolling_legality = ""
         comps_dict = {}
+        tiling_in_actions = False
         d = schedule_object.prog.annotations["computations"]
         for comp in d:
             comps_dict[comp] = copy.deepcopy(d[comp]["iterators"])
@@ -53,12 +55,13 @@ class CompilingService:
         legality_check_lines = """
         prepare_schedules_for_legality_checks();
         perform_full_dependency_analysis();
-        clear_implicit_function_sched_graph();
+        
         bool is_legal=true;"""
         for i in range(len(optims_list)):
             optim = optims_list[i]
             if not isinstance(optim.action, Unrolling):
                 if isinstance(optim.action, Tiling):
+                    tiling_in_actions = True
                     #  Add the tiling new loops to comps_dict
                     for impacted_comp in optim.action.comps:
                         for loop_index in optim.action.params[
@@ -108,9 +111,13 @@ class CompilingService:
                         + f".tag_unroll_level({optim.action.params[0]},{optim.action.params[1]});\n"
                     )
 
-        updated_fusion, cpp_code = cls.fuse_tiling_loops(
-            code=cpp_code, comps_dict=comps_dict
-        )
+        if tiling_in_actions:
+            updated_fusion, cpp_code = cls.fuse_tiling_loops(
+                code=cpp_code, comps_dict=comps_dict
+            )
+            legality_check_lines +="""            
+            clear_implicit_function_sched_graph();
+"""
 
         legality_check_lines += f"""
             {updated_fusion}
@@ -360,7 +367,7 @@ class CompilingService:
         for comp in d:
             comps_dict[comp] = copy.deepcopy(d[comp]["iterators"])
         # Add code to the original file to get legality result
-        schedule_code = "\n\tclear_implicit_function_sched_graph();"
+        schedule_code = ""
         for i in range(len(optims_list)):
             optim = optims_list[i]
             if not isinstance(optim.action, Unrolling):
@@ -387,11 +394,13 @@ class CompilingService:
                 if unchanged:
                     unrolling_updated += optim.tiramisu_optim_str + "\n"
 
-        updated_fusion, cpp_code = cls.fuse_tiling_loops(
-            code=cpp_code, comps_dict=comps_dict
-        )
+        if isinstance(optims_list[-1].action, Tiling):
+            updated_fusion, cpp_code = cls.fuse_tiling_loops(
+                code=cpp_code, comps_dict=comps_dict
+            )
 
         schedule_code += f"""
+            clear_implicit_function_sched_graph();
             {updated_fusion}
             {unrolling_updated}
             """
