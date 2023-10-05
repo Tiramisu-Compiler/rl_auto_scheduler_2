@@ -84,6 +84,7 @@ class CompilingService:
                 comp = optim.action.comps[0]
                 for op in optims_list[i + 1 :]:
                     if isinstance(op.action, Tiling) and (comp in op.comps):
+                        tiling_in_actions = True
                         # TODO : Check the the params here
                         unrolling_legality += (
                             """\n\tis_legal &= loop_unrolling_is_legal("""
@@ -358,10 +359,14 @@ class CompilingService:
         optims_list: List[OptimizationCommand],
         branches: List[Branch],
     ):
+        if not optims_list:
+            return tiramisu_program.original_str
+
         cpp_code = tiramisu_program.original_str
         updated_fusion = ""
         unrolling_updated = ""
         comps_dict = {}
+        tiling_in_actions = False
         d = tiramisu_program.annotations["computations"]
         for comp in d:
             comps_dict[comp] = copy.deepcopy(d[comp]["iterators"])
@@ -371,6 +376,7 @@ class CompilingService:
             optim = optims_list[i]
             if not isinstance(optim.action, Unrolling):
                 if isinstance(optim.action, Tiling):
+                    tiling_in_actions = True
                     #  Add the tiling new loops to comps_dict
                     for impacted_comp in optim.action.comps:
                         for loop_index in optim.action.params[
@@ -393,14 +399,17 @@ class CompilingService:
                 if unchanged:
                     unrolling_updated += optim.tiramisu_optim_str + "\n"
 
-        if isinstance(optims_list[-1].action, Tiling):
+        if tiling_in_actions:
             updated_fusion, cpp_code = cls.fuse_tiling_loops(
                 code=cpp_code, comps_dict=comps_dict
             )
 
+            schedule_code += f"""
+                clear_implicit_function_sched_graph();
+                {updated_fusion}
+                """
+
         schedule_code += f"""
-            clear_implicit_function_sched_graph();
-            {updated_fusion}
             {unrolling_updated}
             """
 
