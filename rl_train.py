@@ -75,6 +75,7 @@ if __name__ == "__main__":
     ray.init(address="auto") if args.num_workers >= num_cpus else ray.init()
     # Config.init() is necessary to load all env variables
     Config.init()
+    print(Config.config)
 
     # Check if the server for the dataset is ready by reading the ip and port from the server_address file
 

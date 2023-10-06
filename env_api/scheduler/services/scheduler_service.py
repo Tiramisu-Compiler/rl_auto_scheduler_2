@@ -59,6 +59,12 @@ class SchedulerService:
     def create_list_comps(self):
         comps = {}
         comps_dict = self.schedule_object.prog.annotations["computations"]
+
+        # Disable fusion if there is only one comp
+        if len(comps_dict) < 2:
+            self.fusion_phase = False
+            self.schedule_object.unmask_actions()
+            return
         for comp in comps_dict:
             comps[comps_dict[comp]["absolute_order"]] = {
                 "name": comp,

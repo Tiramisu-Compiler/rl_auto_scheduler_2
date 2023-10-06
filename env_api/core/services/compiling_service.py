@@ -474,28 +474,29 @@ class CompilingService:
             f"$CXX -std=c++11 -fno-rtti -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/3rdParty/isl/include/ -I$TIRAMISU_ROOT/benchmarks -L$TIRAMISU_ROOT/build -L$TIRAMISU_ROOT/3rdParty/Halide/lib/ -L$TIRAMISU_ROOT/3rdParty/isl/build/lib -o {tiramisu_program.name}_wrapper -ltiramisu -lHalide -ldl -lpthread -lm -Wl,-rpath,$TIRAMISU_ROOT/build {tiramisu_program.name}_wrapper.cpp ./{tiramisu_program.name}.o.so -ltiramisu -lHalide -ldl -lpthread -lm -lisl",
         ]
 
-        compiler = subprocess.run(
-            [" \n ".join(shell_script)],
-            capture_output=True,
-            text=True,
-            shell=True,
-            check=True,
-        )
-        run_script = [
-            "LD_LIBRARY_PATH=${TIRAMISU_ROOT}/3rdParty/Halide/build/src:${TIRAMISU_ROOT}/3rdParty/llvm/build/lib:${TIRAMISU_ROOT}/build:${TIRAMISU_ROOT}/3rdParty/isl/build/lib",
-            "export LD_LIBRARY_PATH",
-            # cd to the workspace
-            f"cd {Config.config.tiramisu.workspace}",
-            # #  set the env variables
-            "export DYNAMIC_RUNS=0",
-            "export MAX_RUNS=5",
-            "export NB_EXEC=5",
-            # run the wrapper
-            f"./{tiramisu_program.name}_wrapper"
-            # # Clean generated files
-            # f"rm {tiramisu_program.name}*",
-        ]
         try:
+            compiler = subprocess.run(
+                [" \n ".join(shell_script)],
+                capture_output=True,
+                text=True,
+                shell=True,
+                check=True,
+            )
+            run_script = [
+                "LD_LIBRARY_PATH=${TIRAMISU_ROOT}/3rdParty/Halide/build/src:${TIRAMISU_ROOT}/3rdParty/llvm/build/lib:${TIRAMISU_ROOT}/build:${TIRAMISU_ROOT}/3rdParty/isl/build/lib",
+                "export LD_LIBRARY_PATH",
+                # cd to the workspace
+                f"cd {Config.config.tiramisu.workspace}",
+                # #  set the env variables
+                "export DYNAMIC_RUNS=0",
+                "export MAX_RUNS=5",
+                "export NB_EXEC=5",
+                # run the wrapper
+                f"./{tiramisu_program.name}_wrapper"
+                # # Clean generated files
+                # f"rm {tiramisu_program.name}*",
+            ]
+        
             compiler = subprocess.run(
                 [" ; ".join(run_script)],
                 capture_output=True,
@@ -521,6 +522,7 @@ class CompilingService:
             logging.error(f"Process terminated with error code: {e.returncode}")
             logging.error(f"Error output: {e.stderr}")
             logging.error(f"Output: {e.stdout}")
+            return None
         except Exception as e:
             pass
 
