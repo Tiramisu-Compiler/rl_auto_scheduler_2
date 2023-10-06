@@ -4,10 +4,14 @@ import os
 import time
 from pathlib import Path
 
+import grpc
 import ray
 
 from config.config import Config
-from rllib_ray_utils.dataset_actor.dataset_actor import DatasetActor
+from grpc_server.dataset_grpc_server.grpc_files import (
+    tiramisu_function_pb2,
+    tiramisu_function_pb2_grpc,
+)
 from rllib_ray_utils.evaluators.ff_evaluator import FFBenchmarkEvaluator
 from rllib_ray_utils.evaluators.lstm_evaluator import LSTMBenchmarkEvaluator
 
@@ -25,7 +29,6 @@ parser.add_argument(
 parser.add_argument(
     "--output-path",
     default="./workspace/schedules",
-    help="The DL framework specifier.",
 )
 parser.add_argument("--num-workers", default=-1, type=int)
 
@@ -35,9 +38,20 @@ if __name__ == "__main__":
     ray.init()
 
     Config.init()
-    Config.config.dataset.is_benchmark = True
-    dataset_actor = DatasetActor.remote(Config.config.dataset)
-    dataset_size = ray.get(dataset_actor.get_dataset_size.remote())
+
+    # read the ip and port from the server_address file
+    ip_and_port = ""
+    while ip_and_port == "":
+        with open("./server_address", "r") as f:
+            ip_and_port = f.read()
+
+    with grpc.insecure_channel(ip_and_port) as channel:
+        stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
+        response = stub.GetDatasetSize(tiramisu_function_pb2.Empty())
+        dataset_size = response.size
+        response = stub.GetListOfFunctions(tiramisu_function_pb2.Empty())
+        function_names = response.names
+
     num_workers = args.num_workers
     if num_workers == -1:
         num_workers = int(ray.available_resources()["CPU"])
@@ -67,8 +81,12 @@ if __name__ == "__main__":
         if i == num_workers - 1:
             num_programs_to_do += programs_remaining
 
+        start = i * num_programs_per_task
+        end = start + num_programs_to_do
         benchmark_actor = Benchmarker.remote(
-            Config.config, args, num_programs_to_do, dataset_actor
+            Config.config,
+            args,
+            function_names[start:end],
         )
 
         actors.append(benchmark_actor)

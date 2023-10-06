@@ -56,12 +56,14 @@ class TiramisuRlEnv(gym.Env):
             while self.ip_and_port == "":
                 with open("./server_address", "r") as f:
                     self.ip_and_port = f.read()
-
+            function_name = (
+                options["function_name"] if "function_name" in options else ""
+            )
             with grpc.insecure_channel(self.ip_and_port) as channel:
                 stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
                 response = stub.GetTiramisuFunction(
                     tiramisu_function_pb2.TiramisuFunctionName(
-                        name=""
+                        name=function_name
                     )  # You can also specify a function name like function550013
                 )
 
@@ -126,7 +128,7 @@ class TiramisuRlEnv(gym.Env):
             with grpc.insecure_channel(self.ip_and_port) as channel:
                 stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
                 response = stub.SaveTiramisuFunction(
-                    tiramisu_function_pb2.TiramisuFuction(
+                    tiramisu_function_pb2.TiramisuFunction(
                         name=self.current_program,
                         content=json.dumps(tiramisu_program_dict),
                     )  # You can also specify a function name like function550013
