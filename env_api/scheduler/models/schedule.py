@@ -1,4 +1,5 @@
 import copy
+import logging
 
 import numpy as np
 
@@ -66,7 +67,7 @@ class Schedule:
 
     def __init_schedule_dict_tags(self):
         self.schedule_dict["fusions"] = None
-        for comp in self.comps:
+        for comp in self.prog.annotations["computations"]:
             self.schedule_dict[comp] = {
                 "tiling": {},
                 "unrolling_factor": None,

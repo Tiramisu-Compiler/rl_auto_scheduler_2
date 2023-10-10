@@ -1,6 +1,7 @@
 import json
 import math
 import os
+from collections import OrderedDict
 
 import grpc
 import gymnasium as gym
@@ -27,12 +28,12 @@ class TiramisuRlEnv(gym.Env):
         # self.dataset_actor: DatasetActor = config["dataset_actor"]
         # Define action and observation spaces
         self.action_space = spaces.Discrete(33)
-        self.observation_space = spaces.Dict(
-            {
-                "embedding": spaces.Box(-np.inf, np.inf, shape=(362,)),
-                "actions_mask": spaces.Box(0, 1, shape=(33,)),
-            }
-        )
+        space = {
+            "embedding": spaces.Box(-np.inf, np.inf, shape=(362,)),
+            "actions_mask": spaces.Box(0, 1, shape=(33,)),
+        }
+        space = OrderedDict(sorted(space.items()))
+        self.observation_space = spaces.Dict(space)
         # The variable `self.worker_index` indexes which worker/actor is working on the chosen function, it will help us avoid problems during compiling,
         # by adding the index of the worker to the name of the worker in order to not interfer with the compilation of another node
         if isinstance(config, ray.rllib.env.env_context.EnvContext):
@@ -57,7 +58,9 @@ class TiramisuRlEnv(gym.Env):
                 with open("./server_address", "r") as f:
                     self.ip_and_port = f.read()
             function_name = (
-                options["function_name"] if "function_name" in options else ""
+                ""
+                if options is None or "function_name" not in options
+                else options["function_name"]
             )
             with grpc.insecure_channel(self.ip_and_port) as channel:
                 stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
@@ -89,6 +92,7 @@ class TiramisuRlEnv(gym.Env):
             "embedding": self.preprocess_embeddings(embeddings=embedded_tensor),
             "actions_mask": actions_mask,
         }
+        self.state = OrderedDict(sorted(self.state.items()))
         self.previous_speedup = self.reward = 1
         self.done = self.truncated = False
         self.info = {}
@@ -100,6 +104,8 @@ class TiramisuRlEnv(gym.Env):
         speedup, embedded_tensor, legality, actions_mask = self.apply_flattened_action(
             action=action
         )
+        if speedup < 0:
+            speedup = 0.01
         instant_speedup = 1
         if legality and not self.done:
             self.state = {

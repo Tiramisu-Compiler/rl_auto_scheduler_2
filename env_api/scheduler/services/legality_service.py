@@ -8,6 +8,13 @@ from env_api.scheduler.models.action import *
 from env_api.scheduler.models.schedule import Schedule
 
 
+def str_to_int(str: str):
+    try:
+        return int(str)
+    except ValueError:
+        return None
+
+
 class LegalityService:
     def __init__(self):
         """
@@ -149,17 +156,23 @@ class LegalityService:
             innermost_iterator = list(
                 branches[current_branch].prog.annotations["iterators"].keys()
             )[-1]
-            lower_bound = int(
-                branches[current_branch].prog.annotations["iterators"][
-                    innermost_iterator
-                ]["lower_bound"]
-            )
-            upper_bound = int(
-                branches[current_branch].prog.annotations["iterators"][
-                    innermost_iterator
-                ]["upper_bound"]
-            )
-            if abs(upper_bound - lower_bound) < unrolling_factor:
+
+            lower_bound = branches[current_branch].prog.annotations["iterators"][
+                innermost_iterator
+            ]["lower_bound"]
+            lower_bound_int = str_to_int(lower_bound)
+
+            upper_bound = branches[current_branch].prog.annotations["iterators"][
+                innermost_iterator
+            ]["upper_bound"]
+
+            upper_bound_int = str_to_int(upper_bound)
+
+            if (
+                lower_bound_int
+                and upper_bound_int
+                and abs(upper_bound_int - lower_bound_int) < unrolling_factor
+            ):
                 return True
 
             loop_level = (
@@ -177,19 +190,25 @@ class LegalityService:
                 # TODO : remove this strategy later
                 tiling_size = max(action.params)
                 for iterator in branches[current_branch].prog.annotations["iterators"]:
-                    lower_bound = int(
-                        branches[current_branch].prog.annotations["iterators"][
-                            iterator
-                        ]["lower_bound"]
-                    )
-                    upper_bound = int(
-                        branches[current_branch].prog.annotations["iterators"][
-                            iterator
-                        ]["upper_bound"]
-                    )
-                    if abs(upper_bound - lower_bound) < tiling_size:
+                    lower_bound = branches[current_branch].prog.annotations[
+                        "iterators"
+                    ][iterator]["lower_bound"]
+
+                    lower_bound_int = str_to_int(lower_bound)
+
+                    upper_bound = branches[current_branch].prog.annotations[
+                        "iterators"
+                    ][iterator]["upper_bound"]
+
+                    upper_bound_int = str_to_int(upper_bound)
+
+                    if (
+                        lower_bound_int
+                        and upper_bound_int
+                        and abs(upper_bound_int - lower_bound_int) < tiling_size
+                    ):
                         return True
-                # Becuase the second half of action.params contains tiling size, so we need only the first half of the vector
+                # # Becuase the second half of action.params contains tiling size, so we need only the first half of the vector
                 params = action.params[: len(action.params) // 2]
             else:
                 params = action.params

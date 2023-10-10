@@ -151,13 +151,13 @@ class SchedulerService:
         # Switch to the next branch to optimize it
         if self.fusion_phase:
             for _ in self.fusion_comps[self.current_comp :]:
-                if self.current_camp == (len(self.fusion_comps) - 1):
+                if self.current_comp == (len(self.fusion_comps) - 1):
                     self.fusion_phase = False
                     self.schedule_object.unmask_actions()
                     break
                 elif (
-                    self.fusion_comps[self.current_camp]["iterators"]
-                    != self.fusion_comps[self.current_camp + 1]["iterators"]
+                    self.fusion_comps[self.current_comp]["iterators"]
+                    != self.fusion_comps[self.current_comp + 1]["iterators"]
                 ):
                     break
                 else:
