@@ -496,7 +496,7 @@ class CompilingService:
                 # # Clean generated files
                 # f"rm {tiramisu_program.name}*",
             ]
-        
+
             compiler = subprocess.run(
                 [" ; ".join(run_script)],
                 capture_output=True,
@@ -519,9 +519,17 @@ class CompilingService:
             if numbers:
                 execution_time = min(numbers)
         except subprocess.CalledProcessError as e:
-            logging.error(f"Process terminated with error code: {e.returncode}")
+            logging.error(f"{tiramisu_program.name} : Process terminated with error code: {e.returncode}")
             logging.error(f"Error output: {e.stderr}")
             logging.error(f"Output: {e.stdout}")
+            logging.error(cpp_code)
+            subprocess.run(
+                [f"rm {output_path}*"],
+                capture_output=True,
+                text=True,
+                shell=True,
+                check=True,
+            )
             return None
         except Exception as e:
             pass

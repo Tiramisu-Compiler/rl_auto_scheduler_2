@@ -1,4 +1,5 @@
 import copy
+import logging
 from typing import List
 
 from env_api.core.models.optim_cmd import OptimizationCommand
@@ -169,10 +170,11 @@ class LegalityService:
             upper_bound_int = str_to_int(upper_bound)
 
             if (
-                lower_bound_int
-                and upper_bound_int
+                lower_bound_int is not None
+                and upper_bound_int is not None
                 and abs(upper_bound_int - lower_bound_int) < unrolling_factor
             ):
+                logging.error("Unrolling factor is bigger than the loop extent")
                 return True
 
             loop_level = (
@@ -203,8 +205,8 @@ class LegalityService:
                     upper_bound_int = str_to_int(upper_bound)
 
                     if (
-                        lower_bound_int
-                        and upper_bound_int
+                        lower_bound_int is not None
+                        and upper_bound_int is not None
                         and abs(upper_bound_int - lower_bound_int) < tiling_size
                     ):
                         return True
