@@ -80,6 +80,7 @@ class TiramisuRlEnv(gym.Env):
                 response.name,
                 json.loads(response.content),
                 cpp,
+                response.wrapper,
             )
 
             # The shape of embedded_tensor : (180,)

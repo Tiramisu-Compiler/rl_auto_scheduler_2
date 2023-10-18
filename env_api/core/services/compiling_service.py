@@ -1,5 +1,6 @@
 import copy
 import logging
+import os
 import re
 import subprocess
 from typing import List
@@ -471,8 +472,26 @@ class CompilingService:
             f"./{tiramisu_program.name}.out",
             # compile the wrapper
             f"$CXX -shared -o {tiramisu_program.name}.o.so {tiramisu_program.name}.o",
-            f"$CXX -std=c++11 -fno-rtti -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/3rdParty/isl/include/ -I$TIRAMISU_ROOT/benchmarks -L$TIRAMISU_ROOT/build -L$TIRAMISU_ROOT/3rdParty/Halide/lib/ -L$TIRAMISU_ROOT/3rdParty/isl/build/lib -o {tiramisu_program.name}_wrapper -ltiramisu -lHalide -ldl -lpthread -lm -Wl,-rpath,$TIRAMISU_ROOT/build {tiramisu_program.name}_wrapper.cpp ./{tiramisu_program.name}.o.so -ltiramisu -lHalide -ldl -lpthread -lm -lisl",
         ]
+
+        if tiramisu_program.wrapper_obj:
+            # write object file to disk
+            with open(
+                os.path.join(
+                    Config.config.tiramisu.workspace, f"{tiramisu_program.name}_wrapper"
+                ),
+                "wb",
+            ) as f:
+                f.write(tiramisu_program.wrapper_obj)
+
+            # make it executable
+            shell_script += [
+                f"chmod +x {tiramisu_program.name}_wrapper",
+            ]
+        else:
+            shell_script += [
+                f"$CXX -std=c++11 -fno-rtti -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/3rdParty/isl/include/ -I$TIRAMISU_ROOT/benchmarks -L$TIRAMISU_ROOT/build -L$TIRAMISU_ROOT/3rdParty/Halide/lib/ -L$TIRAMISU_ROOT/3rdParty/isl/build/lib -o {tiramisu_program.name}_wrapper -ltiramisu -lHalide -ldl -lpthread -lm -Wl,-rpath,$TIRAMISU_ROOT/build {tiramisu_program.name}_wrapper.cpp ./{tiramisu_program.name}.o.so -ltiramisu -lHalide -ldl -lpthread -lm -lisl",
+            ]
 
         try:
             compiler = subprocess.run(
@@ -519,7 +538,9 @@ class CompilingService:
             if numbers:
                 execution_time = min(numbers)
         except subprocess.CalledProcessError as e:
-            logging.error(f"{tiramisu_program.name} : Process terminated with error code: {e.returncode}")
+            logging.error(
+                f"{tiramisu_program.name} : Process terminated with error code: {e.returncode}"
+            )
             logging.error(f"Error output: {e.stderr}")
             logging.error(f"Output: {e.stdout}")
             logging.error(cpp_code)
