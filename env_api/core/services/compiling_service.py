@@ -94,10 +94,7 @@ class CompilingService:
                             + ", ".join([f"&{comp}" for comp in optim.action.comps])
                             + """});\n"""
                         )
-                        unrolling_legality += (
-                            comp
-                            + f".tag_unroll_level({optim.action.params[0] + 2},{optim.action.params[1]});\n"
-                        )
+                        unrolling_legality += f"\n\t{comp}.unroll({optim.params_list[0]},{optim.params_list[1]});"
                         unchanged = False
                 if unchanged:
                     unrolling_legality += (
@@ -107,10 +104,7 @@ class CompilingService:
                         + ", ".join([f"&{comp}" for comp in optim.action.comps])
                         + """});\n"""
                     )
-                    unrolling_legality += (
-                        comp
-                        + f".tag_unroll_level({optim.action.params[0]},{optim.action.params[1]});\n"
-                    )
+                    unrolling_legality += f"\n\t{comp}.unroll({optim.params_list[0]},{optim.params_list[1]});"
 
         if tiling_in_actions:
             updated_fusion, cpp_code = cls.fuse_tiling_loops(
