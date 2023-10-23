@@ -870,6 +870,16 @@ def get_padded_initial_iteration_domain(program_json, comp_name, pad=True):
 
         # for each iterator in the bounds expression, set the corresponding values in the matrix
         for iter_name in iterators_in_upper:
+            if iter_name not in comp_dict["iterators"]:
+                old = iter_name
+                # replace iter_name with the first iterator that starts with iter_name in the list of iterators
+                for iterator in comp_dict["iterators"]:
+                    if iterator.startswith(iter_name):
+                        iter_name = iterator
+                        break
+                print(
+                    f"Warning: iterator {old} not found in comp {comp_name}. It will be replaced with {iter_name}"
+                )
             col_idx = comp_dict["iterators"].index(iter_name)
             if "-" + iter_name in upper_bound:
                 coeff_mat[i * 2 + 1, col_idx] = 1
@@ -880,6 +890,16 @@ def get_padded_initial_iteration_domain(program_json, comp_name, pad=True):
         )  # adding a -1 because we are representing a non-strict inequality
 
         for iter_name in iterators_in_lower:
+            if iter_name not in comp_dict["iterators"]:
+                old = iter_name
+                # replace iter_name with the first iterator that starts with iter_name in the list of iterators
+                for iterator in comp_dict["iterators"]:
+                    if iterator.startswith(iter_name):
+                        iter_name = iterator
+                        break
+                print(
+                    f"Warning: iterator {old} not found in comp {comp_name}. It will be replaced with {iter_name}"
+                )
             col_idx = comp_dict["iterators"].index(iter_name)
             if "-" + iter_name in upper_bound:
                 coeff_mat[i * 2, col_idx] = -1
