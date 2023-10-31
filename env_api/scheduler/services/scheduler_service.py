@@ -193,7 +193,7 @@ class SchedulerService:
         embedding_tensor = None
         speedup = Config.config.experiment.legality_speedup
         if legality_check:
-            if Config.config.tiramisu.env_type == "execution":
+            if Config.config.tiramisu.env_type == "cpu":
                 # We are going to get the speedup by execution
                 try:
                     if isinstance(action, Parallelization):
