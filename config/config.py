@@ -118,6 +118,12 @@ class LSTMPolicy:
 
 
 @dataclass
+class EnvVars:
+    CONDA_ENV: str = ""
+    LD_LIBRARY_PATH: str = "${CONDA_ENV}/lib:${TIRAMISU_ROOT}/3rdParty/Halide/build/src:${TIRAMISU_ROOT}/3rdParty/llvm/build/lib:${TIRAMISU_ROOT}/3rdParty/isl/build/lib:"
+
+
+@dataclass
 class AutoSchedulerConfig:
     tiramisu: TiramisuConfig
     dataset: DatasetConfig
@@ -125,6 +131,7 @@ class AutoSchedulerConfig:
     experiment: Experiment
     policy_network: PolicyNetwork
     lstm_policy: LSTMPolicy
+    env_vars: EnvVars
 
     def __post_init__(self):
         if isinstance(self.tiramisu, dict):
@@ -157,8 +164,9 @@ def dict_to_config(parsed_yaml: Dict[Any, Any]) -> AutoSchedulerConfig:
     experiment = Experiment(**parsed_yaml["experiment"])
     policy_network = PolicyNetwork(**parsed_yaml["policy_network"])
     lstm_policy = LSTMPolicy(**parsed_yaml["lstm_policy"])
+    env_vars = EnvVars(**parsed_yaml["env_vars"])
     return AutoSchedulerConfig(
-        tiramisu, dataset, ray, experiment, policy_network, lstm_policy
+        tiramisu, dataset, ray, experiment, policy_network, lstm_policy, env_vars
     )
 
 

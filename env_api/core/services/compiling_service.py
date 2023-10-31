@@ -186,6 +186,11 @@ class CompilingService:
                 "rm {}.out {}.o".format(output_path, output_path),
             ]
         try:
+            # add env vars at top
+            envs = []
+            for key, val in Config.config.env_vars.__dict__.items():
+                envs.append(f"export {key}={val}")
+            shell_script = envs + shell_script
             compiler = subprocess.run(
                 ["\n".join(shell_script)],
                 input=cpp_code,
@@ -488,6 +493,12 @@ class CompilingService:
             ]
 
         try:
+            # add env vars at top
+            envs = []
+            for key, val in Config.config.env_vars.__dict__.items():
+                envs.append(f"export {key}={val}")
+            shell_script = envs + shell_script
+
             compiler = subprocess.run(
                 [" \n ".join(shell_script)],
                 capture_output=True,
@@ -496,8 +507,6 @@ class CompilingService:
                 check=True,
             )
             run_script = [
-                "LD_LIBRARY_PATH=${TIRAMISU_ROOT}/3rdParty/Halide/build/src:${TIRAMISU_ROOT}/3rdParty/llvm/build/lib:${TIRAMISU_ROOT}/build:${TIRAMISU_ROOT}/3rdParty/isl/build/lib",
-                "export LD_LIBRARY_PATH",
                 # cd to the workspace
                 f"cd {Config.config.tiramisu.workspace}",
                 # #  set the env variables
@@ -509,6 +518,8 @@ class CompilingService:
                 # # Clean generated files
                 # f"rm {tiramisu_program.name}*",
             ]
+
+            run_script = envs + run_script
 
             compiler = subprocess.run(
                 [" ; ".join(run_script)],
