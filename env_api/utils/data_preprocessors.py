@@ -7,6 +7,7 @@ import random
 import re
 import shutil
 from pathlib import Path
+from typing import Any, Dict
 
 import numpy as np
 import pandas as pd
@@ -1213,3 +1214,98 @@ def build_tree_structure(iters):
             roots.append(copy.copy(iterator))
 
     return [build_loop_nests(it, iterators) for it in roots]
+
+
+def get_ancestory_register(
+    computation_dict: Dict[str, Any], tree_structure: Dict[str, Any]
+):
+    """
+    Constructs a dictionary with pointers to the ancestory of the computation in the tree structure
+
+    Args:
+        computation_dict: the annotations dictionary of the computation
+        tree_structure: tree structure of the program
+
+    Returns:
+        dictionary with pointers to the ancestory of the computation in the tree structure
+    """
+    # dictionary with pointers to the ancestory of the computation passed in the tree structure
+    ancestory_register = {}
+
+    # parent
+    parent = computation_dict["iterators"][-1]
+    # Get the iterators of the computations to be fused
+    root_comp = computation_dict["iterators"][0]
+
+    # Get the root iterator of the computation to be fused
+    iterator_comp_dict = None
+    for root in tree_structure["roots"]:
+        if root["loop_name"] == root_comp:
+            iterator_comp_dict = root
+            break
+    ancestory_register[iterator_comp_dict["loop_name"]] = iterator_comp_dict
+
+    # Get the ancestory of the computation to be fused
+    ancestory_level = 1
+    while iterator_comp_dict["loop_name"] != parent:
+        for ancestor in iterator_comp_dict["child_list"]:
+            if ancestor["loop_name"] == computation_dict["iterators"][ancestory_level]:
+                iterator_comp_dict = ancestor
+                ancestory_register[iterator_comp_dict["loop_name"]] = iterator_comp_dict
+                ancestory_level += 1
+                break
+
+    return ancestory_register
+
+
+def get_iterator_info(iterator: str, program_annotations: Dict[str, Any]):
+    """
+    Converts the iterator dictionary from the annotations to the tree structure format
+
+    Args:
+        iterator: name of the iterator
+        program_annotations: annotations of the program
+
+    Returns:
+        iterator_info: dictionary with the iterator information
+    """
+    # Get the iterator dictionary from the annotations
+    iterator_dict = program_annotations["iterators"][iterator]
+
+    # Construct the iterator info dictionary
+    iterator_info = {
+        "loop_name": iterator,
+        "computations_list": iterator_dict["computations_list"].copy(),
+        "child_list": [],
+    }
+
+    # Recursively construct the child iterators
+    for child_iterator in iterator_dict["child_iterators"]:
+        iterator_info["child_list"].append(
+            get_iterator_info(child_iterator, program_annotations)
+        )
+
+    return iterator_info
+
+
+def construct_tree_structure(program_annotations: Dict[str, Any]):
+    """
+    Constructs the tree structure from the annotations of the program
+
+    Args:
+        program_annotations: annotations of the program
+
+    Returns:
+        tree_structure: tree structure of the program
+    """
+    tree_structure = {"roots": []}
+
+    # Construct the tree structure recursively starting from the roots
+    for iterator in program_annotations["iterators"]:
+        iterator_dict = program_annotations["iterators"][iterator]
+        if iterator_dict["parent_iterator"] is None:
+            tree_structure["roots"].append(
+                get_iterator_info(iterator, program_annotations)
+            )
+
+    return tree_structure
