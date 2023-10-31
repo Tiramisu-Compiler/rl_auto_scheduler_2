@@ -15,3 +15,5 @@ experiment_dir/*
 checkpoints
 lstm-ppo-policy
 server_address
+workspace
+scripts/run_training.bash

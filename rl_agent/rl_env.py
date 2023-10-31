@@ -1,6 +1,7 @@
 import json
 import math
 import os
+from collections import OrderedDict
 
 import grpc
 import gymnasium as gym
@@ -26,13 +27,13 @@ class TiramisuRlEnv(gym.Env):
         self.tiramisu_api = TiramisuEnvAPI(local_dataset=False)
         # self.dataset_actor: DatasetActor = config["dataset_actor"]
         # Define action and observation spaces
-        self.action_space = spaces.Discrete(32)
-        self.observation_space = spaces.Dict(
-            {
-                "embedding": spaces.Box(-np.inf, np.inf, shape=(362,)),
-                "actions_mask": spaces.Box(0, 1, shape=(32,)),
-            }
-        )
+        self.action_space = spaces.Discrete(33)
+        space = {
+            "embedding": spaces.Box(-np.inf, np.inf, shape=(362,)),
+            "actions_mask": spaces.Box(0, 1, shape=(33,)),
+        }
+        space = OrderedDict(sorted(space.items()))
+        self.observation_space = spaces.Dict(space)
         # The variable `self.worker_index` indexes which worker/actor is working on the chosen function, it will help us avoid problems during compiling,
         # by adding the index of the worker to the name of the worker in order to not interfer with the compilation of another node
         if isinstance(config, ray.rllib.env.env_context.EnvContext):
@@ -56,12 +57,16 @@ class TiramisuRlEnv(gym.Env):
             while self.ip_and_port == "":
                 with open("./server_address", "r") as f:
                     self.ip_and_port = f.read()
-
+            function_name = (
+                ""
+                if options is None or "function_name" not in options
+                else options["function_name"]
+            )
             with grpc.insecure_channel(self.ip_and_port) as channel:
                 stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
                 response = stub.GetTiramisuFunction(
                     tiramisu_function_pb2.TiramisuFunctionName(
-                        name=""
+                        name=function_name
                     )  # You can also specify a function name like function550013
                 )
 
@@ -75,10 +80,11 @@ class TiramisuRlEnv(gym.Env):
                 response.name,
                 json.loads(response.content),
                 cpp,
+                response.wrapper,
             )
 
             # The shape of embedded_tensor : (180,)
-            # Shape of actions mask : (32,)
+            # Shape of actions mask : (33,)
             embedded_tensor, actions_mask = self.tiramisu_api.set_program(*prog_infos)
             self.current_program = prog_infos[0]
 
@@ -87,6 +93,7 @@ class TiramisuRlEnv(gym.Env):
             "embedding": self.preprocess_embeddings(embeddings=embedded_tensor),
             "actions_mask": actions_mask,
         }
+        self.state = OrderedDict(sorted(self.state.items()))
         self.previous_speedup = self.reward = 1
         self.done = self.truncated = False
         self.info = {}
@@ -98,6 +105,8 @@ class TiramisuRlEnv(gym.Env):
         speedup, embedded_tensor, legality, actions_mask = self.apply_flattened_action(
             action=action
         )
+        if speedup < 0:
+            speedup = 0.01
         instant_speedup = 1
         if legality and not self.done:
             self.state = {
@@ -126,7 +135,7 @@ class TiramisuRlEnv(gym.Env):
             with grpc.insecure_channel(self.ip_and_port) as channel:
                 stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
                 response = stub.SaveTiramisuFunction(
-                    tiramisu_function_pb2.TiramisuFuction(
+                    tiramisu_function_pb2.TiramisuFunction(
                         name=self.current_program,
                         content=json.dumps(tiramisu_program_dict),
                     )  # You can also specify a function name like function550013
@@ -221,7 +230,10 @@ class TiramisuRlEnv(gym.Env):
             speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.unroll(
                 unrolling_factor=2**factor, env_id=action, worker_id=self.worker_index
             )
-
+        elif action == 31:
+            speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.fuse(
+                env_id=action, worker_id=self.worker_index
+            )
         else:
             # Next case
             next_branch = self.tiramisu_api.scheduler_service.next_branch()
@@ -230,7 +242,7 @@ class TiramisuRlEnv(gym.Env):
                     1,
                     None,
                     True,
-                    np.zeros(32),
+                    np.zeros(33),
                 )
                 self.done = True
             else:

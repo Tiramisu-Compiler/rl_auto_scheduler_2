@@ -1,10 +1,10 @@
 import copy
+import logging
 
 import numpy as np
 
 from config.config import Config
 from env_api.core.models.tiramisu_program import TiramisuProgram
-from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.action import *
 from env_api.scheduler.models.representation import Representation
 from env_api.utils.data_preprocessors import (
@@ -46,7 +46,7 @@ class Schedule:
         else:
             self.__init_schedule_dict_tags()
             self.__init_representation()
-            self.__set_action_mask()
+            self.__set_branch_action_mask()
             self.__form_iterators_dict()
 
     def __calculate_common_it(self):
@@ -67,7 +67,7 @@ class Schedule:
 
     def __init_schedule_dict_tags(self):
         self.schedule_dict["fusions"] = None
-        for comp in self.comps:
+        for comp in self.prog.annotations["computations"]:
             self.schedule_dict[comp] = {
                 "tiling": {},
                 "unrolling_factor": None,
@@ -86,7 +86,16 @@ class Schedule:
         )
 
     def __set_action_mask(self):
-        self.repr.action_mask = np.zeros(32)
+        self.repr.action_mask = np.ones(33)
+        # Next action
+        self.repr.action_mask[-1] = 0
+        # Fusion Action
+        self.repr.action_mask[-2] = 0
+
+    def __set_branch_action_mask(self):
+        self.repr.action_mask = np.zeros(33)
+        # Next action
+        self.repr.action_mask[-2] = 1
 
     def __form_iterators_dict(self):
         for comp in self.comps:
@@ -188,3 +197,7 @@ class Schedule:
 
         elif isinstance(action, Unrolling):
             self.repr.action_mask[0:31] = 1
+
+    def unmask_actions(self):
+        self.repr.action_mask = np.zeros(33)
+        self.repr.action_mask[-2] = 1

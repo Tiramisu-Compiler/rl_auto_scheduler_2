@@ -1,3 +1,4 @@
+import logging
 import random
 import re
 from pathlib import Path
@@ -14,12 +15,15 @@ class TiramisuProgram:
         self.schedules_solver = {}
         self.execution_times = {}
         self.original_str = None
+        self.wrapper_obj: bytes | None = None
         if code:
             self.load_code_lines(original_str=code)
 
     # Since there is no factory constructors in python, I am creating this class method to replace the factory pattern
     @classmethod
-    def from_dict(cls, name: str, data: dict, original_str: str = None):
+    def from_dict(
+        cls, name: str, data: dict, original_str: str = None, wrapper_obj: bytes = None
+    ):
         # Initiate an instante of the TiramisuProgram class
         tiramisu_prog = cls(None)
         tiramisu_prog.name = name
@@ -32,6 +36,7 @@ class TiramisuProgram:
                 tiramisu_prog.execution_times = data["execution_times"]
 
         tiramisu_prog.load_code_lines(original_str)
+        tiramisu_prog.wrapper_obj = wrapper_obj
 
         # After taking the neccessary fields return the instance
         return tiramisu_prog

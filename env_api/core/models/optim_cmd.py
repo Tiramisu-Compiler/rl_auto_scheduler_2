@@ -16,7 +16,7 @@ class OptimizationCommand:
         Returns:
             str: The tiramisu snippet that represents the optimization command.
         """
-
+        optim_str = ""
         if isinstance(self.action, Interchange):
             assert len(self.params_list) == 2
             interchange_str = (
@@ -84,7 +84,8 @@ class OptimizationCommand:
             return optim_str
         elif isinstance(self.action, Fusion):
             self.fusion_str = f"F({self.params_list[0]},{self.params_list[1]})"
-            return ""
+            optim_str += f"{self.params_list[0]['name']}.then({self.params_list[1]['name']},{len(self.params_list[0]['iterators'])-1});"
+            return optim_str
 
     def __str__(self) -> str:
         return f"OptimizationCommand(action={self.action.__class__.__name__}, params={self.params_list})"

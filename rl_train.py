@@ -1,10 +1,7 @@
 import argparse
-import os
-import socket
 
 import ray
 from ray import air, tune
-from ray.rllib.algorithms.callbacks import MultiCallbacks
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.models import ModelCatalog
 from ray.rllib.utils.test_utils import check_learning_achieved
@@ -19,10 +16,16 @@ from rl_agent.rl_policy_nn import PolicyNN
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "--num-workers",
+    "--num-cores",
     default=28,
     type=int,
-    help="Number of workers to use for training",
+    help="Number of cores per node",
+)
+parser.add_argument(
+    "--num-nodes",
+    default=28,
+    type=int,
+    help="Number of nodes",
 )
 
 parser.add_argument(
@@ -68,13 +71,27 @@ parser.add_argument(
 )
 
 if __name__ == "__main__":
-    num_cpus = os.cpu_count()
     args = parser.parse_args()
     print(f"Running with following CLI options: {args}")
     # If num workers > 28 => means we are using more than 1 node.
-    ray.init(address="auto") if args.num_workers >= num_cpus else ray.init()
+    ray.init(address="auto") if args.num_nodes > 1 else ray.init()
     # Config.init() is necessary to load all env variables
     Config.init()
+    print(Config.config)
+
+    # Default values for num_workers and num_cpus_per_worker. These values are used when running on a single node or when training using model-based speedups
+    num_workers = args.num_nodes * args.num_cores - 1
+    num_cpus_per_worker = 1
+    placement_strategy = "PACK"  # PACK is the default strategy, it will pack all workers in the same node. STRICT_SPREAD will spread the workers across nodes
+
+    if Config.config.tiramisu.env_type == "cpu":
+        # If we are running on CPU we need to run the server in a separate node and the workers in the other nodes to avoid noise from the server
+        if args.num_nodes == 1:
+            raise ValueError("Cannot run on CPU with only one node")
+        # If we are running by execution er use num_nodes - 1 because the server is running in one node so we do not run a worker in that node
+        num_workers = args.num_nodes - 1
+        num_cpus_per_worker = args.num_cores
+        placement_strategy = "STRICT_SPREAD"
 
     # Check if the server for the dataset is ready by reading the ip and port from the server_address file
 
@@ -92,7 +109,6 @@ if __name__ == "__main__":
     # DatasetActor is the responsible class of syncronizing data between rollout-workers, TiramisuEnvAPI will read
     # data from this actor.
     # dataset_actor = DatasetActor.remote(Config.config.dataset)
-
     match (Config.config.experiment.policy_model):
         case "lstm":
             ModelCatalog.register_custom_model("policy_nn", PolicyLSTM)
@@ -110,15 +126,8 @@ if __name__ == "__main__":
             },
         )
         .framework(args.framework)
-        .callbacks(
-            MultiCallbacks(
-                [
-                    # CustomMetricCallback
-                ]
-            )
-        )
         .rollouts(
-            num_rollout_workers=args.num_workers,
+            num_rollout_workers=num_workers,
             batch_mode="complete_episodes",
             enable_connectors=False,
         )
@@ -135,13 +144,16 @@ if __name__ == "__main__":
             },
         )
         .resources(
-            num_gpus=args.num_gpus
+            num_gpus=args.num_gpus,
             # To train with execution on separate nodes
-            # num_cpus_per_worker= Num of cpu in each node,
-            # placement_strategy= "STRICT_SPREAD"
+            num_cpus_per_worker=num_cpus_per_worker,
+            placement_strategy=placement_strategy,
         )
         .debugging(log_level="WARN")
     )
+
+    # Print the config of the experiment
+    print(config.to_dict())
 
     # Setting the stop conditions
     stop = {

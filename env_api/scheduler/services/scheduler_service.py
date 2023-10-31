@@ -10,7 +10,6 @@ from env_api.scheduler.models.branch import Branch
 from env_api.scheduler.services.legality_service import LegalityService
 from env_api.scheduler.services.prediction_service import PredictionService
 from env_api.utils.data_preprocessors import (
-    get_representation_template,
     get_schedule_representation,
     linear_diophantine_default,
 )
@@ -28,6 +27,11 @@ class SchedulerService:
         # The branches generated from the program tree
         self.branches: List[Branch] = []
         self.current_branch = 0
+        # Fusion phase
+        self.fusion_phase = True
+        # The list of comps for fusion
+        self.fusion_comps = []
+        self.current_comp = 0
         # The prediction service is an object that has a value estimator `get_predicted_speedup(schedule)` of the speedup that a schedule will have
         # This estimator is a recursive model that needs the schedule representation to give speedups
         self.prediction_service = PredictionService()
@@ -47,22 +51,57 @@ class SchedulerService:
         self.create_branches()
         # Re-init the index to the 1st branch
         self.current_branch = 0
-        # Getting the representation of the main schedule and the branched schedule
-        main_repr = get_schedule_representation(schedule_object)
-        branch_repr = get_schedule_representation(self.branches[self.current_branch])
-        # Using the model to embed the main program and the branch in a 180 sized vector for each
-        with torch.no_grad():
-            _, main_embed = self.prediction_service.get_predicted_speedup(
-                *main_repr, schedule_object
-            )
-            _, branch_embed = self.prediction_service.get_predicted_speedup(
-                *branch_repr, self.branches[self.current_branch]
-            )
 
-        return (
-            [main_embed, branch_embed],
-            self.branches[self.current_branch].repr.action_mask,
-        )
+        self.create_list_comps()
+
+        return self.get_tensor_embeddings()
+
+    def create_list_comps(self):
+        comps = {}
+        comps_dict = self.schedule_object.prog.annotations["computations"]
+
+        # Disable fusion if there is only one comp
+        if len(comps_dict) < 2:
+            self.fusion_phase = False
+            self.schedule_object.unmask_actions()
+            return
+        for comp in comps_dict:
+            comps[comps_dict[comp]["absolute_order"]] = {
+                "name": comp,
+                "iterators": comps_dict[comp]["iterators"],
+            }
+        lst = []
+        for i in range(1, len(comps) + 1):
+            lst.append(comps[i])
+        # return a structure like this ordered by absolute order of comps:
+        # [{'name': 'comp00', 'depth': 2},
+        #  {'name': 'comp01', 'depth': 2},
+        #  {'name': 'comp02', 'depth': 2},
+        #  {'name': 'comp03', 'depth': 2}]
+        # The case of all comps in the same branch :
+        same_branch = True
+        its = lst[0]["iterators"]
+        for comp in lst[1:]:
+            if its != comp["iterators"]:
+                same_branch = False
+                break
+            else:
+                self.current_comp += 1
+
+        if same_branch:
+            self.fusion_phase = False
+            self.schedule_object.unmask_actions()
+        else:
+            self.fusion_comps = lst
+
+    def reset_schedule(self, new_annotations):
+        self.schedule_object.prog.annotations = new_annotations
+        self.schedule_object.unmask_actions()
+        self.create_branches()
+        # Re-init the index to the 1st branch
+        self.current_branch = 0
+
+        return self.get_tensor_embeddings()
 
     def get_current_speedup(self):
         repr_tensors = get_schedule_representation(self.schedule_object)
@@ -91,12 +130,7 @@ class SchedulerService:
             new_branch.prog.load_code_lines(self.schedule_object.prog.original_str)
             self.branches.append(new_branch)
 
-    def next_branch(self):
-        # Switch to the next branch to optimize it
-        self.current_branch += 1
-        if self.current_branch == len(self.branches):
-            # This matks the finish of exploring the branches
-            return None
+    def get_tensor_embeddings(self):
         main_repr = get_schedule_representation(self.schedule_object)
         branch_repr = get_schedule_representation(self.branches[self.current_branch])
         # Using the model to embed the program and the branch in a 180 sized vector each
@@ -113,6 +147,34 @@ class SchedulerService:
             self.branches[self.current_branch].repr.action_mask,
         )
 
+    def next_branch(self):
+        # Switch to the next branch to optimize it
+        if self.fusion_phase:
+            for _ in self.fusion_comps[self.current_comp :]:
+                if self.current_comp == (len(self.fusion_comps) - 1):
+                    self.fusion_phase = False
+                    self.schedule_object.unmask_actions()
+                    break
+                elif (
+                    self.fusion_comps[self.current_comp]["iterators"]
+                    != self.fusion_comps[self.current_comp + 1]["iterators"]
+                ):
+                    break
+                else:
+                    self.current_comp += 1
+
+        else:
+            self.current_branch = +1
+            if self.current_branch == len(self.branches):
+                # This matks the finish of exploring the branches
+                return None
+        return self.get_tensor_embeddings()
+
+    def reset_branch_indicator(self):
+        self.current_branch = 0
+        self.schedule_object.unmask_actions()
+        return self.get_tensor_embeddings()
+
     def apply_action(self, action: Action):
         """
         input :
@@ -120,6 +182,8 @@ class SchedulerService:
         output :
             - speedup : float , representation : tuple(tensor) , legality_check : bool
         """
+        if isinstance(action, Fusion):
+            action.params = self.fusion_comps[self.current_comp : self.current_comp + 2]
         legality_check = self.legality_service.is_action_legal(
             schedule_object=self.schedule_object,
             branches=self.branches,
@@ -129,7 +193,7 @@ class SchedulerService:
         embedding_tensor = None
         speedup = Config.config.experiment.legality_speedup
         if legality_check:
-            if Config.config.tiramisu.env_type == "execution":
+            if Config.config.tiramisu.env_type == "cpu":
                 # We are going to get the speedup by execution
                 try:
                     if isinstance(action, Parallelization):
@@ -182,6 +246,14 @@ class SchedulerService:
                     # We pach the 2 tensors to represent the program and the current branch
                     embedding_tensor = [main_embedding_tensor, branch_embedding_tensor]
 
+                    if isinstance(action, Fusion):
+                        # new_annotations = action.fuse_annotations(
+                        #     fusion_candidates=(action.params[0], action.params[1]),
+                        #     program_annotations_dict=self.schedule_object.prog.annotations,
+                        # )
+                        # self.reset_schedule(new_annotations)
+                        self.fusion_phase = False
+
                 except ExecutingFunctionException as e:
                     # If the execution went wring remove it from the schedule list
                     self.schedule_object.schedule_list.pop()
@@ -214,6 +286,8 @@ class SchedulerService:
 
                     elif isinstance(action, Skewing):
                         self.apply_skewing(action=action)
+                    elif isinstance(action, Fusion):
+                        self.apply_fusion(action=action)
                     # After successfuly applying an action we get the new representation of the main schedule and the branch
                     main_repr_tensors = get_schedule_representation(
                         self.schedule_object
@@ -238,6 +312,14 @@ class SchedulerService:
 
                     # We pach the 2 tensors to represent the program and the current branch
                     embedding_tensor = [main_embedding_tensor, branch_embedding_tensor]
+
+                    if isinstance(action, Fusion):
+                        # new_annotations = action.fuse_annotations(
+                        #     fusion_candidates=(action.params[0], action.params[1]),
+                        #     program_annotations_dict=self.schedule_object.prog.annotations,
+                        # )
+                        # self.reset_schedule(new_annotations)
+                        self.fusion_phase = False
                 except KeyError as e:
                     logging.error(f"This loop level: {e} doesn't exist")
                     legality_check = False
@@ -453,8 +535,13 @@ class SchedulerService:
                     # Update the additional loops
                     branch.additional_loops = tiling_depth
 
-    def apply_fusion(self, action):
-        pass
+    def apply_fusion(self, action: Fusion):
+        self.schedule_object.schedule_dict["fusion"] = action.params
+        new_tree = action.get_tree_structure_after_fusion(
+            fusion_candidates=(action.params[0]["name"], action.params[1]["name"]),
+            program_annotations=self.schedule_object.prog.annotations,
+        )
+        self.schedule_object.schedule_dict["tree_structure"] = new_tree
 
     def apply_unrolling(self, action):
         # Unrolling is always applied at the innermost level , so it includes only the computations from

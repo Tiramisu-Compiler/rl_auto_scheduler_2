@@ -1,5 +1,6 @@
 import copy
 import logging
+import os
 import re
 import subprocess
 from typing import List
@@ -46,6 +47,7 @@ class CompilingService:
         updated_fusion = ""
         unrolling_legality = ""
         comps_dict = {}
+        tiling_in_actions = False
         d = schedule_object.prog.annotations["computations"]
         for comp in d:
             comps_dict[comp] = copy.deepcopy(d[comp]["iterators"])
@@ -53,12 +55,13 @@ class CompilingService:
         legality_check_lines = """
         prepare_schedules_for_legality_checks();
         perform_full_dependency_analysis();
-        clear_implicit_function_sched_graph();
+        
         bool is_legal=true;"""
         for i in range(len(optims_list)):
             optim = optims_list[i]
             if not isinstance(optim.action, Unrolling):
                 if isinstance(optim.action, Tiling):
+                    tiling_in_actions = True
                     #  Add the tiling new loops to comps_dict
                     for impacted_comp in optim.action.comps:
                         for loop_index in optim.action.params[
@@ -82,6 +85,7 @@ class CompilingService:
                 comp = optim.action.comps[0]
                 for op in optims_list[i + 1 :]:
                     if isinstance(op.action, Tiling) and (comp in op.comps):
+                        tiling_in_actions = True
                         # TODO : Check the the params here
                         unrolling_legality += (
                             """\n\tis_legal &= loop_unrolling_is_legal("""
@@ -90,10 +94,7 @@ class CompilingService:
                             + ", ".join([f"&{comp}" for comp in optim.action.comps])
                             + """});\n"""
                         )
-                        unrolling_legality += (
-                            comp
-                            + f".tag_unroll_level({optim.action.params[0] + 2},{optim.action.params[1]});\n"
-                        )
+                        unrolling_legality += f"\n\t{comp}.unroll({optim.params_list[0]},{optim.params_list[1]});"
                         unchanged = False
                 if unchanged:
                     unrolling_legality += (
@@ -103,14 +104,15 @@ class CompilingService:
                         + ", ".join([f"&{comp}" for comp in optim.action.comps])
                         + """});\n"""
                     )
-                    unrolling_legality += (
-                        comp
-                        + f".tag_unroll_level({optim.action.params[0]},{optim.action.params[1]});\n"
-                    )
+                    unrolling_legality += f"\n\t{comp}.unroll({optim.params_list[0]},{optim.params_list[1]});"
 
-        updated_fusion, cpp_code = cls.fuse_tiling_loops(
-            code=cpp_code, comps_dict=comps_dict
-        )
+        if tiling_in_actions:
+            updated_fusion, cpp_code = cls.fuse_tiling_loops(
+                code=cpp_code, comps_dict=comps_dict
+            )
+            legality_check_lines += """            
+            clear_implicit_function_sched_graph();
+"""
 
         legality_check_lines += f"""
             {updated_fusion}
@@ -352,19 +354,24 @@ class CompilingService:
         optims_list: List[OptimizationCommand],
         branches: List[Branch],
     ):
+        if not optims_list:
+            return tiramisu_program.original_str
+
         cpp_code = tiramisu_program.original_str
         updated_fusion = ""
         unrolling_updated = ""
         comps_dict = {}
+        tiling_in_actions = False
         d = tiramisu_program.annotations["computations"]
         for comp in d:
             comps_dict[comp] = copy.deepcopy(d[comp]["iterators"])
         # Add code to the original file to get legality result
-        schedule_code = "\n\tclear_implicit_function_sched_graph();"
+        schedule_code = ""
         for i in range(len(optims_list)):
             optim = optims_list[i]
             if not isinstance(optim.action, Unrolling):
                 if isinstance(optim.action, Tiling):
+                    tiling_in_actions = True
                     #  Add the tiling new loops to comps_dict
                     for impacted_comp in optim.action.comps:
                         for loop_index in optim.action.params[
@@ -387,12 +394,17 @@ class CompilingService:
                 if unchanged:
                     unrolling_updated += optim.tiramisu_optim_str + "\n"
 
-        updated_fusion, cpp_code = cls.fuse_tiling_loops(
-            code=cpp_code, comps_dict=comps_dict
-        )
+        if tiling_in_actions:
+            updated_fusion, cpp_code = cls.fuse_tiling_loops(
+                code=cpp_code, comps_dict=comps_dict
+            )
+
+            schedule_code += f"""
+                clear_implicit_function_sched_graph();
+                {updated_fusion}
+                """
 
         schedule_code += f"""
-            {updated_fusion}
             {unrolling_updated}
             """
 
@@ -454,31 +466,50 @@ class CompilingService:
             f"./{tiramisu_program.name}.out",
             # compile the wrapper
             f"$CXX -shared -o {tiramisu_program.name}.o.so {tiramisu_program.name}.o",
-            f"$CXX -std=c++11 -fno-rtti -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/3rdParty/isl/include/ -I$TIRAMISU_ROOT/benchmarks -L$TIRAMISU_ROOT/build -L$TIRAMISU_ROOT/3rdParty/Halide/lib/ -L$TIRAMISU_ROOT/3rdParty/isl/build/lib -o {tiramisu_program.name}_wrapper -ltiramisu -lHalide -ldl -lpthread -lm -Wl,-rpath,$TIRAMISU_ROOT/build {tiramisu_program.name}_wrapper.cpp ./{tiramisu_program.name}.o.so -ltiramisu -lHalide -ldl -lpthread -lm -lisl",
         ]
 
-        compiler = subprocess.run(
-            [" \n ".join(shell_script)],
-            capture_output=True,
-            text=True,
-            shell=True,
-            check=True,
-        )
-        run_script = [
-            "LD_LIBRARY_PATH=${TIRAMISU_ROOT}/3rdParty/Halide/build/src:${TIRAMISU_ROOT}/3rdParty/llvm/build/lib:${TIRAMISU_ROOT}/build:${TIRAMISU_ROOT}/3rdParty/isl/build/lib",
-            "export LD_LIBRARY_PATH",
-            # cd to the workspace
-            f"cd {Config.config.tiramisu.workspace}",
-            # #  set the env variables
-            "export DYNAMIC_RUNS=0",
-            "export MAX_RUNS=5",
-            "export NB_EXEC=5",
-            # run the wrapper
-            f"./{tiramisu_program.name}_wrapper"
-            # # Clean generated files
-            # f"rm {tiramisu_program.name}*",
-        ]
+        if tiramisu_program.wrapper_obj:
+            # write object file to disk
+            with open(
+                os.path.join(
+                    Config.config.tiramisu.workspace, f"{tiramisu_program.name}_wrapper"
+                ),
+                "wb",
+            ) as f:
+                f.write(tiramisu_program.wrapper_obj)
+
+            # make it executable
+            shell_script += [
+                f"chmod +x {tiramisu_program.name}_wrapper",
+            ]
+        else:
+            shell_script += [
+                f"$CXX -std=c++11 -fno-rtti -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/3rdParty/isl/include/ -I$TIRAMISU_ROOT/benchmarks -L$TIRAMISU_ROOT/build -L$TIRAMISU_ROOT/3rdParty/Halide/lib/ -L$TIRAMISU_ROOT/3rdParty/isl/build/lib -o {tiramisu_program.name}_wrapper -ltiramisu -lHalide -ldl -lpthread -lm -Wl,-rpath,$TIRAMISU_ROOT/build {tiramisu_program.name}_wrapper.cpp ./{tiramisu_program.name}.o.so -ltiramisu -lHalide -ldl -lpthread -lm -lisl",
+            ]
+
         try:
+            compiler = subprocess.run(
+                [" \n ".join(shell_script)],
+                capture_output=True,
+                text=True,
+                shell=True,
+                check=True,
+            )
+            run_script = [
+                "LD_LIBRARY_PATH=${TIRAMISU_ROOT}/3rdParty/Halide/build/src:${TIRAMISU_ROOT}/3rdParty/llvm/build/lib:${TIRAMISU_ROOT}/build:${TIRAMISU_ROOT}/3rdParty/isl/build/lib",
+                "export LD_LIBRARY_PATH",
+                # cd to the workspace
+                f"cd {Config.config.tiramisu.workspace}",
+                # #  set the env variables
+                "export DYNAMIC_RUNS=0",
+                "export MAX_RUNS=5",
+                "export NB_EXEC=5",
+                # run the wrapper
+                f"./{tiramisu_program.name}_wrapper"
+                # # Clean generated files
+                # f"rm {tiramisu_program.name}*",
+            ]
+
             compiler = subprocess.run(
                 [" ; ".join(run_script)],
                 capture_output=True,
@@ -501,9 +532,20 @@ class CompilingService:
             if numbers:
                 execution_time = min(numbers)
         except subprocess.CalledProcessError as e:
-            logging.error(f"Process terminated with error code: {e.returncode}")
+            logging.error(
+                f"{tiramisu_program.name} : Process terminated with error code: {e.returncode}"
+            )
             logging.error(f"Error output: {e.stderr}")
             logging.error(f"Output: {e.stdout}")
+            logging.error(cpp_code)
+            subprocess.run(
+                [f"rm {output_path}*"],
+                capture_output=True,
+                text=True,
+                shell=True,
+                check=True,
+            )
+            return None
         except Exception as e:
             pass
 

@@ -15,10 +15,12 @@ class TiramisuService:
         tiramisu_prog.annotations = self.get_annotations(tiramisu_prog)
         return tiramisu_prog
 
-    def fetch_prog_offline(self, name: str, data: dict, original_str: str = None):
+    def fetch_prog_offline(
+        self, name: str, data: dict, original_str: str = None, wrapper_obj: bytes = None
+    ):
         # This function fetched all the data from an offline dataset
         tiramisu_prog = TiramisuProgram.from_dict(
-            name=name, data=data, original_str=original_str
+            name=name, data=data, original_str=original_str, wrapper_obj=wrapper_obj
         )
         return tiramisu_prog
 

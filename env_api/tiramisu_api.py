@@ -45,13 +45,19 @@ class TiramisuEnvAPI:
             self.programs = list(self.dataset_service.schedules_dataset.keys())
         return sorted(self.programs)
 
-    def set_program(self, name: str, data: dict = None, cpp_code: str = None):
+    def set_program(
+        self,
+        name: str,
+        data: dict = None,
+        cpp_code: str = None,
+        wrapper_obj: bytes = None,
+    ):
         # print("Function : ", name)
         if data:
             # If data is provided externally (From ray dataset actor) then we don't need to use internal
             # dataset service nor compile to get annotations of a program
             tiramisu_prog = self.tiramisu_service.fetch_prog_offline(
-                name=name, data=data, original_str=cpp_code
+                name=name, data=data, original_str=cpp_code, wrapper_obj=wrapper_obj
             )
         else:
             code = self.dataset_service.get_prog_code(name=name)

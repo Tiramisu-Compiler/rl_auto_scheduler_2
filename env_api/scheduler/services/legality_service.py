@@ -1,4 +1,5 @@
 import copy
+import logging
 from typing import List
 
 from env_api.core.models.optim_cmd import OptimizationCommand
@@ -6,6 +7,13 @@ from env_api.core.services.compiling_service import CompilingService
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.action import *
 from env_api.scheduler.models.schedule import Schedule
+
+
+def str_to_int(str: str):
+    try:
+        return int(str)
+    except ValueError:
+        return None
 
 
 class LegalityService:
@@ -30,42 +38,28 @@ class LegalityService:
             - legality_check : bool
         """
         branches[current_branch].update_actions_mask(action=action, applied=False)
-        # Check first if the iterator(s) level(s) is(are) included in the current iterators
-        # If not then the action is illegal by default
-        exceeded_iterators = self.check_iterators(
-            branches=branches, current_branch=current_branch, action=action
-        )
-        if exceeded_iterators:
-            return False
-
-        # For the cost model we are only allowed to apply 4 affine transformations by branch
-        # We verify that every branch doesn't exceed that amount
-        legal_affine_trans = self.check_affine_transformations(
-            branches=branches, action=action
-        )
-        if not legal_affine_trans:
-            return False
 
         if isinstance(action, Fusion):
-            if current_branch + 1 == len(branches):
-                return False
-            elif not (
-                branches[current_branch].common_it[0]
-                == branches[current_branch + 1].common_it[0]
+            if len(action.params) != 2 or len(action.params[0]["iterators"]) != len(
+                action.params[1]["iterators"]
             ):
                 return False
-            elif not (
-                len(branches[current_branch].common_it)
-                == len(branches[current_branch + 1].common_it)
-            ):
+        else:
+            # Check first if the iterator(s) level(s) is(are) included in the current iterators
+            # If not then the action is illegal by default
+            exceeded_iterators = self.check_iterators(
+                branches=branches, current_branch=current_branch, action=action
+            )
+            if exceeded_iterators:
                 return False
 
-            current_branch_comp = branches[current_branch].comps[-1]
-            next_branch_comp = branches[current_branch + 1].comps[-1]
-
-            level = len(branches[current_branch].common_it) - 1
-
-            action.params.extend([current_branch_comp, next_branch_comp, level])
+            # For the cost model we are only allowed to apply 4 affine transformations by branch
+            # We verify that every branch doesn't exceed that amount
+            legal_affine_trans = self.check_affine_transformations(
+                branches=branches, action=action
+            )
+            if not legal_affine_trans:
+                return False
 
         # The legality of Skewing is different than the others , we need to get the skewing params from the solver
         # If there are any , this means that skewing is legal , if the solver fails , it means that skewing is illegal
@@ -163,17 +157,24 @@ class LegalityService:
             innermost_iterator = list(
                 branches[current_branch].prog.annotations["iterators"].keys()
             )[-1]
-            lower_bound = int(
-                branches[current_branch].prog.annotations["iterators"][
-                    innermost_iterator
-                ]["lower_bound"]
-            )
-            upper_bound = int(
-                branches[current_branch].prog.annotations["iterators"][
-                    innermost_iterator
-                ]["upper_bound"]
-            )
-            if abs(upper_bound - lower_bound) < unrolling_factor:
+
+            lower_bound = branches[current_branch].prog.annotations["iterators"][
+                innermost_iterator
+            ]["lower_bound"]
+            lower_bound_int = str_to_int(lower_bound)
+
+            upper_bound = branches[current_branch].prog.annotations["iterators"][
+                innermost_iterator
+            ]["upper_bound"]
+
+            upper_bound_int = str_to_int(upper_bound)
+
+            if (
+                lower_bound_int is not None
+                and upper_bound_int is not None
+                and abs(upper_bound_int - lower_bound_int) < unrolling_factor
+            ):
+                logging.error("Unrolling factor is bigger than the loop extent")
                 return True
 
             loop_level = (
@@ -191,19 +192,25 @@ class LegalityService:
                 # TODO : remove this strategy later
                 tiling_size = max(action.params)
                 for iterator in branches[current_branch].prog.annotations["iterators"]:
-                    lower_bound = int(
-                        branches[current_branch].prog.annotations["iterators"][
-                            iterator
-                        ]["lower_bound"]
-                    )
-                    upper_bound = int(
-                        branches[current_branch].prog.annotations["iterators"][
-                            iterator
-                        ]["upper_bound"]
-                    )
-                    if abs(upper_bound - lower_bound) < tiling_size:
+                    lower_bound = branches[current_branch].prog.annotations[
+                        "iterators"
+                    ][iterator]["lower_bound"]
+
+                    lower_bound_int = str_to_int(lower_bound)
+
+                    upper_bound = branches[current_branch].prog.annotations[
+                        "iterators"
+                    ][iterator]["upper_bound"]
+
+                    upper_bound_int = str_to_int(upper_bound)
+
+                    if (
+                        lower_bound_int is not None
+                        and upper_bound_int is not None
+                        and abs(upper_bound_int - lower_bound_int) < tiling_size
+                    ):
                         return True
-                # Becuase the second half of action.params contains tiling size, so we need only the first half of the vector
+                # # Becuase the second half of action.params contains tiling size, so we need only the first half of the vector
                 params = action.params[: len(action.params) // 2]
             else:
                 params = action.params

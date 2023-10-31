@@ -18,14 +18,11 @@ class FFBenchmarkEvaluator:
         config: AutoSchedulerConfig,
         args: dict,
         num_programs_to_do: int,
-        dataset_actor,
     ):
         self.config = config
         self.num_programs_to_do = num_programs_to_do
         self.args = args
-        self.env = TiramisuRlEnv(
-            config={"config": config, "dataset_actor": dataset_actor}
-        )
+        self.env = TiramisuRlEnv(config={"config": config})
 
         ModelCatalog.register_custom_model("policy_nn", PolicyNN)
         self.model_custom_config = config.policy_network.__dict__
@@ -37,7 +34,6 @@ class FFBenchmarkEvaluator:
                 TiramisuRlEnv,
                 env_config={
                     "config": config,
-                    "dataset_actor": dataset_actor,
                 },
             )
             .framework(args.framework)

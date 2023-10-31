@@ -1,5 +1,6 @@
 # Benchmark actor is used to explore schedules for benchmarks in a distributed way
 import os
+from typing import List
 
 import numpy as np
 import ray
@@ -18,15 +19,12 @@ class LSTMBenchmarkEvaluator:
         self,
         config: AutoSchedulerConfig,
         args: dict,
-        num_programs_to_do: int,
-        dataset_actor,
+        programs_to_do: List[str],
     ):
         self.config = config
-        self.num_programs_to_do = num_programs_to_do
+        self.programs_to_do = programs_to_do
         self.args = args
-        self.env = TiramisuRlEnv(
-            config={"config": config, "dataset_actor": dataset_actor}
-        )
+        self.env = TiramisuRlEnv(config={"config": config})
 
         ModelCatalog.register_custom_model("policy_nn", PolicyLSTM)
         self.model_custom_config = config.lstm_policy.__dict__
@@ -38,7 +36,6 @@ class LSTMBenchmarkEvaluator:
                 TiramisuRlEnv,
                 env_config={
                     "config": config,
-                    "dataset_actor": dataset_actor,
                 },
             )
             .framework(args.framework)
@@ -72,10 +69,10 @@ class LSTMBenchmarkEvaluator:
         explored_programs = {}
 
         # explore schedules for each program
-        for i in range(self.num_programs_to_do):
-            observation, _ = self.env.reset()
+        for function_name in self.programs_to_do:
+            observation, _ = self.env.reset(options={"function_name": function_name})
             print(
-                f"Running program {self.env.current_program}, num programs done: {self.num_programs_done} / {self.num_programs_to_do}"
+                f"Running program {self.env.current_program}, num programs done: {self.num_programs_done} / {len(self.programs_to_do)}"
             )
 
             episode_done = False
