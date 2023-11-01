@@ -158,11 +158,11 @@ class CompilingService:
             # Making the tiramisu root path explicit to the env
             shell_script = [
                 # Compile intermidiate tiramisu file
-                "$CXX -I$TIRAMISU_ROOT/3rdParty/Halide/install/include -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/isl/include  -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -std=c++17 -O0 -o {}.o -c -x c++ -".format(
+                "$CXX -I$TIRAMISU_ROOT/3rdParty/Halide/install/include -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/isl/include  -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -fopenmp -std=c++17 -O0 -o {}.o -c -x c++ -".format(
                     output_path
                 ),
                 # Link generated file with executer
-                "$CXX -Wl,--no-as-needed -ldl -g -fno-rtti -lpthread -std=c++17 -O0 {}.o -o {}.out   -L$TIRAMISU_ROOT/build  -L$TIRAMISU_ROOT/3rdParty/Halide/install/lib64  -L$TIRAMISU_ROOT/3rdParty/isl/build/lib  -Wl,-rpath,$TIRAMISU_ROOT/build:$TIRAMISU_ROOT/3rdParty/Halide/install/lib64:$TIRAMISU_ROOT/3rdParty/isl/build/lib -ltiramisu -ltiramisu_auto_scheduler -lHalide -lisl".format(
+                "$CXX -Wl,--no-as-needed -ldl -g -fno-rtti -lpthread -fopenmp -std=c++17 -O0 {}.o -o {}.out   -L$TIRAMISU_ROOT/build  -L$TIRAMISU_ROOT/3rdParty/Halide/install/lib64  -L$TIRAMISU_ROOT/3rdParty/isl/build/lib  -Wl,-rpath,$TIRAMISU_ROOT/build:$TIRAMISU_ROOT/3rdParty/Halide/install/lib64:$TIRAMISU_ROOT/3rdParty/isl/build/lib -ltiramisu -ltiramisu_auto_scheduler -lHalide -lisl".format(
                     output_path, output_path
                 ),
                 # Run the program
@@ -186,6 +186,11 @@ class CompilingService:
                 "rm {}.out {}.o".format(output_path, output_path),
             ]
         try:
+            # add env vars at top
+            envs = []
+            for key, val in Config.config.env_vars.__dict__.items():
+                envs.append(f"export {key}={val}")
+            shell_script = envs + shell_script
             compiler = subprocess.run(
                 ["\n".join(shell_script)],
                 input=cpp_code,
@@ -468,6 +473,19 @@ class CompilingService:
             f"$CXX -shared -o {tiramisu_program.name}.o.so {tiramisu_program.name}.o",
         ]
 
+        if Config.config.tiramisu.is_new_tiramisu:
+            shell_script = [
+                f"cd {Config.config.tiramisu.workspace}",
+                # Compile intermidiate tiramisu file
+                f"$CXX -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/isl/include  -Wl,--no-as-needed -ldl -g -fno-rtti   -lpthread -fopenmp -std=c++17 -O0 -o {tiramisu_program.name}.o -c {tiramisu_program.name}_schedule.cpp",
+                # Link generated file with executer
+                f"$CXX -Wl,--no-as-needed -ldl -g -fno-rtti -lpthread -fopenmp -std=c++17 -O0 {tiramisu_program.name}.o -o {tiramisu_program.name}.out   -L$TIRAMISU_ROOT/build  -L$TIRAMISU_ROOT/3rdParty/Halide/install/lib64  -L$TIRAMISU_ROOT/3rdParty/isl/build/lib  -Wl,-rpath,$TIRAMISU_ROOT/build:$TIRAMISU_ROOT/3rdParty/Halide/install/lib64:$TIRAMISU_ROOT/3rdParty/isl/build/lib -ltiramisu -ltiramisu_auto_scheduler -lHalide -lisl",
+                # Run the generator
+                f"./{tiramisu_program.name}.out",
+                # compile the wrapper
+                f"$CXX -shared -o {tiramisu_program.name}.o.so {tiramisu_program.name}.o",
+            ]
+
         if tiramisu_program.wrapper_obj:
             # write object file to disk
             with open(
@@ -483,11 +501,22 @@ class CompilingService:
                 f"chmod +x {tiramisu_program.name}_wrapper",
             ]
         else:
-            shell_script += [
-                f"$CXX -std=c++11 -fno-rtti -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/3rdParty/isl/include/ -I$TIRAMISU_ROOT/benchmarks -L$TIRAMISU_ROOT/build -L$TIRAMISU_ROOT/3rdParty/Halide/lib/ -L$TIRAMISU_ROOT/3rdParty/isl/build/lib -o {tiramisu_program.name}_wrapper -ltiramisu -lHalide -ldl -lpthread -lm -Wl,-rpath,$TIRAMISU_ROOT/build {tiramisu_program.name}_wrapper.cpp ./{tiramisu_program.name}.o.so -ltiramisu -lHalide -ldl -lpthread -lm -lisl",
-            ]
+            if Config.config.tiramisu.is_new_tiramisu:
+                shell_script += [
+                    f"$CXX -std=c++17 -fno-rtti -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/3rdParty/isl/include/ -I$TIRAMISU_ROOT/benchmarks -L$TIRAMISU_ROOT/build -L$TIRAMISU_ROOT/3rdParty/Halide/install/lib64 -L$TIRAMISU_ROOT/3rdParty/isl/build/lib -o {tiramisu_program.name}_wrapper -ltiramisu -lHalide -ldl -lpthread -fopenmp -lm -Wl,-rpath,$TIRAMISU_ROOT/build {tiramisu_program.name}_wrapper.cpp ./{tiramisu_program.name}.o.so -ltiramisu -lHalide -ldl -lpthread -fopenmp -lm -lisl",
+                ]
+            else:
+                shell_script += [
+                    f"$CXX -std=c++11 -fno-rtti -I$TIRAMISU_ROOT/include -I$TIRAMISU_ROOT/3rdParty/Halide/include -I$TIRAMISU_ROOT/3rdParty/isl/include/ -I$TIRAMISU_ROOT/benchmarks -L$TIRAMISU_ROOT/build -L$TIRAMISU_ROOT/3rdParty/Halide/lib/ -L$TIRAMISU_ROOT/3rdParty/isl/build/lib -o {tiramisu_program.name}_wrapper -ltiramisu -lHalide -ldl -lpthread -lm -Wl,-rpath,$TIRAMISU_ROOT/build {tiramisu_program.name}_wrapper.cpp ./{tiramisu_program.name}.o.so -ltiramisu -lHalide -ldl -lpthread -lm -lisl",
+                ]
 
         try:
+            # add env vars at top
+            envs = []
+            for key, val in Config.config.env_vars.__dict__.items():
+                envs.append(f"export {key}={val}")
+            shell_script = envs + shell_script
+
             compiler = subprocess.run(
                 [" \n ".join(shell_script)],
                 capture_output=True,
@@ -496,8 +525,6 @@ class CompilingService:
                 check=True,
             )
             run_script = [
-                "LD_LIBRARY_PATH=${TIRAMISU_ROOT}/3rdParty/Halide/build/src:${TIRAMISU_ROOT}/3rdParty/llvm/build/lib:${TIRAMISU_ROOT}/build:${TIRAMISU_ROOT}/3rdParty/isl/build/lib",
-                "export LD_LIBRARY_PATH",
                 # cd to the workspace
                 f"cd {Config.config.tiramisu.workspace}",
                 # #  set the env variables
@@ -509,6 +536,8 @@ class CompilingService:
                 # # Clean generated files
                 # f"rm {tiramisu_program.name}*",
             ]
+
+            run_script = envs + run_script
 
             compiler = subprocess.run(
                 [" ; ".join(run_script)],
