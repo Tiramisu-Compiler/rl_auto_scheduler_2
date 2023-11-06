@@ -5,6 +5,7 @@ import re
 import numpy as np
 import torch
 
+from env_api.scheduler.models.action import Fusion
 from env_api.utils.exceptions import *
 
 # Maximum sequence of transformations (reversal, interchange and skewing) allowed. Currently set to 4
@@ -1195,8 +1196,14 @@ class ConvertService:
                 if not key in comps or not comps[key]:
                     comps[key] = ""
                 comps[key] += schedule.comps_schedule[key]
+
         # Prepare the string and form it from the comps dictionary
         schedule_string = ""
+
+        # Check if the first optimization applied is fusion
+        if type(schedule_list[0].action) == Fusion:
+            schedule_string += schedule_list[0].fusion_str + ":"
+
         for key in comps.keys():
             schedule_string += "{" + key + "}:" + comps[key]
         return schedule_string

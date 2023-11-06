@@ -184,6 +184,7 @@ class SchedulerService:
         """
         if isinstance(action, Fusion):
             action.params = self.fusion_comps[self.current_comp : self.current_comp + 2]
+            action.annotations = self.schedule_object.prog.annotations
         legality_check = self.legality_service.is_action_legal(
             schedule_object=self.schedule_object,
             branches=self.branches,

@@ -83,8 +83,39 @@ class OptimizationCommand:
                 optim_str += "\n\t{}".format(comp) + reversal_str
             return optim_str
         elif isinstance(self.action, Fusion):
-            self.fusion_str = f"F({self.params_list[0]},{self.params_list[1]})"
-            optim_str += f"{self.params_list[0]['name']}.then({self.params_list[1]['name']},{len(self.params_list[0]['iterators'])-1});"
+            fusion_level = len(self.params_list[0]["iterators"]) - 1
+            self.fusion_str = f"F({{{self.params_list[0]['name']},{self.params_list[1]['name']}}},L{fusion_level})"
+            annotations = self.action.annotations
+            computation_to_fuse = self.params_list[1]["name"]
+            computations_of_first_iterator = []
+
+            def recursively_add_comps(iterator):
+                computations_of_first_iterator.extend(
+                    annotations["iterators"][iterator]["computations_list"]
+                )
+                for child in annotations["iterators"][iterator]["child_iterators"]:
+                    recursively_add_comps(child)
+
+            recursively_add_comps(self.params_list[0]["iterators"][-1])
+
+            optim_str += f"""
+
+    perform_full_dependency_analysis();
+    {self.params_list[0]['name']}.then({self.params_list[1]['name']},{fusion_level});
+    prepare_schedules_for_legality_checks(true);
+
+    std::vector<std::tuple<tiramisu::var, int>> factors = tiramisu::global::get_implicit_function()->correcting_loop_fusion_with_shifting({{{", ".join([f"&{comp}" for comp in computations_of_first_iterator])}}}, {computation_to_fuse}, {{{", ".join([str(i) for i in range(len(self.params_list[0]['iterators']))])}}});
+    for (const auto &tuple : factors)
+    {{
+        tiramisu::var var = std::get<0>(tuple);
+        int value = std::get<1>(tuple);
+
+        if (value != 0)
+        {{
+            {computation_to_fuse}.shift(var, value);
+        }}
+    }}"""
+            # optim_str += f"{self.params_list[0]['name']}.then({self.params_list[1]['name']},{fusion_level});"
             return optim_str
 
     def __str__(self) -> str:
