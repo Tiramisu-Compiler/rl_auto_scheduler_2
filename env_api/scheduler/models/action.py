@@ -69,6 +69,12 @@ class Unrolling(Action):
 class Tiling(Action):
     def __init__(self, params: list, env_id: int = None, worker_id=""):
         super().__init__(params, name="Tiling", env_id=env_id, worker_id=worker_id)
+        self.subtilings = []
+
+    def __str__(self) -> str:
+        size = len(self.params)//2
+
+        return f"\nTiling {size}D : on levels " + ",".join([str(x) for x in self.params[:size]]) + " on comps " + ",".join(self.comps) + "".join([str(tiling) for tiling in self.subtilings])
 
 
 class Fusion(Action):

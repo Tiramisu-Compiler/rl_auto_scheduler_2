@@ -17,7 +17,8 @@ if __name__ == "__main__":
     try:
         # Select a program randomly for example program = "function025885"
         program: str = random.choice(programs)
-        # program = "function1363707"
+        # program = "function1492017"
+        program = "function1383782"
         print("Selected function : ", program)
         # set_program(str) creates all the necessary objects to start doing operations on a program
         # it returns an encoded representation specific to the RL system
@@ -43,8 +44,9 @@ if __name__ == "__main__":
 
             # (speedup, embedding_tensor,
             #  legality,actions_mask) = tiramisu_api.skew(loop_level1=1,loop_level2=2,env_id=2)
+            # tiramisu_api.scheduler_service.next_branch()
             # (speedup, embedding_tensor, legality, actions_mask) = tiramisu_api.tile2D(
-            #     loop_level1=1, loop_level2=2, size_x=32, size_y=128, env_id=4
+            #     loop_level1=1, loop_level2=2, size_x=2, size_y=2, env_id=4
             # )
             # (
             #     speedup,
@@ -52,22 +54,22 @@ if __name__ == "__main__":
             #     legality,
             #     actions_mask,
             # ) = tiramisu_api.parallelize(loop_level=0, env_id=1)
-            (
-                speedup,
-                embedding_tensor,
-                legality,
-                actions_mask,
-            ) = tiramisu_api.fuse(env_id=31)
+            # (
+            #     speedup,
+            #     embedding_tensor,
+            #     legality,
+            #     actions_mask,
+            # ) = tiramisu_api.fuse(env_id=31)
 
             # tiramisu_api.scheduler_service.next_branch()
             # (speedup, embedding_tensor,
-            #  legality,actions_mask) = tiramisu_api.tile2D(loop_level1=0,loop_level2=1,size_x=12,size_y=12,env_id=4)
+            #  legality,actions_mask) = tiramisu_api.tile1D(loop_level=0,size_x=2,env_id=4)
             # (speedup, embedding_tensor, legality, actions_mask,
             # ) = tiramisu_api.unroll(unrolling_factor=16, env_id=7)
 
-            # # (speedup, embedding_tensor,
-            # # legality,actions_mask) = tiramisu_api.tile3D(loop_level1=0 , loop_level2=1,loop_level3=2,
-            # #     size_x=128,size_y=128,size_z=128,env_id=17)
+            (speedup, embedding_tensor,
+            legality,actions_mask) = tiramisu_api.tile3D(loop_level1=0 , loop_level2=1,loop_level3=2,
+                size_x=1,size_y=2,size_z=3,env_id=0)
             print("Speedup : ", speedup, " ", "Legality : ", legality)
 
         print("Time : ", time.time() - start)

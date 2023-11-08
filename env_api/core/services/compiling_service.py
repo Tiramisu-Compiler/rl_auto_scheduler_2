@@ -32,7 +32,6 @@ class CompilingService:
         cpp_code = cls.get_legality_code(
             schedule_object=schedule_object, optims_list=optims_list, branches=branches
         )
-        print(cpp_code)
         return cls.run_cpp_code(cpp_code=cpp_code, output_path=output_path)
 
     @classmethod
@@ -458,6 +457,7 @@ class CompilingService:
         with open(wrapper_cpp_path, "w") as file:
             file.write(wrapper_cpp)
 
+        
         with open(wrapper_h_path, "w") as file:
             file.write(wrapper_h)
 

@@ -488,10 +488,18 @@ class SchedulerService:
 
     def apply_tiling(self, action):
         params = action.params
-        if len(params) == 4:
-            # This is the 2d tiling , 4 params becuase it has 2 loop levels and 2 dimensions x,y
+        if len(params) == 2 :
+            # This is the 1d tiling , 2 params becuase it has 1 loop levels and 1 dimensions x
+            tiling_depth = 1  # Because it is 1D tiling
             for comp in action.comps:
-                tiling_depth = 2  # Because it is 2D tiling
+                tiling_factors = [str(params[-1])]  # size_x and size_y
+                # iterators contains the names of the concerned iterator
+                iterator = self.schedule_object.it_dict[comp][params[0]]["iterator"]
+                tiling_dims = [iterator]
+        elif len(params) == 4:
+            # This is the 2d tiling , 4 params becuase it has 2 loop levels and 2 dimensions x,y
+            tiling_depth = 2  # Because it is 2D tiling
+            for comp in action.comps:
                 tiling_factors = [str(params[-2]), str(params[-1])]  # size_x and size_y
                 # iterators contains the names of the concerned 2 iterators
                 iterators = (
@@ -501,8 +509,8 @@ class SchedulerService:
                 tiling_dims = [*iterators]
         elif len(params) == 6:
             # This is the 3d tiling , 6 params becuase it has 3 loop levels and 3 dimensions x,y,z
+            tiling_depth = 3  # Because it is 3D tiling
             for comp in action.comps:
-                tiling_depth = 3  # Because it is 3D tiling
                 tiling_factors = [
                     str(params[-3]),
                     str(params[-2]),
