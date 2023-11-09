@@ -196,7 +196,7 @@ class LegalityService:
             if isinstance(action, Tiling):
                 # First we verify if the tiling size is bigger than the loops extent
                 # TODO : remove this strategy later
-                tiling_size = max(action.params[len(action.params) // 2:])
+                tiling_size = max(action.params[len(action.params) // 2 :])
                 # Becuase the second half of action.params contains tiling size, so we need only the first half of the vector
                 loop_levels = action.params[: len(action.params) // 2]
                 if loop_levels[-1] >= num_iter:
@@ -231,7 +231,9 @@ class LegalityService:
                 return True
 
         # We have the current branch
-        concerned_iterators = [branches[current_branch].common_it[it] for it in loop_levels]
+        concerned_iterators = [
+            branches[current_branch].common_it[it] for it in loop_levels
+        ]
         concerned_comps = []
         # This part is for general Tiling to be applied and propagated through many branches
         if isinstance(action, Tiling):
@@ -264,77 +266,113 @@ class LegalityService:
                     # If it is not shared then no problem we have a 2D tiling to be applied on the current branch
                     # Else we need to apply 1D tiling to the parent iterator for all the comps in the other branches
                     # And a 2D tiling for the current branch
-                    if (
-                         len(it_dict[concerned_iterators[0]]) != len(it_dict[concerned_iterators[1]]) 
+                    if len(it_dict[concerned_iterators[0]]) != len(
+                        it_dict[concerned_iterators[1]]
                     ):
                         action.comps = []
                         for br in it_dict[concerned_iterators[0]]:
                             if br not in it_dict[concerned_iterators[1]]:
                                 # All those comps should be 1D tiled with the first size
-                                subtiling = Tiling(params=[loop_levels[0],action.params[2]])
+                                subtiling = Tiling(
+                                    params=[loop_levels[0], action.params[2]],
+                                    env_id=action.env_id,
+                                    worker_id=action.worker_id,
+                                )
                                 subtiling.comps = comp_dict[br]
                                 action.subtilings.append(subtiling)
-                            else : 
-                                action.comps.extend(copy.deepcopy(branches[br].comps))  
-                    else : 
+                            else:
+                                action.comps.extend(copy.deepcopy(branches[br].comps))
+                    else:
                         # Those are the brances shared by all the iterators (the main branches to apply the action)
-                        action.comps = copy.deepcopy(concerned_comps)   
+                        action.comps = copy.deepcopy(concerned_comps)
                 case 3:
-                    # We have 4 possibilities : 
+                    # We have 4 possibilities :
                     # - 1 The 2 parent iterators are not shared => No issue
                     # - 2 One and only one parent is shared (outermost level) => additional 1D Tiling for that iterator in the other branches
                     # - 3 parent iterators are shared with the same number of branches but innermost iterator is not => additional 2D Tiling for those iterators in the other branches
-                    # - 4 parents are shared with a different number of branches for each parent iterator => 1D Tiling for the extra branches of the outer most iterator 
+                    # - 4 parents are shared with a different number of branches for each parent iterator => 1D Tiling for the extra branches of the outer most iterator
                     #   + 2D Tiling for the middle iterator branches + 3D Tiling for the current branch
                     size_0 = len(it_dict[concerned_iterators[0]])
                     size_1 = len(it_dict[concerned_iterators[1]])
                     size_2 = len(it_dict[concerned_iterators[2]])
 
-                    if (size_0 != size_1):
-                        if ( size_1 == size_2):
-                            # This is the 2 nd case 
+                    if size_0 != size_1:
+                        if size_1 == size_2:
+                            # This is the 2 nd case
                             # For all the branches in the 1st level we add a 1D tiling except for the branches shared with the children
                             for br in it_dict[concerned_iterators[0]]:
                                 if br not in it_dict[concerned_iterators[1]]:
-                                    subtiling = Tiling(params=[loop_levels[0],action.params[3]])
+                                    subtiling = Tiling(
+                                        params=[loop_levels[0], action.params[3]],
+                                        env_id=action.env_id,
+                                        worker_id=action.worker_id,
+                                    )
                                     subtiling.comps = comp_dict[br]
                                     action.subtilings.append(subtiling)
-                                else : 
+                                else:
                                     # Those are the brances shared by all the iterators (the main branches to apply the action)
-                                    action.comps.extend(copy.deepcopy(branches[br].comps))
+                                    action.comps.extend(
+                                        copy.deepcopy(branches[br].comps)
+                                    )
                         # else (size_1 != size_2)
-                        else :
-                            # This is the 4 th case 
+                        else:
+                            # This is the 4 th case
                             for br in it_dict[concerned_iterators[0]]:
                                 if br not in it_dict[concerned_iterators[1]]:
                                     # 1D Tiling for all extra branches in the outermost level
-                                    subtiling = Tiling(params=[loop_levels[0],action.params[3]])
+                                    subtiling = Tiling(
+                                        params=[loop_levels[0], action.params[3]],
+                                        env_id=action.env_id,
+                                        worker_id=action.worker_id,
+                                    )
                                     subtiling.comps = comp_dict[br]
                                     action.subtilings.append(subtiling)
-                                else : 
+                                else:
                                     for br in it_dict[concerned_iterators[1]]:
                                         if br not in it_dict[concerned_iterators[2]]:
                                             # 2D Tiling for all extra branches in the middle level
-                                            subtiling = Tiling(params=[loop_levels[0],loop_levels[1],action.params[3],action.params[4]])
+                                            subtiling = Tiling(
+                                                params=[
+                                                    loop_levels[0],
+                                                    loop_levels[1],
+                                                    action.params[3],
+                                                    action.params[4],
+                                                ],
+                                                env_id=action.env_id,
+                                                worker_id=action.worker_id,
+                                            )
                                             subtiling.comps = comp_dict[br]
                                             action.subtilings.append(subtiling)
-                                        else : 
+                                        else:
                                             # Those are the brances shared by all the iterators (the main branches to apply the action)
-                                            action.comps.extend(copy.deepcopy(branches[br].comps))
+                                            action.comps.extend(
+                                                copy.deepcopy(branches[br].comps)
+                                            )
                     # else (size_0 == size_1)
-                    else : 
-                        if ( size_1 != size_2):
-                            # This is the 3rd case 
+                    else:
+                        if size_1 != size_2:
+                            # This is the 3rd case
                             for br in it_dict[concerned_iterators[1]]:
                                 if br not in it_dict[concerned_iterators[2]]:
-                                    #2D tiling for the extra non shared branches 
-                                    subtiling = Tiling(params=[loop_levels[0],loop_levels[1],action.params[3],action.params[4]])
+                                    # 2D tiling for the extra non shared branches
+                                    subtiling = Tiling(
+                                        params=[
+                                            loop_levels[0],
+                                            loop_levels[1],
+                                            action.params[3],
+                                            action.params[4],
+                                        ],
+                                        env_id=action.env_id,
+                                        worker_id=action.worker_id,
+                                    )
                                     subtiling.comps = comp_dict[br]
                                     action.subtilings.append(subtiling)
-                                else :
-                                    action.comps.extend(copy.deepcopy(branches[br].comps))
-                        else : 
-                            # The case where the 3 iterators are shared with the same number of branches : 
+                                else:
+                                    action.comps.extend(
+                                        copy.deepcopy(branches[br].comps)
+                                    )
+                        else:
+                            # The case where the 3 iterators are shared with the same number of branches :
                             action.comps = copy.deepcopy(concerned_comps)
             # print("\nThe branches dictionary : ")
             # print(it_dict)

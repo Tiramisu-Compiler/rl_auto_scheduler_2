@@ -18,7 +18,8 @@ if __name__ == "__main__":
         # Select a program randomly for example program = "function025885"
         program: str = random.choice(programs)
         # program = "function1492017"
-        program = "function1383782"
+        # program = "function1383782"
+        program = "function1514255"
         print("Selected function : ", program)
         # set_program(str) creates all the necessary objects to start doing operations on a program
         # it returns an encoded representation specific to the RL system
@@ -45,8 +46,11 @@ if __name__ == "__main__":
             # (speedup, embedding_tensor,
             #  legality,actions_mask) = tiramisu_api.skew(loop_level1=1,loop_level2=2,env_id=2)
             # tiramisu_api.scheduler_service.next_branch()
+            tiramisu_api.scheduler_service.fusion_phase = False
+            tiramisu_api.scheduler_service.next_branch()
+            tiramisu_api.scheduler_service.next_branch()
             # (speedup, embedding_tensor, legality, actions_mask) = tiramisu_api.tile2D(
-            #     loop_level1=1, loop_level2=2, size_x=2, size_y=2, env_id=4
+            #     loop_level1=1, loop_level2=2, size_x=8, size_y=8, env_id=4
             # )
             # (
             #     speedup,

@@ -70,6 +70,15 @@ class CompilingService:
                                 loop_index + 1, f"t{loop_index}"
                             )
 
+                    for subtiling in optim.action.subtilings:
+                        for impacted_comp in subtiling.comps:
+                            for loop_index in subtiling.params[
+                                : len(subtiling.params) // 2
+                            ]:
+                                comps_dict[impacted_comp].insert(
+                                    loop_index + 1, f"t{loop_index}"
+                                )
+
                 elif isinstance(optim.action, Parallelization):
                     legality_check_lines += (
                         """\n\tis_legal &= loop_parallelization_is_legal("""
@@ -384,6 +393,14 @@ class CompilingService:
                             comps_dict[impacted_comp].insert(
                                 loop_index + 1, f"t{loop_index}"
                             )
+                    for subtiling in optim.action.subtilings:
+                        for impacted_comp in subtiling.comps:
+                            for loop_index in subtiling.params[
+                                : len(subtiling.params) // 2
+                            ]:
+                                comps_dict[impacted_comp].insert(
+                                    loop_index + 1, f"t{loop_index}"
+                                )
                 schedule_code += optim.tiramisu_optim_str + "\n"
             else:
                 unchanged = True

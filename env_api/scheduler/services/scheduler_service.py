@@ -164,7 +164,7 @@ class SchedulerService:
                     self.current_comp += 1
 
         else:
-            self.current_branch = +1
+            self.current_branch += 1
             if self.current_branch == len(self.branches):
                 # This matks the finish of exploring the branches
                 return None
@@ -487,61 +487,31 @@ class SchedulerService:
                     branch.update_actions_mask(action=action)
 
     def apply_tiling(self, action):
-        params = action.params
-        if len(params) == 2 :
-            # This is the 1d tiling , 2 params becuase it has 1 loop levels and 1 dimensions x
-            tiling_depth = 1  # Because it is 1D tiling
-            for comp in action.comps:
-                tiling_factors = [str(params[-1])]  # size_x and size_y
-                # iterators contains the names of the concerned iterator
-                iterator = self.schedule_object.it_dict[comp][params[0]]["iterator"]
-                tiling_dims = [iterator]
-        elif len(params) == 4:
-            # This is the 2d tiling , 4 params becuase it has 2 loop levels and 2 dimensions x,y
-            tiling_depth = 2  # Because it is 2D tiling
-            for comp in action.comps:
-                tiling_factors = [str(params[-2]), str(params[-1])]  # size_x and size_y
-                # iterators contains the names of the concerned 2 iterators
-                iterators = (
-                    self.schedule_object.it_dict[comp][params[0]]["iterator"],
-                    self.schedule_object.it_dict[comp][params[1]]["iterator"],
-                )
-                tiling_dims = [*iterators]
-        elif len(params) == 6:
-            # This is the 3d tiling , 6 params becuase it has 3 loop levels and 3 dimensions x,y,z
-            tiling_depth = 3  # Because it is 3D tiling
-            for comp in action.comps:
-                tiling_factors = [
-                    str(params[-3]),
-                    str(params[-2]),
-                    str(params[-1]),
-                ]  # size_x , size_y and size_z
-                # iterators contains the name of the concerned 3 iterators
-                iterators = (
-                    self.schedule_object.it_dict[comp][params[0]]["iterator"],
-                    self.schedule_object.it_dict[comp][params[1]]["iterator"],
-                    self.schedule_object.it_dict[comp][params[2]]["iterator"],
-                )
-                tiling_dims = [*iterators]
-
-        tiling_dict = {
-            "tiling_depth": tiling_depth,
-            "tiling_dims": tiling_dims,
-            "tiling_factors": tiling_factors,
-        }
-
-        for comp in action.comps:
-            # Update main schedule
-            self.schedule_object.schedule_dict[comp]["tiling"] = tiling_dict
-            for branch in self.branches:
+        for tiling in [action, *action.subtilings]:
+            loop_levels = tiling.params[: len(tiling.params) // 2]
+            tile_sizes = tiling.params[len(tiling.params) // 2 :]
+            tiling_depth = len(loop_levels)
+            tiling_factors = [str(p) for p in tile_sizes]
+            for comp in tiling.comps:
+                tiling_dims = [
+                    self.schedule_object.it_dict[comp][l]["iterator"]
+                    for l in loop_levels
+                ]
+                tiling_dict = {
+                    "tiling_depth": tiling_depth,
+                    "tiling_dims": tiling_dims,
+                    "tiling_factors": tiling_factors,
+                }
+                self.schedule_object.schedule_dict[comp]["tiling"] = tiling_dict
+                for branch in self.branches:
                 # Check for the branches that needs to be updated
-                if comp in branch.comps:
-                    # Update the branch schedule
-                    branch.schedule_dict[comp]["tiling"] = tiling_dict
-                    # Update the branch actions mask
-                    branch.update_actions_mask(action=action)
-                    # Update the additional loops
-                    branch.additional_loops = tiling_depth
+                    if comp in branch.comps:
+                        # Update the branch schedule
+                        branch.schedule_dict[comp]["tiling"] = tiling_dict
+                        # Update the branch actions mask
+                        branch.update_actions_mask(action=action)
+                        # Update the additional loops
+                        branch.additional_loops = tiling_depth
 
     def apply_fusion(self, action: Fusion):
         self.schedule_object.schedule_dict["fusion"] = action.params
