@@ -75,8 +75,8 @@ class CompilingService:
                     legality_check_lines += (
                         """\n\tis_legal &= loop_parallelization_is_legal("""
                         + str(optim.params_list[0])
-                        + """, {&"""
-                        + optim.action.comps[0]
+                        + """, {"""
+                        + ",".join([f"&{comp}" for comp in optim.action.comps])
                         + """});\n"""
                     )
                 legality_check_lines += optim.tiramisu_optim_str + "\n"
@@ -117,7 +117,7 @@ class CompilingService:
         legality_check_lines += f"""
             {updated_fusion}
             {unrolling_legality}
-            perform_full_dependency_analysis();
+            prepare_schedules_for_legality_checks();
             is_legal &= check_legality_of_function();   
             std::cout << is_legal;
             """

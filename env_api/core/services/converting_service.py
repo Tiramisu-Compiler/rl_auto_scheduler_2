@@ -1201,7 +1201,7 @@ class ConvertService:
         schedule_string = ""
 
         # Check if the first optimization applied is fusion
-        if type(schedule_list[0].action) == Fusion:
+        if schedule_list and type(schedule_list[0].action) == Fusion:
             schedule_string += schedule_list[0].fusion_str + ":"
 
         for key in comps.keys():
