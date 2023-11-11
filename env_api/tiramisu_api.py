@@ -133,6 +133,22 @@ class TiramisuEnvAPI:
         # Use the Scheduler service to apply the Fusion action to the schedule
         return self.scheduler_service.apply_action(fusion)
 
+    def tile1D(
+        self,
+        loop_level: int,
+        size_x: int,
+        env_id: int = None,
+        worker_id="",
+    ):
+        # Create a 2 dimensions Tiling action with given loop levels 1 and 2 , and 2D tile size (size_x,size_y)
+        tiling1D = Tiling(
+            params=[loop_level, size_x],
+            env_id=env_id,
+            worker_id=worker_id,
+        )
+        # Use the Scheduler service to apply the Tiling action to the schedule
+        return self.scheduler_service.apply_action(tiling1D)
+
     def tile2D(
         self,
         loop_level1: int,
