@@ -58,25 +58,23 @@ class CompilingService:
         bool is_legal=true;"""
         for i in range(len(optims_list)):
             optim = optims_list[i]
+            loop_levels_size = len(optim.action.params) // 2
             if not isinstance(optim.action, Unrolling):
                 if isinstance(optim.action, Tiling):
                     tiling_in_actions = True
                     #  Add the tiling new loops to comps_dict
                     for impacted_comp in optim.action.comps:
-                        for loop_index in optim.action.params[
-                            : len(optim.action.params) // 2
-                        ]:
+                        for loop_index in optim.action.params[:loop_levels_size]:
                             comps_dict[impacted_comp].insert(
-                                loop_index + 1, f"t{loop_index}"
+                                loop_levels_size + loop_index, f"t{loop_index}"
                             )
 
                     for subtiling in optim.action.subtilings:
+                        loop_levels_size = len(subtiling.params) // 2
                         for impacted_comp in subtiling.comps:
-                            for loop_index in subtiling.params[
-                                : len(subtiling.params) // 2
-                            ]:
+                            for loop_index in subtiling.params[:loop_levels_size]:
                                 comps_dict[impacted_comp].insert(
-                                    loop_index + 1, f"t{loop_index}"
+                                    loop_levels_size + loop_index, f"t{loop_index}"
                                 )
 
                 elif isinstance(optim.action, Parallelization):
@@ -323,10 +321,13 @@ class CompilingService:
         initial_comp, residual = results[0].split(".then(")
         second_comp = residual.split(",")[0]
         comps = [initial_comp, second_comp]
-        # After storing the first comps we are going to store the rest if any in order inside comps list
+        # After storing the first comps we are going to store the rest, if any, in order inside comps list
         for result in results[1:]:
             comps.append(result.split(".then(")[1].split(",")[0])
 
+        import pprint as pp
+
+        print(pp.pprint(comps_dict))
         # levels indicates which loop level the 2 comps will be seperated in
         levels = []
         # updated_lines will contain new lines of code with the new seperated levels
@@ -382,24 +383,23 @@ class CompilingService:
         schedule_code = ""
         for i in range(len(optims_list)):
             optim = optims_list[i]
+            loop_levels_size = len(optim.action.params) // 2
             if not isinstance(optim.action, Unrolling):
                 if isinstance(optim.action, Tiling):
                     tiling_in_actions = True
                     #  Add the tiling new loops to comps_dict
                     for impacted_comp in optim.action.comps:
-                        for loop_index in optim.action.params[
-                            : len(optim.action.params) // 2
-                        ]:
+                        for loop_index in optim.action.params[:loop_levels_size]:
                             comps_dict[impacted_comp].insert(
-                                loop_index + 1, f"t{loop_index}"
+                                loop_levels_size + loop_index, f"t{loop_index}"
                             )
+
                     for subtiling in optim.action.subtilings:
+                        loop_levels_size = len(subtiling.params) // 2
                         for impacted_comp in subtiling.comps:
-                            for loop_index in subtiling.params[
-                                : len(subtiling.params) // 2
-                            ]:
+                            for loop_index in subtiling.params[:loop_levels_size]:
                                 comps_dict[impacted_comp].insert(
-                                    loop_index + 1, f"t{loop_index}"
+                                    loop_levels_size + loop_index, f"t{loop_index}"
                                 )
                 schedule_code += optim.tiramisu_optim_str + "\n"
             else:
@@ -459,6 +459,7 @@ class CompilingService:
             optims_list=optims_list,
             branches=branches,
         )
+        a = []
 
         output_path = f"{Config.config.tiramisu.workspace}{tiramisu_program.name}"
 
@@ -474,9 +475,10 @@ class CompilingService:
         with open(wrapper_cpp_path, "w") as file:
             file.write(wrapper_cpp)
 
-        
         with open(wrapper_h_path, "w") as file:
             file.write(wrapper_h)
+
+        print(cpp_code)
 
         shell_script = [
             f"cd {Config.config.tiramisu.workspace}",
