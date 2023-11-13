@@ -49,11 +49,13 @@ class OptimizationCommand:
             )
 
         elif isinstance(self.action, Tiling):
-            assert len(self.params_list) == 4 or len(self.params_list) == 6
+            assert len(self.params_list) in [2, 4, 6]
             tiling_str = ".tile(" + ",".join([str(p) for p in self.params_list]) + ");"
             optim_str = ""
             for comp in self.comps:
-                if len(self.params_list) == 4:
+                if len(self.params_list) == 2:
+                    self.comps_schedule[comp] = "T1(L{},{})".format(*self.params_list)
+                elif len(self.params_list) == 4:
                     self.comps_schedule[comp] = "T2(L{},L{},{},{})".format(
                         *self.params_list
                     )
@@ -62,6 +64,27 @@ class OptimizationCommand:
                         *self.params_list
                     )
                 optim_str += "\n\t{}".format(comp) + tiling_str
+
+            for index, _ in enumerate(self.action.subtilings):
+                sub_tile = self.action.subtilings[index]
+                tiling_str = (
+                    ".tile(" + ",".join([str(p) for p in sub_tile.params]) + ");"
+                )
+                for comp in sub_tile.comps:
+                    if len(sub_tile.params) == 2:
+                        self.comps_schedule[comp] = "T1(L{},{})".format(
+                            *sub_tile.params
+                        )
+                    elif len(sub_tile.params) == 4:
+                        self.comps_schedule[comp] = "T2(L{},L{},{},{})".format(
+                            *sub_tile.params
+                        )
+                    else:
+                        self.comps_schedule[
+                            comp
+                        ] = "T3(L{},L{},L{},{},{},{})".format(*sub_tile.params)
+                    optim_str += "\n\t{}".format(comp) + tiling_str
+
             return optim_str
         elif isinstance(self.action, Unrolling):
             optim_str = ""

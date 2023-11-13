@@ -32,7 +32,7 @@ class CompilingService:
         cpp_code = cls.get_legality_code(
             schedule_object=schedule_object, optims_list=optims_list, branches=branches
         )
-        print(cpp_code)
+
         return cls.run_cpp_code(cpp_code=cpp_code, output_path=output_path)
 
     @classmethod
@@ -59,17 +59,24 @@ class CompilingService:
         bool is_legal=true;"""
         for i in range(len(optims_list)):
             optim = optims_list[i]
+            loop_levels_size = len(optim.action.params) // 2
             if not isinstance(optim.action, Unrolling):
                 if isinstance(optim.action, Tiling):
                     tiling_in_actions = True
                     #  Add the tiling new loops to comps_dict
                     for impacted_comp in optim.action.comps:
-                        for loop_index in optim.action.params[
-                            : len(optim.action.params) // 2
-                        ]:
-                            comps_dict[impacted_comp].insert(
-                                loop_index + 1, f"t{loop_index}"
-                            )
+                        for loop_index in optim.action.params[:loop_levels_size]:
+                             comps_dict[impacted_comp].insert(
+                                 loop_levels_size + loop_index, f"t{loop_index}"
+                             )
+
+                    for subtiling in optim.action.subtilings:
+                        loop_levels_size = len(subtiling.params) // 2
+                        for impacted_comp in subtiling.comps:
+                            for loop_index in subtiling.params[:loop_levels_size]:
+                                comps_dict[impacted_comp].insert(
+                                    loop_levels_size + loop_index, f"t{loop_index}"
+                                )
 
                 elif isinstance(optim.action, Parallelization):
                     legality_check_lines += (
@@ -349,7 +356,6 @@ class CompilingService:
         for line in range(len(results)):
             # code = code.replace(results[line],"")
             fusion_code += updated_lines[line]
-
         return fusion_code, code
 
     @classmethod
@@ -374,17 +380,24 @@ class CompilingService:
         schedule_code = ""
         for i in range(len(optims_list)):
             optim = optims_list[i]
+            loop_levels_size = len(optim.action.params) // 2
             if not isinstance(optim.action, Unrolling):
                 if isinstance(optim.action, Tiling):
                     tiling_in_actions = True
                     #  Add the tiling new loops to comps_dict
                     for impacted_comp in optim.action.comps:
-                        for loop_index in optim.action.params[
-                            : len(optim.action.params) // 2
-                        ]:
-                            comps_dict[impacted_comp].insert(
-                                loop_index + 1, f"t{loop_index}"
-                            )
+                        for loop_index in optim.action.params[:loop_levels_size]:
+                             comps_dict[impacted_comp].insert(
+                                 loop_levels_size + loop_index, f"t{loop_index}"
+                             )
+
+                    for subtiling in optim.action.subtilings:
+                        loop_levels_size = len(subtiling.params) // 2
+                        for impacted_comp in subtiling.comps:
+                            for loop_index in subtiling.params[:loop_levels_size]:
+                                comps_dict[impacted_comp].insert(
+                                    loop_levels_size + loop_index, f"t{loop_index}"
+                                )
                 schedule_code += optim.tiramisu_optim_str + "\n"
             else:
                 unchanged = True
