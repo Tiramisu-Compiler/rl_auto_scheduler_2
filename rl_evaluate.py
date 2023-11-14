@@ -39,6 +39,14 @@ if __name__ == "__main__":
 
     Config.init()
 
+    # check if args.output_path exists and create it if it doesn't
+    output_path = Path(args.output_path)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # Empty the output directory
+    for file in output_path.iterdir():
+        file.unlink()
+
     # read the ip and port from the server_address file
     ip_and_port = ""
     while ip_and_port == "":
@@ -56,7 +64,8 @@ if __name__ == "__main__":
     if num_workers == -1:
         num_workers = int(ray.available_resources()["CPU"])
 
-    # print(f"num workers: {num_workers}")
+    print(f"num workers: {num_workers}")
+    print(f"dataset size: {dataset_size}")
 
     num_programs_per_task = dataset_size // num_workers
     programs_remaining = dataset_size % num_workers
@@ -93,7 +102,6 @@ if __name__ == "__main__":
 
         explorations.append(benchmark_actor.explore_benchmarks.remote())
 
-    print(len(explorations))
     while len(explorations) > 0:
         # Wait for actors to finish their exploration
         done, explorations = ray.wait(explorations)

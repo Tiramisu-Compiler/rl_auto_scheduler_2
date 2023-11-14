@@ -4,6 +4,7 @@ from typing import List
 
 import numpy as np
 import ray
+from ray import tune
 from ray.rllib.algorithms.ppo import PPOConfig
 from ray.rllib.models import ModelCatalog
 
@@ -54,10 +55,23 @@ class LSTMBenchmarkEvaluator:
             .resources(num_gpus=0)
             .debugging(log_level="WARN")
         )
+
+        restored_tuner = tune.Tuner.restore(config.ray.restore_checkpoint)
+        result_grid = restored_tuner.get_results()
+        best_result = result_grid.get_best_result("episode_reward_mean", "max")
+        best_result
+        best_checkpoint = None
+        highest_reward = float("-inf")
+        for checkpoint in best_result.best_checkpoints:
+            episode_reward_mean = checkpoint[1]["episode_reward_mean"]
+            if episode_reward_mean > highest_reward:
+                highest_reward = episode_reward_mean
+                best_checkpoint = checkpoint
+
         # Build the Algorithm instance using the config.
         # Restore the algo's state from the checkpoint.
         self.algo = self.config_model.build()
-        self.algo.restore(config.ray.restore_checkpoint)
+        self.algo.restore(best_checkpoint[0])
         self.num_programs_done = 0
 
     # explore schedules for benchmarks
