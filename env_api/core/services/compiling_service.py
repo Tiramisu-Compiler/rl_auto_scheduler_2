@@ -208,9 +208,9 @@ class CompilingService:
             )
             return compiler.stdout if compiler.stdout != "" else "0"
         except subprocess.CalledProcessError as e:
-            logging.error("Process terminated with error code", e.returncode)
-            logging.error("Error output:", e.stderr)
-            logging.error("Output:", e.stdout)
+            logging.error(f"Process terminated with error code: {e.returncode}")
+            logging.error(f"Error output: {e.stderr}")
+            logging.error(f"Output:{e.stdout}")
             logging.error(cpp_code)
             logging.error(" && ".join(shell_script))
             return "0"
