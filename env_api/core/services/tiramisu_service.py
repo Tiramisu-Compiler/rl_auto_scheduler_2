@@ -1,24 +1,29 @@
+import json
+
+from env_api.utils.exceptions import *
+
 from ..models.tiramisu_program import TiramisuProgram
 from .compiling_service import CompilingService
-import json
-from env_api.utils.exceptions import *
 
 
 class TiramisuService:
     def __init__(self):
         pass
 
-    def fetch_prog_compil(self, path: str):
-        # This function takes a path and creates a tiramisu program from compiling the file to get the annotations and all the infos
-        tiramisu_prog = TiramisuProgram(file_path=path)
+    def fetch_prog_compil(self, code: str):
+        tiramisu_prog = TiramisuProgram(code=code)
         tiramisu_prog.annotations = self.get_annotations(tiramisu_prog)
         return tiramisu_prog
 
-    def fetch_prog_offline(self,name:str,data:dict):
+    def fetch_prog_offline(
+        self, name: str, data: dict, original_str: str = None, wrapper_obj: bytes = None
+    ):
         # This function fetched all the data from an offline dataset
-        tiramisu_prog = TiramisuProgram.from_dict(name=name,data=data)
+        tiramisu_prog = TiramisuProgram.from_dict(
+            name=name, data=data, original_str=original_str, wrapper_obj=wrapper_obj
+        )
         return tiramisu_prog
-    
+
     def get_annotations(self, prog: TiramisuProgram):
         max_accesses = 15
         min_accesses = 1

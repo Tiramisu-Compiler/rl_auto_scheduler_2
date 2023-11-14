@@ -1,11 +1,18 @@
-import copy, re, torch, numpy as np, json
+import copy
+import json
+import re
+
+import numpy as np
+import torch
+
+from env_api.scheduler.models.action import Fusion
 from env_api.utils.exceptions import *
 
 # Maximum sequence of transformations (reversal, interchange and skewing) allowed. Currently set to 4
 MAX_NUM_TRANSFORMATIONS = 4
 
 # Maximum size of the tags vector representing each transformation
-MAX_TAGS = 8
+MAX_TAGS = 16
 
 MAX_DEPTH = 5
 
@@ -31,7 +38,6 @@ class ConvertService:
         )
 
         for comp_index, comp_name in enumerate(ordered_comp_list):
-
             comp_dict = computations_dict[comp_name]
             expr_dict = comp_dict["expression_representation"]
             comp_type = comp_dict["data_type"]
@@ -364,7 +370,6 @@ class ConvertService:
                 for sub_level in level["child_list"]:
                     involved_comps = cls.get_involved_comps(sub_level)
                     for i in involved_comps:
-
                         comp_index = (
                             program_json["computations"][i]["absolute_order"] - 1
                         )
@@ -374,7 +379,6 @@ class ConvertService:
                 if len(level["child_list"]) == 1:
                     involved_comps = cls.get_involved_comps(level)
                     for i in involved_comps:
-
                         comp_index = (
                             program_json["computations"][i]["absolute_order"] - 1
                         )
@@ -384,7 +388,6 @@ class ConvertService:
                         involved_comps = cls.get_involved_comps(level)
                         static_dim = 0
                         for i in involved_comps:
-
                             comp_index = (
                                 program_json["computations"][i]["absolute_order"] - 1
                             )
@@ -640,14 +643,12 @@ class ConvertService:
             # If fusion was applied, save which two loops were fused together
             if "fusions" in schedule_json and schedule_json["fusions"]:
                 for fusion in schedule_json["fusions"]:
-
                     if comp_name in fusion:
                         fused_levels.append(fusion[2])
 
             c_code = "C" + str(comp_index)
             # Loop representation for this computation
             for iter_i, iterator_name in enumerate(comp_dict["iterators"]):
-
                 l_code = c_code + "-L" + str(iter_i)
 
                 # Check whether parallelization was applied and put the tag in its corresponding position in the computation representation
@@ -1002,7 +1003,9 @@ class ConvertService:
         return (first_part, torch.cat(vectors[0:], dim=1), third_part)
 
     @classmethod
-    def get_tree_representation(cls, comps_tensor, loops_tensor, schedule_object):
+    def get_tree_representation(
+        cls, comps_tensor, loops_tensor, expr_tensor, schedule_object
+    ):
         """
         This function returns the necessary dict and tensors to feed the cost model to get the speedup
         """
@@ -1020,8 +1023,7 @@ class ConvertService:
             vectors,
             third_part,
             loops_tensor,
-            schedule_object.repr.comps_expr_tensor,
-            schedule_object.repr.comps_expr_lengths,
+            expr_tensor,
         )
 
     @classmethod
@@ -1070,7 +1072,9 @@ class ConvertService:
         decoded_comps = torch.from_numpy(cls.unpad_3D_vector(encoded_comps))
         decoded_loops = torch.from_numpy(cls.unpad_3D_vector(encoded_loops))
         decoded_comps_expr = torch.from_numpy(cls.unpad_4D_vector(encoded_comps_expr))
-        decoded_expr_loops = torch.from_numpy(cls.unpad_1D_vector(encoded_expr_loops).astype('int32'))
+        decoded_expr_loops = torch.from_numpy(
+            cls.unpad_1D_vector(encoded_expr_loops).astype("int32")
+        )
         x = decoded_comps
         batch_size, num_comps, __dict__ = x.shape
         x = x.view(batch_size * num_comps, -1)
@@ -1177,62 +1181,52 @@ class ConvertService:
         for z in trimmed_y[0]:
             if z[0][0] != np.inf:
                 gt.append(z.astype("float32").tolist())
-        return np.array([gt])   
-    
+        return np.array([gt])
+
     # TODO : add fusion schedule
-    @classmethod 
-    def build_sched_string(cls,schedule_list):
+    @classmethod
+    def build_sched_string(cls, schedule_list) -> str:
         # Prepare a dictionary of computations name to fill it with each action applied on every comp
         comps = {}
         # Map the schedules applied one by one
-        for schedule in schedule_list : 
+        for schedule in schedule_list:
             # schedule has comps_schedule which includes the comps that was invloved in the optimisation
             for key in schedule.comps_schedule.keys():
                 # Add the data from that schedule to the global comps dictionnary
-                if(not key in comps or not comps[key]):
+                if not key in comps or not comps[key]:
                     comps[key] = ""
                 comps[key] += schedule.comps_schedule[key]
+
         # Prepare the string and form it from the comps dictionary
         schedule_string = ""
+
+        # Check if the first optimization applied is fusion
+        if schedule_list and type(schedule_list[0].action) == Fusion:
+            schedule_string += schedule_list[0].fusion_str + ":"
+
         for key in comps.keys():
-            schedule_string+= "{"+key+"}:"+comps[key]
+            schedule_string += "{" + key + "}:" + comps[key]
         return schedule_string
-   
-
-    # TODO : The following 2 functions exist because we are building tree structure in python
-    # Once we get it from toramisu autocsheduler they should be removed from here
-    @classmethod
-    def nest_iterators(cls, root_iterator, iterators):
-        if root_iterator["child_iterators"] == []:
-            return {
-                "loop_name": root_iterator["loop_name"],
-                "computations_list": root_iterator["computations_list"],
-                "child_list": [],
-            }
-        subtrees = []
-        for loop_name in root_iterator["child_iterators"]:
-            child_iterator = iterators[loop_name]
-            child_iterator["loop_name"] = loop_name
-            sub_tree = cls.nest_iterators(child_iterator, iterators)
-            subtrees.append(sub_tree)
-        return {
-            "loop_name": root_iterator["loop_name"],
-            "computations_list": root_iterator["computations_list"],
-            "child_list": subtrees,
-        }
 
     @classmethod
-    def get_tree_structure(cls, program_annot):
-        iterators = program_annot["iterators"]
+    def build_loop_nests(cls, parent, iterators):
+        tree = {}
+        tree["loop_name"] = parent
+        tree["computations_list"] = iterators[parent]["computations_list"]
+        child_trees = []
+        if iterators[parent]["child_iterators"]:
+            for iterator in iterators[parent]["child_iterators"]:
+                child_trees.append(cls.build_loop_nests(iterator, iterators))
 
-        mentionned = []
-        for loop, content in iterators.items():
-            mentionned.extend(content["child_iterators"])
+        tree["child_list"] = child_trees
+        return tree
 
-        possible_root = [loop for loop in iterators if loop not in mentionned]
-        assert len(possible_root) == 1
-        root_loop_name = possible_root[0]
+    @classmethod
+    def build_tree_structure(cls, iters):
+        iterators = copy.deepcopy(iters)
+        roots = []
+        for iterator in iterators:
+            if not iterators[iterator]["parent_iterator"]:
+                roots.append(copy.copy(iterator))
 
-        root_iterator = program_annot["iterators"][root_loop_name]
-        root_iterator["loop_name"] = root_loop_name
-        return cls.nest_iterators(root_iterator, iterators)
+        return [cls.build_loop_nests(it, iterators) for it in roots]

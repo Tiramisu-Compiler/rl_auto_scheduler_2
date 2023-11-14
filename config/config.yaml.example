@@ -1,0 +1,68 @@
+tiramisu:
+    tiramisu_path: Tiramisu Path
+    env_type:  "model" # model | execution
+    tags_model_weights: path of the saved weights of the cost model
+    is_new_tiramisu: False
+    workspace: path of the workspace to generate execution files
+    old_tiramisu_path: path of old tiramisu
+
+env_vars:
+    CONDA_ENV: "PATH_TO_CONDA_ENV"
+    LD_LIBRARY_PATH: "${CONDA_ENV}/lib:${TIRAMISU_ROOT}/3rdParty/Halide/install/lib:${TIRAMISU_ROOT}/3rdParty/llvm/build/lib:${TIRAMISU_ROOT}/3rdParty/isl/build/lib:"
+
+dataset:
+    dataset_format: PICKLE
+    cpps_path : 
+    dataset_path: 
+    save_path: 
+    shuffle: True
+    seed: 7
+    saving_frequency: 500
+    # When doing evaluation on the benchmark set the value to True
+    is_benchmark: False
+
+ray:
+    results: 
+    restore_checkpoint: 
+
+experiment:
+    name: "fixed-bugs"
+    # name: "220k-1.5vf_coeff"
+    checkpoint_frequency: 20
+    checkpoint_num_to_keep: 30
+    # The following 3 values are the values to stop the experiment if any of them is reached 
+    training_iteration: 80000
+    timesteps_total: 10000000
+    episode_reward_mean: 10
+    # Use this value to punish or tolerate illegal actions from being taken
+    legality_speedup: 1.0
+    # Use the order of beam search 
+    beam_search_order : True
+    entropy_coeff: 0.0001
+    # Training parameters
+    train_batch_size: 4096
+    minibatch_size: 128
+    lr: 0.000004
+    vf_loss_coeff: 1
+    # Policy model type
+    policy_model: "lstm" #| "ff" #feed-forward
+    # In mode "ff" set vf_share_layers to True if you want to use shared weights between policy and value function 
+    # in mode "lstm" , you must make vf_share_layers = True
+    vf_share_layers: True
+
+policy_network:
+    policy_hidden_layers: 
+        - 2048
+        - 512 
+        - 64
+    # If vf_share_layers is true then, these values won't be taken for the value network
+    vf_hidden_layers: 
+        - 512 
+        - 64
+    dropout_rate: 0.2
+
+lstm_policy:
+    fc_size: 1024
+    lstm_state_size: 512
+    num_layers: 1
+    

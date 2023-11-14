@@ -1,65 +1,122 @@
-import argparse, ray
-from ray.rllib.models import ModelCatalog
-from rl_agent.rl_env import TiramisuRlEnv
-from ray.rllib.algorithms.ppo import PPO, PPOConfig
-from ray.rllib.algorithms.algorithm_config import AlgorithmConfig
-from env_api.tiramisu_api import TiramisuEnvAPI
-from rllib_ray_utils.dataset_actor import DatasetActor
-from env_api.utils.config.config import Config
+import argparse
+import json
+import os
+import time
+from pathlib import Path
 
-from rl_agent.rl_policy_nn import PolicyNN
+import grpc
+import ray
+
+from config.config import Config
+from grpc_server.dataset_grpc_server.grpc_files import (
+    tiramisu_function_pb2,
+    tiramisu_function_pb2_grpc,
+)
+from rllib_ray_utils.evaluators.ff_evaluator import FFBenchmarkEvaluator
+from rllib_ray_utils.evaluators.lstm_evaluator import LSTMBenchmarkEvaluator
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("--run",
-                    type=str,
-                    default="PPO",
-                    help="The RLlib-registered algorithm to use.")
+parser.add_argument(
+    "--run", type=str, default="PPO", help="The RLlib-registered algorithm to use."
+)
 parser.add_argument(
     "--framework",
     choices=["tf", "tf2", "torch"],
     default="torch",
     help="The DL framework specifier.",
 )
+parser.add_argument(
+    "--output-path",
+    default="./workspace/schedules",
+)
+parser.add_argument("--num-workers", default=-1, type=int)
 
 if __name__ == "__main__":
     args = parser.parse_args()
     print(f"Running with following CLI options: {args}")
-    ray.init(num_cpus=28)
-    
+    ray.init()
+
     Config.init()
-    tiramisu_api = TiramisuEnvAPI(local_dataset = False)
-    dataset_actor = DatasetActor.remote(
-        dataset_path=Config.config.dataset.offline,
-        use_dataset=True,
-        path_to_save_dataset=Config.config.dataset.save_path,
-        dataset_format="PICKLE",
-    )
-    
-    ModelCatalog.register_custom_model("policy_nn", PolicyNN)
-    config = PPOConfig().framework(args.framework).environment(
-        TiramisuRlEnv, env_config={"tiramisu_api": tiramisu_api,
-                                   "dataset_actor": dataset_actor})
-    config = config.to_dict()
-    config["model"]["custom_model"] = "policy_nn"
 
-    ppo_agent = PPO(AlgorithmConfig.from_dict(config))
-    try : 
-        ppo_agent.restore(
-            checkpoint_path=
-            "/scratch/dl5133/Dev/RL-Agent/tiramisu-env/ray_results/All-actions-punish-legality-beam-search-10m/PPO_TiramisuRlEnv_16641_00000_0_2023-03-27_17-12-56/checkpoint_000930"
+    # check if args.output_path exists and create it if it doesn't
+    output_path = Path(args.output_path)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    # Empty the output directory
+    for file in output_path.iterdir():
+        file.unlink()
+
+    # read the ip and port from the server_address file
+    ip_and_port = ""
+    while ip_and_port == "":
+        with open("./server_address", "r") as f:
+            ip_and_port = f.read()
+
+    with grpc.insecure_channel(ip_and_port) as channel:
+        stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
+        response = stub.GetDatasetSize(tiramisu_function_pb2.Empty())
+        dataset_size = response.size
+        response = stub.GetListOfFunctions(tiramisu_function_pb2.Empty())
+        function_names = response.names
+
+    num_workers = args.num_workers
+    if num_workers == -1:
+        num_workers = int(ray.available_resources()["CPU"])
+
+    print(f"num workers: {num_workers}")
+    print(f"dataset size: {dataset_size}")
+
+    num_programs_per_task = dataset_size // num_workers
+    programs_remaining = dataset_size % num_workers
+
+    Path(args.output_path).mkdir(parents=True, exist_ok=True)
+
+    start_time = time.time()
+    actors = []
+    explorations = []
+    explored_programs = {}
+
+    if Config.config.experiment.policy_model == "lstm":
+        Benchmarker = LSTMBenchmarkEvaluator
+    elif Config.config.experiment.policy_model == "ff":
+        Benchmarker = FFBenchmarkEvaluator
+    else:
+        raise Exception("Unknown policy model")
+
+    for i in range(num_workers):
+        num_programs_to_do = num_programs_per_task
+
+        if i == num_workers - 1:
+            num_programs_to_do += programs_remaining
+
+        start = i * num_programs_per_task
+        end = start + num_programs_to_do
+        benchmark_actor = Benchmarker.remote(
+            Config.config,
+            args,
+            function_names[start:end],
         )
-    except AssertionError as e :
-        print(e)
 
-    # env = ppo_agent.env_creator(config["env"])
-    env = TiramisuRlEnv(config={"tiramisu_api": tiramisu_api,"dataset_actor": dataset_actor})
+        actors.append(benchmark_actor)
 
-    for i in range(31):
-        observation , _ = env.reset()
-        episode_done = False
-        while not episode_done :
-            action = ppo_agent.compute_single_action(observation=observation, explore=False)
-            observation, reward, episode_done, _ , _ = env.step(action)
+        explorations.append(benchmark_actor.explore_benchmarks.remote())
 
-    ray.shutdown()
+    while len(explorations) > 0:
+        # Wait for actors to finish their exploration
+        done, explorations = ray.wait(explorations)
+        print(f"Done this iteration: {len(done)} / Remaining {len(explorations)}")
+        # retrieve explored programs from actors that finished their exploration
+        for actor in done:
+            actor_programs = ray.get(actor)
+            explored_programs.update(actor_programs)
+
+        progress = ray.get([actor.get_progress.remote() for actor in actors])
+        print(f"Progress: {sum(progress)} / {dataset_size}")
+
+    end_time = time.time()
+    print(f"Total time: {end_time - start_time}")
+
+    # write explored programs to file
+    with open(os.path.join(args.output_path, "explored_programs.json"), "w") as f:
+        json.dump(explored_programs, f)

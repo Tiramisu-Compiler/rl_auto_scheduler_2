@@ -4,6 +4,7 @@ from torch import nn
 # Maximum size of the tags vector representing each transformation
 MAX_TAGS = 8
 
+
 # Define the architecture of our cost model
 class Model_Recursive_LSTM_v3(nn.Module):
     def __init__(
@@ -26,9 +27,11 @@ class Model_Recursive_LSTM_v3(nn.Module):
         concat_layer_sizes = [
             embedding_size * 2 + loops_tensor_size
         ] + comp_embed_layer_sizes[-2:]
-        
+
         comp_embed_layer_sizes = [
-            input_size + lstm_embedding_size * (2 if bidirectional else 1) * num_layers + expr_embed_size
+            input_size
+            + lstm_embedding_size * (2 if bidirectional else 1) * num_layers
+            + expr_embed_size
         ] + comp_embed_layer_sizes
         self.comp_embedding_layers = nn.ModuleList()
         self.comp_embedding_dropouts = nn.ModuleList()
@@ -75,8 +78,8 @@ class Model_Recursive_LSTM_v3(nn.Module):
             nn.init.xavier_uniform_(torch.zeros(1, embedding_size))
         )
         self.root_iterator = nn.Parameter(
-                nn.init.xavier_uniform_(torch.zeros(1, loops_tensor_size))
-            )
+            nn.init.xavier_uniform_(torch.zeros(1, loops_tensor_size))
+        )
         self.comps_lstm = nn.LSTM(
             comp_embed_layer_sizes[-1], embedding_size, batch_first=True
         )
@@ -100,21 +103,23 @@ class Model_Recursive_LSTM_v3(nn.Module):
         nodes_list = []
         if "roots" in node:
             for root in node["roots"]:
-                nodes_list.append(self.get_hidden_state(
-                    root, comps_embeddings, loops_tensor))
+                nodes_list.append(
+                    self.get_hidden_state(root, comps_embeddings, loops_tensor)
+                )
             nodes_tensor = torch.cat(nodes_list, 1)
             lstm_out, (nodes_h_n, nodes_c_n) = self.nodes_lstm(nodes_tensor)
             nodes_h_n = nodes_h_n.permute(1, 0, 2)
             comps_h_n = torch.unsqueeze(self.no_comps_tensor, 0).expand(
-                    comps_embeddings.shape[0], -1, -1
-                )
+                comps_embeddings.shape[0], -1, -1
+            )
             selected_loop_tensor = torch.unsqueeze(self.root_iterator, 0).expand(
-                    comps_embeddings.shape[0], -1, -1
-                )
+                comps_embeddings.shape[0], -1, -1
+            )
         else:
             for n in node["child_list"]:
-                nodes_list.append(self.get_hidden_state(
-                    n, comps_embeddings, loops_tensor))
+                nodes_list.append(
+                    self.get_hidden_state(n, comps_embeddings, loops_tensor)
+                )
             if nodes_list != []:
                 nodes_tensor = torch.cat(nodes_list, 1)
                 lstm_out, (nodes_h_n, nodes_c_n) = self.nodes_lstm(nodes_tensor)
@@ -125,11 +130,13 @@ class Model_Recursive_LSTM_v3(nn.Module):
                 )
             if node["has_comps"]:
                 selected_comps_tensor = torch.index_select(
-                    comps_embeddings, 1, torch.tensor(node["computations_indices"]).to(
-                        self.train_device)
+                    comps_embeddings,
+                    1,
+                    torch.tensor(node["computations_indices"]).to(self.train_device),
                 )
                 lstm_out, (comps_h_n, comps_c_n) = self.comps_lstm(
-                    selected_comps_tensor)
+                    selected_comps_tensor
+                )
                 comps_h_n = comps_h_n.permute(1, 0, 2)
             else:
                 comps_h_n = torch.unsqueeze(self.no_comps_tensor, 0).expand(
@@ -145,29 +152,44 @@ class Model_Recursive_LSTM_v3(nn.Module):
         return x
 
     def forward(self, tree_tensors):
-        tree, comps_tensor_first_part, comps_tensor_vectors, comps_tensor_third_part, loops_tensor, functions_comps_expr_tree, exprs_lengths = tree_tensors
-        
+        (
+            tree,
+            comps_tensor_first_part,
+            comps_tensor_vectors,
+            comps_tensor_third_part,
+            loops_tensor,
+            functions_comps_expr_tree,
+            exprs_lengths,
+        ) = tree_tensors
+
         # expressions embedding layer
         x = functions_comps_expr_tree.to(self.train_device)
         batch_size, num_comps, num_expr, expr_len = x.shape
         x = x.view(batch_size * num_comps, num_expr, expr_len)
         x = x.float()
         x = nn.utils.rnn.pack_padded_sequence(
-            x, lengths=list(exprs_lengths), batch_first=True, enforce_sorted=False)
+            x, lengths=list(exprs_lengths), batch_first=True, enforce_sorted=False
+        )
         _, (expr_embedding, _) = self.exprs_embed(x)
         expr_embedding = expr_embedding.permute(1, 0, 2).reshape(
             batch_size * num_comps, -1
         )
-        
+
         # computation embbedding layer
         # x = comps_tensor.to(self.train_device)
-        
+
         batch_size, num_comps, __dict__ = comps_tensor_first_part.shape
-        
-        first_part = comps_tensor_first_part.to(self.train_device).view(batch_size * num_comps, -1)
-        vectors = comps_tensor_vectors.to(self.train_device) # its shape is (batch_size * num_comps, number of vectors)
-        third_part = comps_tensor_third_part.to(self.train_device).view(batch_size * num_comps, -1)
-        
+
+        first_part = comps_tensor_first_part.to(self.train_device).view(
+            batch_size * num_comps, -1
+        )
+        vectors = comps_tensor_vectors.to(
+            self.train_device
+        )  # its shape is (batch_size * num_comps, number of vectors)
+        third_part = comps_tensor_third_part.to(self.train_device).view(
+            batch_size * num_comps, -1
+        )
+
         vectors = self.encode_vectors(vectors)
         _, (prog_embedding, _) = self.comps_embed(vectors)
 
@@ -183,21 +205,21 @@ class Model_Recursive_LSTM_v3(nn.Module):
             ),
             dim=1,
         ).view(batch_size, num_comps, -1)
-        
+
         for i in range(len(self.comp_embedding_layers)):
             x = self.comp_embedding_layers[i](x)
             x = self.comp_embedding_dropouts[i](self.ELU(x))
         comps_embeddings = x
-        
+
         # recursive loop embbeding layer
         prog_embedding = self.get_hidden_state(
             tree, comps_embeddings, loops_tensor.to(self.train_device)
         )
-        
+
         # regression layer
         x = prog_embedding
         for i in range(len(self.regression_layers)):
             x = self.regression_layers[i](x)
             x = self.regression_dropouts[i](self.ELU(x))
         out = self.predict(x)
-        return self.ReLU(out[:, 0, 0]) , x.detach().view(-1)
+        return self.ReLU(out[:, 0, 0]), x.detach().view(-1)
