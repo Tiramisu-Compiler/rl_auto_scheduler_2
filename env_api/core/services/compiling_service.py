@@ -66,9 +66,9 @@ class CompilingService:
                     #  Add the tiling new loops to comps_dict
                     for impacted_comp in optim.action.comps:
                         for loop_index in optim.action.params[:loop_levels_size]:
-                             comps_dict[impacted_comp].insert(
-                                 loop_levels_size + loop_index, f"t{loop_index}"
-                             )
+                            comps_dict[impacted_comp].insert(
+                                loop_levels_size + loop_index, f"t{loop_index}"
+                            )
 
                     for subtiling in optim.action.subtilings:
                         loop_levels_size = len(subtiling.params) // 2
@@ -199,7 +199,7 @@ class CompilingService:
                 envs.append(f"export {key}={val}")
             shell_script = envs + shell_script
             compiler = subprocess.run(
-                ["\n".join(shell_script)],
+                [" && ".join(shell_script)],
                 input=cpp_code,
                 capture_output=True,
                 text=True,
@@ -208,8 +208,11 @@ class CompilingService:
             )
             return compiler.stdout if compiler.stdout != "" else "0"
         except subprocess.CalledProcessError as e:
-            print("Process terminated with error code", e.returncode)
-            print("Error output:", e.stderr)
+            logging.error(f"Process terminated with error code: {e.returncode}")
+            logging.error(f"Error output: {e.stderr}")
+            logging.error(f"Output:{e.stdout}")
+            logging.error(cpp_code)
+            logging.error(" && ".join(shell_script))
             return "0"
         except Exception as e:
             print(e)
@@ -387,9 +390,9 @@ class CompilingService:
                     #  Add the tiling new loops to comps_dict
                     for impacted_comp in optim.action.comps:
                         for loop_index in optim.action.params[:loop_levels_size]:
-                             comps_dict[impacted_comp].insert(
-                                 loop_levels_size + loop_index, f"t{loop_index}"
-                             )
+                            comps_dict[impacted_comp].insert(
+                                loop_levels_size + loop_index, f"t{loop_index}"
+                            )
 
                     for subtiling in optim.action.subtilings:
                         loop_levels_size = len(subtiling.params) // 2
@@ -533,7 +536,7 @@ class CompilingService:
             shell_script = envs + shell_script
 
             compiler = subprocess.run(
-                [" \n ".join(shell_script)],
+                [" && ".join(shell_script)],
                 capture_output=True,
                 text=True,
                 shell=True,
