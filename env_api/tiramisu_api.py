@@ -26,12 +26,13 @@ class TiramisuEnvAPI:
         # - cpps_dataset_path :  pkl file containing the cpps code
         # - offline_path : pkl file containing the schedules dictionnary
         # This step of initializing the database service must be executed first in the init of tiramisu api
-        self.dataset_service = DataSetService(
-            cpps_dataset_path=Config.config.dataset.cpps_path,
-            schedules_dataset_path=Config.config.dataset.dataset_path
-            if local_dataset
-            else None,
-        )
+        if local_dataset:
+            self.dataset_service = DataSetService(
+                cpps_dataset_path=Config.config.dataset.cpps_path,
+                schedules_dataset_path=Config.config.dataset.dataset_path
+                if local_dataset
+                else None,
+            )
         # The following attribute is independent of RL env , it is used for debugging don't remove it
         self.programs = None
         # The list of program names of the dataset
