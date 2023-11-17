@@ -112,6 +112,7 @@ class LSTMBenchmarkEvaluator:
             )
             branches = self.env.tiramisu_api.scheduler_service.branches
             schedule_object = self.env.tiramisu_api.scheduler_service.schedule_object
+            print(f"[Done] {tiramisu_prog.name} : {optim_list}")
 
             cpp_code = CompilingService.get_schedule_code(
                 tiramisu_program=tiramisu_prog,
