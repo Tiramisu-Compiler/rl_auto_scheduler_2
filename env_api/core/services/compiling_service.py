@@ -315,10 +315,14 @@ class CompilingService:
         # '.then(comp03, i3)',
         # '.then(comp04, i1);']
         regex_first_comp = r"(\w+)\.then\("
-        matching = re.findall(regex_first_comp, code)
+        matching = re.search(regex_first_comp, code)
 
+        if matching is None:
+            return fusion_code, code
+
+        comps = [matching.group(1)]
         # comps will contain all the computations that are fused together
-        comps = [matching[0]]
+        comps = []
 
         # regex rest of the thens
         regex_rest = r"\.then\(([\w]+),"
