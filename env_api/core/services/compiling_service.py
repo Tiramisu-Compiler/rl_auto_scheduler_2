@@ -320,9 +320,8 @@ class CompilingService:
         if matching is None:
             return fusion_code, code
 
-        comps = [matching.group(1)]
         # comps will contain all the computations that are fused together
-        comps = []
+        comps = [matching.group(1)]
 
         # regex rest of the thens
         regex_rest = r"\.then\(([\w]+),"
