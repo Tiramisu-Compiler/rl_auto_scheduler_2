@@ -26,6 +26,12 @@ class Action:
         # of the same function by different workers
         self.worker_id = worker_id
 
+    def __str__(self) -> str:
+        return f"\n{self.name}(params={self.params}, comps={self.comps})"
+
+    def __repr__(self) -> str:
+        return f"\n{self.name}(params={self.params}, comps={self.comps})"
+
 
 class AffineAction(Action):
     def __init__(
@@ -72,9 +78,15 @@ class Tiling(Action):
         self.subtilings = []
 
     def __str__(self) -> str:
-        size = len(self.params)//2
+        size = len(self.params) // 2
 
-        return f"\nTiling {size}D : on levels " + ",".join([str(x) for x in self.params[:size]]) + " on comps " + ",".join(self.comps) + "".join([str(tiling) for tiling in self.subtilings])
+        return (
+            f"\nTiling {size}D : on levels "
+            + ",".join([str(x) for x in self.params[:size]])
+            + " on comps "
+            + ",".join(self.comps)
+            + "".join([str(tiling) for tiling in self.subtilings])
+        )
 
 
 class Fusion(Action):

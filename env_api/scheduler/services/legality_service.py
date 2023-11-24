@@ -198,7 +198,7 @@ class LegalityService:
                 # First we verify if the tiling size is bigger than the loops extent
                 # TODO : remove this strategy later
                 tiling_size = max(action.params[len(action.params) // 2 :])
-                 # Becuase the second half of action.params contains tiling size, so we need only the first half of the vector
+                # Becuase the second half of action.params contains tiling size, so we need only the first half of the vector
                 loop_levels = action.params[: len(action.params) // 2]
                 if loop_levels[-1] >= num_iter:
                     return True
@@ -233,8 +233,8 @@ class LegalityService:
 
         # We have the current branch
         concerned_iterators = [
-             branches[current_branch].common_it[it] for it in loop_levels
-         ]
+            branches[current_branch].common_it[it] for it in loop_levels
+        ]
         concerned_comps = []
         # This part is for general Tiling to be applied and propagated through many branches
         if isinstance(action, Tiling):
@@ -400,15 +400,15 @@ class LegalityService:
                                 # the child is different , this means that only the parent is shared and the children are different
                                 return True
                 case 3:
-                        for branch in branches:
-                            if concerned_iterators[0] in branch.common_it:
-                                if concerned_iterators[1] in branch.common_it:
-                                    if concerned_iterators[2] in branch.common_it:
-                                        concerned_comps.extend(branch.comps)
-                                    else:
-                                        return True
+                    for branch in branches:
+                        if concerned_iterators[0] in branch.common_it:
+                            if concerned_iterators[1] in branch.common_it:
+                                if concerned_iterators[2] in branch.common_it:
+                                    concerned_comps.extend(branch.comps)
                                 else:
                                     return True
+                            else:
+                                return True
             action.comps = copy.deepcopy(concerned_comps)
         return False
 

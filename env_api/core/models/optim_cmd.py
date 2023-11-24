@@ -2,14 +2,15 @@ from env_api.scheduler.models.action import *
 
 
 class OptimizationCommand:
-    def __init__(self, action: Action):
+    def __init__(self, action: Action, get_tiramisu_optim_str: bool = True):
         self.params_list = action.params
         self.action = action
         # A list of concerned computations of the actions
         self.comps = action.comps
         # We save the schedule of an action in each comp individually to form the whole schedule of a program later
         self.comps_schedule = {}
-        self.tiramisu_optim_str = self.get_tiramisu_optim_str()
+        if get_tiramisu_optim_str:
+            self.tiramisu_optim_str = self.get_tiramisu_optim_str()
 
     def get_tiramisu_optim_str(self):
         """Convert the optimization command into Tiramisu code.
@@ -80,9 +81,9 @@ class OptimizationCommand:
                             *sub_tile.params
                         )
                     else:
-                        self.comps_schedule[
-                            comp
-                        ] = "T3(L{},L{},L{},{},{},{})".format(*sub_tile.params)
+                        self.comps_schedule[comp] = "T3(L{},L{},L{},{},{},{})".format(
+                            *sub_tile.params
+                        )
                     optim_str += "\n\t{}".format(comp) + tiling_str
 
             return optim_str

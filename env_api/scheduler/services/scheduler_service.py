@@ -1,10 +1,11 @@
 import logging
+import pprint as pp
 from typing import List
 
-import pprint as pp
 import torch
 
 from config.config import Config
+from env_api.core.models.optim_cmd import OptimizationCommand
 from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.converting_service import ConvertService
 from env_api.scheduler.models.branch import Branch
@@ -192,6 +193,19 @@ class SchedulerService:
             current_branch=self.current_branch,
             action=action,
         )
+        if legality_check:
+            print(
+                f"{self.schedule_object.prog.name}: {OptimizationCommand(action, get_tiramisu_optim_str=False)} is legal"
+            )
+        else:
+            print(
+                f"{self.schedule_object.prog.name}: {OptimizationCommand(action, get_tiramisu_optim_str=False)} is illegal"
+            )
+
+        print(
+            f"{self.schedule_object.prog.name}: schedule_str: {self.schedule_object.schedule_list}"
+        )
+
         embedding_tensor = None
         speedup = Config.config.experiment.legality_speedup
         if legality_check:
@@ -508,16 +522,16 @@ class SchedulerService:
                 # print("The comp : ", comp)
                 # pp.pprint(self.schedule_object.schedule_dict[comp])
                 for branch in self.branches:
-                # Check for the branches that needs to be updated
+                    # Check for the branches that needs to be updated
                     if comp in branch.comps:
-                            # Update the branch schedule
-                            branch.schedule_dict[comp]["tiling"] = tiling_dict
-                            # Update the branch actions mask
-                            branch.update_actions_mask(action=action)
-                            # print(branch.repr.action_mask)
-                            # Update the additional loops
-                            branch.additional_loops = tiling_depth        
-        
+                        # Update the branch schedule
+                        branch.schedule_dict[comp]["tiling"] = tiling_dict
+                        # Update the branch actions mask
+                        branch.update_actions_mask(action=action)
+                        # print(branch.repr.action_mask)
+                        # Update the additional loops
+                        branch.additional_loops = tiling_depth
+
     def apply_fusion(self, action: Fusion):
         self.schedule_object.schedule_dict["fusion"] = action.params
         new_tree = action.get_tree_structure_after_fusion(

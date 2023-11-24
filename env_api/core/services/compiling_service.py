@@ -32,7 +32,6 @@ class CompilingService:
         cpp_code = cls.get_legality_code(
             schedule_object=schedule_object, optims_list=optims_list, branches=branches
         )
-
         return cls.run_cpp_code(cpp_code=cpp_code, output_path=output_path)
 
     @classmethod
@@ -310,24 +309,25 @@ class CompilingService:
     @classmethod
     def fuse_tiling_loops(cls, code: str, comps_dict: dict):
         fusion_code = ""
-        pattern = r"[\w]*\d*.then[\d\w()\t\n,]*.*"
         # This pattern will detect lines that looks like this :
         # ['comp00.then(comp01, i2)',
         # '.then(comp02, i1)',
         # '.then(comp03, i3)',
         # '.then(comp04, i1);']
-        # It will be used to extract the lines of code that has the `.then` opertator
-        results = re.findall(pattern, code)
-        if not results:
+        regex_first_comp = r"(\w+)\.then\("
+        matching = re.search(regex_first_comp, code)
+
+        if matching is None:
             return fusion_code, code
-        # From the list commented above we notice that the 1st element is different than the others
-        # we need to extract the 1st and 2nd comp
-        initial_comp, residual = results[0].split(".then(")
-        second_comp = residual.split(",")[0]
-        comps = [initial_comp, second_comp]
-        # After storing the first comps we are going to store the rest if any in order inside comps list
-        for result in results[1:]:
-            comps.append(result.split(".then(")[1].split(",")[0])
+
+        # comps will contain all the computations that are fused together
+        comps = [matching.group(1)]
+
+        # regex rest of the thens
+        regex_rest = r"\.then\(([\w]+),"
+        # results will contain all the lines that match the regex
+        for result in re.findall(regex_rest, code):
+            comps.append(result)
 
         # levels indicates which loop level the 2 comps will be seperated in
         levels = []
@@ -356,7 +356,7 @@ class CompilingService:
         updated_lines[0] = comps[0] + updated_lines[0]
         updated_lines[-1] = updated_lines[-1] + ";"
 
-        for line in range(len(results)):
+        for line in range(len(comps) - 1):
             # code = code.replace(results[line],"")
             fusion_code += updated_lines[line]
         return fusion_code, code
@@ -586,13 +586,16 @@ class CompilingService:
             logging.error(f"Output: {e.stdout}")
             logging.error(cpp_code)
             logging.error(shell_script)
-            subprocess.run(
-                [f"rm {output_path}*"],
-                capture_output=True,
-                text=True,
-                shell=True,
-                check=True,
-            )
+            try:
+                subprocess.run(
+                    [f"rm {output_path}*"],
+                    capture_output=True,
+                    text=True,
+                    shell=True,
+                    check=True,
+                )
+            except:
+                pass
             return None
         except Exception as e:
             pass
