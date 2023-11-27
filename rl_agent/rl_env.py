@@ -57,6 +57,8 @@ class TiramisuRlEnv(gym.Env):
             while self.ip_and_port == "":
                 with open("./server_address", "r") as f:
                     self.ip_and_port = f.read()
+            
+            self.ip_and_port = self.ip_and_port.splitlines()[0]
             function_name = (
                 ""
                 if options is None or "function_name" not in options
