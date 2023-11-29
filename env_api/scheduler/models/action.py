@@ -253,3 +253,28 @@ class Fusion(Action):
                 break
 
         return program_annotations
+
+class OtherAction(Action):
+    def __init__(
+        self,
+        name: str,
+        params: list = [],
+        comps: list = [],
+        env_id: int = None,
+        worker_id="",
+    ):
+        super().__init__(params, name, comps, env_id, worker_id)
+        
+class AddingOne(OtherAction):
+    def __init__(self, env_id: int = None, worker_id=""):
+        super().__init__(name="AddingOne", env_id=env_id, worker_id=worker_id)
+        
+        
+class NextRow(OtherAction):
+    def __init__(self, env_id: int = None, worker_id=""):
+        super().__init__(name="NextRow", env_id=env_id, worker_id=worker_id)
+        
+
+class NextCol(OtherAction):
+    def __init__(self, env_id: int = None, worker_id=""):
+        super().__init__(name="NextCol", env_id=env_id, worker_id=worker_id)

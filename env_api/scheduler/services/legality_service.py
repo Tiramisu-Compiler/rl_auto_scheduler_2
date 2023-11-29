@@ -1,6 +1,7 @@
 import copy
 import logging
 from typing import List
+import numpy as np
 
 from env_api.core.models.optim_cmd import OptimizationCommand
 from env_api.core.services.compiling_service import CompilingService
@@ -22,6 +23,10 @@ class LegalityService:
         The legality service is responsible to evaluate the legality of tiramisu programs given a specific schedule
         """
         pass
+    
+    def is_matrix_unimodular(self, matrix):
+        det_value = np.linalg.det(matrix)
+        return det_value == 1 or det_value == -1
 
     def is_action_legal(
         self,
@@ -38,6 +43,18 @@ class LegalityService:
             - legality_check : bool
         """
         branches[current_branch].update_actions_mask(action=action, applied=False)
+        
+        if isinstance(action, AddingOne):
+            comps= copy.deepcopy(branches[current_branch].comps)
+            matrix = np.copy(schedule_object.schedule_mat[comps[0]]["matrix"])
+            row = schedule_object.schedule_mat[comps[0]]["row_number"]
+            col = schedule_object.schedule_mat[comps[0]]["col_number"]
+            action.params=copy.deepcopy([row, col, matrix])
+            matrix2 = np.copy(matrix)
+            matrix2[row][col] = matrix2[row][col] + 1
+            unimodularity_check = self.is_matrix_unimodular(matrix2)
+            if not unimodularity_check:
+                return False
 
         if isinstance(action, Fusion):
             if len(action.params) != 2 or len(action.params[0]["iterators"]) != len(
@@ -47,22 +64,23 @@ class LegalityService:
         else:
             # Check first if the iterator(s) level(s) is(are) included in the current iterators
             # If not then the action is illegal by default
-            exceeded_iterators = self.check_iterators(
-                schedule_object,
-                branches=branches,
-                current_branch=current_branch,
-                action=action,
-            )
-            if exceeded_iterators:
-                return False
+            if not isinstance(action, NextRow) and not isinstance(action, NextCol): 
+                exceeded_iterators = self.check_iterators(
+                    schedule_object,
+                    branches=branches,
+                    current_branch=current_branch,
+                    action=action,
+                )
+                if exceeded_iterators:
+                    return False
 
-            # For the cost model we are only allowed to apply 4 affine transformations by branch
-            # We verify that every branch doesn't exceed that amount
-            legal_affine_trans = self.check_affine_transformations(
-                branches=branches, action=action
-            )
-            if not legal_affine_trans:
-                return False
+                # For the cost model we are only allowed to apply 4 affine transformations by branch
+                # We verify that every branch doesn't exceed that amount
+                legal_affine_trans = self.check_affine_transformations(
+                    branches=branches, action=action
+                )
+                if not legal_affine_trans:
+                    return False
 
         # The legality of Skewing is different than the others , we need to get the skewing params from the solver
         # If there are any , this means that skewing is legal , if the solver fails , it means that skewing is illegal
@@ -103,7 +121,7 @@ class LegalityService:
                     schedule_object.schedule_list
                 )
                 return True
-
+        
         # Assign the requested comps to the action
         optim_command = OptimizationCommand(action)
         # Add the command to the array of schedule
@@ -138,7 +156,7 @@ class LegalityService:
                 print("Legality error :", e)
 
         if legality_check != 1:
-            # If the action is not legal , remove it from the schedule list
+            # If the action is not legal , remove it from the schedule list          
             schedule_object.schedule_list.pop()
             # Rebuild the scedule string after removing the action
             schdule_str = ConvertService.build_sched_string(
@@ -225,6 +243,9 @@ class LegalityService:
                     ):
                         return True
 
+            elif isinstance(action, AddingOne):
+                # exclude the matrix from parameters
+                loop_levels = action.params[:-1]
             else:
                 loop_levels = action.params
             # Checking if the big param is smaller than the number of existing iterators

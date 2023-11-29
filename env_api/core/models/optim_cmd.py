@@ -1,5 +1,7 @@
 from env_api.scheduler.models.action import *
+import numpy as np
 
+from env_api.core.services.converting_service import ConvertService
 
 class OptimizationCommand:
     def __init__(self, action: Action, get_tiramisu_optim_str: bool = True):
@@ -141,6 +143,21 @@ class OptimizationCommand:
     }}"""
             # optim_str += f"{self.params_list[0]['name']}.then({self.params_list[1]['name']},{fusion_level});"
             return optim_str
+        elif isinstance(self.action, AddingOne):
+            matrix = np.copy(self.params_list[2])
+            row, col = self.params_list[0], self.params_list[1]
+            matrix[row][col] = matrix[row][col] +1
+            addOne_str = ".matrix_transform("+ ConvertService.numpy_array_to_string(matrix) +");"
+            optim_str = ""
+            for comp in self.comps:
+                self.comps_schedule[comp] = "A({},{})".format(self.params_list[0],self.params_list[1])
+                optim_str += "\n\t{}".format(comp) + addOne_str
+            return optim_str
+        elif isinstance(self.action, OtherAction):
+            for comp in self.comps:
+                self.comps_schedule[comp] = ""
+            return ""
+    
 
     def __str__(self) -> str:
         return f"OptimizationCommand(action={self.action.__class__.__name__}, params={self.params_list})"

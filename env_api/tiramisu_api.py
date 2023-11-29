@@ -197,6 +197,18 @@ class TiramisuEnvAPI:
         )
         # Use the Scheduler service to apply the Unrolling action to the schedule
         return self.scheduler_service.apply_action(unrolling)
+    
+    def addOne(self, env_id: int = None, worker_id=""):
+        addingOne = AddingOne(env_id=env_id, worker_id=worker_id)
+        return self.scheduler_service.apply_action(addingOne)
+
+    def nextRow(self, env_id: int = None, worker_id=""):
+        incrRow = NextRow(env_id=env_id, worker_id=worker_id)
+        return self.scheduler_service.apply_action(incrRow)
+    
+    def nextCol(self, env_id: int = None, worker_id=""):
+        incrCol = NextCol(env_id=env_id, worker_id=worker_id)
+        return self.scheduler_service.apply_action(incrCol)
 
     def save_legality_dataset(self, suffix: str = ""):
         self.dataset_service.store_offline_dataset(suffix=suffix)

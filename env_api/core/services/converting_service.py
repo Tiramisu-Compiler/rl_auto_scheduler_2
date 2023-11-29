@@ -5,8 +5,9 @@ import re
 import numpy as np
 import torch
 
-from env_api.scheduler.models.action import Fusion
+from env_api.scheduler.models.action import Fusion, NextRow, NextCol
 from env_api.utils.exceptions import *
+
 
 # Maximum sequence of transformations (reversal, interchange and skewing) allowed. Currently set to 4
 MAX_NUM_TRANSFORMATIONS = 4

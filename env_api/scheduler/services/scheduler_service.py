@@ -188,6 +188,7 @@ class SchedulerService:
         if isinstance(action, Fusion):
             action.params = self.fusion_comps[self.current_comp : self.current_comp + 2]
             action.annotations = self.schedule_object.prog.annotations
+
         legality_check = self.legality_service.is_action_legal(
             schedule_object=self.schedule_object,
             branches=self.branches,
@@ -233,6 +234,15 @@ class SchedulerService:
 
                     elif isinstance(action, Fusion):
                         self.apply_fusion(action=action)
+                    
+                    elif isinstance(action, AddingOne):
+                        self.apply_addingOne(action=action)
+                    
+                    elif isinstance(action, NextRow):
+                        self.apply_nextRow(action=action)
+                    
+                    elif isinstance(action, NextCol):
+                        self.apply_nextCol(action=action)
 
                     speedup = self.prediction_service.get_real_speedup(
                         schedule_object=self.schedule_object, branches=self.branches
@@ -303,8 +313,19 @@ class SchedulerService:
 
                     elif isinstance(action, Skewing):
                         self.apply_skewing(action=action)
+                        
                     elif isinstance(action, Fusion):
                         self.apply_fusion(action=action)
+                    
+                    elif isinstance(action, AddingOne):
+                        self.apply_addingOne(action=action)
+                    
+                    elif isinstance(action, NextRow):
+                        self.apply_nextRow(action=action)
+                    
+                    elif isinstance(action, NextCol):
+                        self.apply_nextCol(action=action)
+                        
                     # After successfuly applying an action we get the new representation of the main schedule and the branch
                     main_repr_tensors = get_schedule_representation(
                         self.schedule_object
@@ -569,3 +590,30 @@ class SchedulerService:
             ] = str(action.params[1])
             # Update the actions mask
             self.branches[self.current_branch].update_actions_mask(action=action)
+            
+    
+    def apply_addingOne(self, action):
+        for comp in action.comps:
+            row = self.schedule_object.schedule_mat[comp]["row_number"]
+            col = self.schedule_object.schedule_mat[comp]["col_number"]
+            matrix = self.schedule_object.schedule_mat[comp]["matrix"]
+            matrix[row][col] = matrix[row][col] + 1
+            self.schedule_object.schedule_mat[comp]["transformed"] = True
+
+    
+    def apply_nextRow(self, action):
+        for comp in action.comps:
+            row = self.schedule_object.schedule_mat[comp]["row_number"]
+            nb_it = self.schedule_object.schedule_mat[comp]["nb_it"]
+            self.schedule_object.schedule_mat[comp]["row_number"] = (row +1)% (nb_it-1)
+            col = self.schedule_object.schedule_mat[comp]["col_number"]
+            row = self.schedule_object.schedule_mat[comp]["row_number"]
+            if (col == row):
+                self.schedule_object.schedule_mat[comp]["col_number"]= col +1
+    
+    def apply_nextCol(self, action):
+        for comp in action.comps:
+            col = self.schedule_object.schedule_mat[comp]["col_number"]
+            row = self.schedule_object.schedule_mat[comp]["row_number"]
+            nb_it = self.schedule_object.schedule_mat[comp]["nb_it"]
+            self.schedule_object.schedule_mat[comp]["col_number"] = (col +1)% nb_it + row +1 

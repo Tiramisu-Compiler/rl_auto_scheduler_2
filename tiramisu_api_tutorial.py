@@ -17,7 +17,7 @@ if __name__ == "__main__":
     try:
         # Select a program randomly for example program = "function025885"
         #program: str = random.choice(programs)
-        program = "function1390354"
+        program = "function1435536"
         print("Selected function : ", program)
         # set_program(str) creates all the necessary objects to start doing operations on a program
         # it returns an encoded representation specific to the RL system
@@ -31,12 +31,12 @@ if __name__ == "__main__":
         else:
             # After setting a program and checking if it is fully supported by our RL system, you can apply any action on it in any order
             # And expect to get the speedup of the whole schedule, the representation and the result of legality check of the last operation
-            # (
-            #     speedup,
-            #     embedding_tensor,
-            #     legality,
-            #     actions_mask,
-            # ) = tiramisu_api.interchange(loop_level1=0,loop_level2=1, env_id=7)
+            (
+                speedup,
+                embedding_tensor,
+                legality,
+                actions_mask,
+            ) = tiramisu_api.interchange(loop_level1=0,loop_level2=1, env_id=7)
             
             # (
             #     speedup,
@@ -45,8 +45,8 @@ if __name__ == "__main__":
             #     actions_mask,
             # ) = tiramisu_api.reverse(loop_level=0, env_id=2)
 
-            (speedup, embedding_tensor,
-             legality,actions_mask) = tiramisu_api.skew(loop_level1=0,loop_level2=1,env_id=2)
+            # (speedup, embedding_tensor,
+            #  legality,actions_mask) = tiramisu_api.skew(loop_level1=0,loop_level2=1,env_id=2)
 
             # (speedup, embedding_tensor,
             #  legality,actions_mask) = tiramisu_api.skew(loop_level1=1,loop_level2=2,env_id=2)
@@ -76,6 +76,24 @@ if __name__ == "__main__":
             # # (speedup, embedding_tensor,
             # # legality,actions_mask) = tiramisu_api.tile3D(loop_level1=0 , loop_level2=1,loop_level3=2,
             # #     size_x=128,size_y=128,size_z=128,env_id=17)
+            
+            # (
+            #   speedup,
+            #   embedding_tensor,
+            #   legality,
+            #   actions_mask,
+            # ) = tiramisu_api.nextRow(env_id=2)
+            
+            
+            
+            
+            # (
+            #    speedup,
+            #    embedding_tensor,
+            #    legality,
+            #    actions_mask,
+            # ) = tiramisu_api.addOne(env_id=2)
+            
             print("Speedup : ", speedup, " ", "Legality : ", legality)
 
         print("Time : ", time.time() - start)
