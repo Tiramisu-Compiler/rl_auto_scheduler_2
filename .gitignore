@@ -17,3 +17,6 @@ lstm-ppo-policy
 server_address
 workspace
 scripts/run_training.bash
+datasets/*
+grpc_server
+test.py

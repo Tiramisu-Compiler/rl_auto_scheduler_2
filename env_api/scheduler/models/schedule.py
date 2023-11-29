@@ -34,6 +34,8 @@ class Schedule:
         # self.schedule_list is an array that contains a list of optimizations that has been applied on the program
         # This list has objects of type `OptimizationCommand`
         self.schedule_list = []
+        # Dictionary of all comps with the matrice that represent all the transformations applied to them
+        self.schedule_mat = {}
         # Additional loops when Tiling is applied
         self.additional_loops = 0
         if (type(self).__name__) == "Schedule":
@@ -43,6 +45,7 @@ class Schedule:
             self.__set_action_mask()
             self.__form_iterators_dict()
             self.__form_branches()
+            self.__init_schedule_mat()
         else:
             self.__init_schedule_dict_tags()
             self.__init_representation()
@@ -163,6 +166,21 @@ class Schedule:
             branch["program_annotation"] = copy.deepcopy(branch_annotations)
 
         self.branches = branches
+    
+    def __init_schedule_mat(self):
+        
+        # nb_it: number of the iterators
+        # transformed : whether a transformation has been applied to the computation or not
+        # row_number, col_number indexes used in the action adding one
+        # matrix: the global matrix that represent all the transformation applied to the computation
+        
+        for comp in self.comps:
+            nb_it = len(self.prog.annotations["computations"][comp]["iterators"])
+            self.schedule_mat[comp]={"nb_it":nb_it,
+                                    "transformed": False,
+                                    "row_number":0,
+                                    "col_number":1,
+                                    "matrix": np.identity(nb_it, dtype=np.int32)}
 
     def update_actions_mask(self, action: Action, applied: bool = True):
         # Whether an action is legal or not we should mask it to not use it again
@@ -201,3 +219,5 @@ class Schedule:
     def unmask_actions(self):
         self.repr.action_mask = np.zeros(33)
         self.repr.action_mask[-2] = 1
+    
+    

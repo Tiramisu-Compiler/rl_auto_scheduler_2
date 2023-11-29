@@ -588,11 +588,42 @@ class ConvertService:
             matrix[transformation[3], transformation[3]] = -1
 
         elif transformation[0] == 3:
-            assert transformation[4] < matrix_size and transformation[5] < matrix_size
-            matrix[transformation[4], transformation[4]] = transformation[6]
-            matrix[transformation[4], transformation[5]] = transformation[7]
+            # 2D Skewing
+            if transformation[6] == 0:
+
+                assert(transformation[4] < matrix_size and transformation[5] < matrix_size)
+                matrix[transformation[4], transformation[4]] = transformation[7]
+                matrix[transformation[4], transformation[5]] = transformation[8]
+                matrix[transformation[5], transformation[4]] = transformation[9]
+                matrix[transformation[5], transformation[5]] = transformation[10]
+            if transformation[6] > 0:
+                # 3D skeweing
+                assert(transformation[4] < matrix_size and transformation[5] < matrix_size and transformation[6] < matrix_size)
+                matrix[transformation[4], transformation[4]] = transformation[7]
+                matrix[transformation[4], transformation[5]] = transformation[8]
+                matrix[transformation[4], transformation[6]] = transformation[9]
+                matrix[transformation[5], transformation[4]] = transformation[10]
+                matrix[transformation[5], transformation[5]] = transformation[11]
+                matrix[transformation[5], transformation[6]] = transformation[12]
+                matrix[transformation[6], transformation[4]] = transformation[13]
+                matrix[transformation[6], transformation[5]] = transformation[14]
+                matrix[transformation[6], transformation[6]] = transformation[15]
 
         return matrix
+    
+    @classmethod
+    # return the representation of the numpy array in C as a string
+    def numpy_array_to_string(cls, arr):
+        # Convert the NumPy array to a list of lists
+        nested_lists = np.array(arr, dtype=np.int32).tolist()
+
+        # Convert each inner list to a string and join them with ', '
+        inner_strings = [', '.join(map(str, inner)) for inner in nested_lists]
+
+        # Enclose each inner string in curly braces and join them with ', '
+        mat_str = ', '.join(['{' + inner + '}' for inner in inner_strings])
+
+        return f'{{{mat_str}}}'
 
     @classmethod
     # transform the vectors into a series of matrices

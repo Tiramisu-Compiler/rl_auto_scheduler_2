@@ -43,8 +43,14 @@ class PredictionService:
             ]
         else:
             # We need to run the program to get the value
+            
+            #############################################
+            print()
+            print("Running the original code ...")
+            print()
+            #############################################
             initial_execution = CompilingService.execute_code(
-                tiramisu_program=schedule_object.prog, optims_list=[], branches=branches
+                tiramisu_program=schedule_object.prog, optims_list=[], branches=branches, schedule_mat={}
             )
             if initial_execution:
                 schedule_object.prog.execution_times[
@@ -60,10 +66,18 @@ class PredictionService:
 
         else:
             # We need to run the program to get the value
+            
+            #############################################
+            print()
+            print("Running the transformed code ...")
+            print()
+            #############################################
+            
             schedule_execution = CompilingService.execute_code(
                 tiramisu_program=schedule_object.prog,
                 optims_list=schedule_object.schedule_list,
                 branches=branches,
+                schedule_mat=schedule_object.schedule_mat,
             )
             if schedule_execution:
                 schedule_object.prog.execution_times[

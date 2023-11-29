@@ -30,6 +30,7 @@ class TiramisuConfig:
     is_new_tiramisu: bool = False
     workspace: str = "./workspace/"
     old_tiramisu_path: str = ""
+    use_matrice_representation: bool = False
 
     def __post_init__(self):
         if not self.is_new_tiramisu:

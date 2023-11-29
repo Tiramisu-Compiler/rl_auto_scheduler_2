@@ -1,5 +1,6 @@
 import logging
 import pprint as pp
+import numpy as np
 from typing import List
 
 import torch
@@ -393,6 +394,11 @@ class SchedulerService:
             self.schedule_object.schedule_dict[comp]["transformations_list"].append(
                 transformation
             )
+            # Update the matrice of transformations
+            self.schedule_object.schedule_mat[comp]["matrix"] = np.dot(self.schedule_object.schedule_mat[comp]["matrix"], ConvertService.get_trasnformation_matrix_from_vector(transformation,self.schedule_object.schedule_mat[comp]["nb_it"]))
+            # mark the computation as transformed
+            self.schedule_object.schedule_mat[comp]["transformed"] = True
+            
             for branch in self.branches:
                 # Check for the branches that needs to be updated
                 if comp in branch.comps:
@@ -440,6 +446,10 @@ class SchedulerService:
             self.schedule_object.schedule_dict[comp]["transformations_list"].append(
                 transformation
             )
+            # Update the matrice of transformations
+            self.schedule_object.schedule_mat[comp]["matrix"] = np.dot(self.schedule_object.schedule_mat[comp]["matrix"], ConvertService.get_trasnformation_matrix_from_vector(transformation,self.schedule_object.schedule_mat[comp]["nb_it"]))
+            # mark the computation as transformed
+            self.schedule_object.schedule_mat[comp]["transformed"] = True
             for branch in self.branches:
                 # Check for the branches that needs to be updated
                 if comp in branch.comps:
@@ -489,6 +499,11 @@ class SchedulerService:
             self.schedule_object.schedule_dict[comp]["transformations_list"].append(
                 transformation
             )
+            # Update the matrice of transformations
+            self.schedule_object.schedule_mat[comp]["matrix"] = np.dot(self.schedule_object.schedule_mat[comp]["matrix"], ConvertService.get_trasnformation_matrix_from_vector(transformation,self.schedule_object.schedule_mat[comp]["nb_it"]))
+            # mark the computation as transformed
+            self.schedule_object.schedule_mat[comp]["transformed"] = True
+            
             for branch in self.branches:
                 # Check for the branches that needs to be updated
                 if comp in branch.comps:

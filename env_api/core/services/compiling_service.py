@@ -11,6 +11,7 @@ from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.scheduler.models.action import Parallelization, Tiling, Unrolling
 from env_api.scheduler.models.branch import Branch
 from env_api.scheduler.models.schedule import Schedule
+from env_api.core.services.converting_service import ConvertService
 
 
 class CompilingService:
@@ -367,6 +368,7 @@ class CompilingService:
         tiramisu_program: TiramisuProgram,
         optims_list: List[OptimizationCommand],
         branches: List[Branch],
+        schedule_mat: dict,
     ):
         if not optims_list:
             return tiramisu_program.original_str
@@ -401,7 +403,8 @@ class CompilingService:
                                 comps_dict[impacted_comp].insert(
                                     loop_levels_size + loop_index, f"t{loop_index}"
                                 )
-                schedule_code += optim.tiramisu_optim_str + "\n"
+                if not Config.config.tiramisu.use_matrice_representation:
+                    schedule_code += optim.tiramisu_optim_str + "\n"
             else:
                 unchanged = True
                 comp = optim.action.comps[0]
@@ -414,7 +417,14 @@ class CompilingService:
                         unchanged = False
                 if unchanged:
                     unrolling_updated += optim.tiramisu_optim_str + "\n"
-
+                    
+        if Config.config.tiramisu.use_matrice_representation:
+            comps = schedule_mat.keys()
+            for comp in comps:
+                if schedule_mat[comp]["transformed"]:
+                    transformation_str = ".matrix_transform("+ ConvertService.numpy_array_to_string(schedule_mat[comp]["matrix"]) +");"
+                    schedule_code += "\n\t{}".format(comp) + transformation_str + "\n"
+                    
         if tiling_in_actions:
             updated_fusion, cpp_code = cls.fuse_tiling_loops(
                 code=cpp_code, comps_dict=comps_dict
@@ -451,6 +461,7 @@ class CompilingService:
         tiramisu_program: TiramisuProgram,
         optims_list: List[OptimizationCommand],
         branches: List[Branch],
+        schedule_mat,
     ):
         execution_time = None
 
@@ -458,7 +469,14 @@ class CompilingService:
             tiramisu_program=tiramisu_program,
             optims_list=optims_list,
             branches=branches,
+            schedule_mat=schedule_mat,
         )
+        
+        #################################
+        print()
+        print(cpp_code)
+        print()
+        #################################
 
         logging.debug("cpp_code: \n %s", cpp_code)
 
