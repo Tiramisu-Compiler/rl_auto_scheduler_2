@@ -143,7 +143,8 @@ class OptimizationCommand:
             return optim_str
 
     def __str__(self) -> str:
-        return f"OptimizationCommand(action={self.action.__class__.__name__}, params={self.params_list})"
+        return self.action.__str__()
+        # return f"OptimizationCommand(action={self.action.__class__.__name__}, params={self.params_list})"
 
     def __repr__(self) -> str:
         return self.__str__()

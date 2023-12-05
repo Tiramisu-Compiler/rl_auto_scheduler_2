@@ -49,15 +49,24 @@ class Reversal(AffineAction):
     def __init__(self, params: list, env_id: int = None, worker_id=""):
         super().__init__(params, name="Reversal", env_id=env_id, worker_id=worker_id)
 
+    def __str__(self) -> str:
+        return f"R(L{self.params[0]}, comps={self.comps})"
+
 
 class Interchange(AffineAction):
     def __init__(self, params: list, env_id: int = None, worker_id=""):
         super().__init__(params, name="Interchange", env_id=env_id, worker_id=worker_id)
 
+    def __str__(self) -> str:
+        return f"I(L{self.params[0]},L{self.params[1]}, comps={self.comps})"
+
 
 class Skewing(AffineAction):
     def __init__(self, params: list, env_id: int = None, worker_id=""):
         super().__init__(params, name="Skewing", env_id=env_id, worker_id=worker_id)
+
+    def __str__(self) -> str:
+        return f"S(L{self.params[0]},L{self.params[1]},{self.params[2]},{self.params[3]}, comps={self.comps})"
 
 
 class Parallelization(Action):
@@ -66,10 +75,16 @@ class Parallelization(Action):
             params, name="Parallelization", env_id=env_id, worker_id=worker_id
         )
 
+    def __str__(self) -> str:
+        return f"P(L{self.params[0]}, comps={self.comps})"
+
 
 class Unrolling(Action):
     def __init__(self, params: list, env_id: int = None, worker_id=""):
         super().__init__(params, name="Unrolling", env_id=env_id, worker_id=worker_id)
+
+    def __str__(self) -> str:
+        return f"U(L{self.params[0]}, comps={self.comps})"
 
 
 class Tiling(Action):
@@ -79,19 +94,22 @@ class Tiling(Action):
 
     def __str__(self) -> str:
         size = len(self.params) // 2
+        levels = ",".join([f"L{level}" for level in self.params[:size]])
+        tile_sizes = ",".join([str(size) for size in self.params[size:]])
+        str_repr = f"T{size}({levels},{tile_sizes}, comps={self.comps})"
+        if self.subtilings:
+            str_repr += "|"
+            str_repr += "|".join([str(subtiling) for subtiling in self.subtilings])
 
-        return (
-            f"\nTiling {size}D : on levels "
-            + ",".join([str(x) for x in self.params[:size]])
-            + " on comps "
-            + ",".join(self.comps)
-            + "".join([str(tiling) for tiling in self.subtilings])
-        )
+        return str_repr
 
 
 class Fusion(Action):
     def __init__(self, params: list, env_id: int = None, worker_id=""):
         super().__init__(params, name="Fusion", env_id=env_id, worker_id=worker_id)
+
+    def __str__(self) -> str:
+        return f"F(L{len(self.params[0]['iterators'])},comps={[comp['name'] for comp in self.params]})"
 
     @staticmethod
     def get_tree_structure_after_fusion(

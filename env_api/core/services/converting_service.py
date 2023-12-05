@@ -1185,7 +1185,11 @@ class ConvertService:
 
     # TODO : add fusion schedule
     @classmethod
-    def build_sched_string(cls, schedule_list) -> str:
+    def build_sched_string(cls, schedule_list, new_format=False) -> str:
+        # new format for the schedule string
+        if new_format:
+            return "|".join([str(s) for s in schedule_list])
+
         # Prepare a dictionary of computations name to fill it with each action applied on every comp
         comps = {}
         # Map the schedules applied one by one
