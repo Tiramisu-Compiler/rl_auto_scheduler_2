@@ -58,6 +58,7 @@ class Interchange(AffineAction):
 class Skewing(AffineAction):
     def __init__(self, params: list, env_id: int = None, worker_id=""):
         super().__init__(params, name="Skewing", env_id=env_id, worker_id=worker_id)
+        self.loop_to_parallelize = None
 
 
 class Parallelization(Action):
