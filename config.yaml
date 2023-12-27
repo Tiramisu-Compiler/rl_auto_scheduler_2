@@ -1,0 +1,9 @@
+dataset_format: PICKLE # Dataset format for now this only supports PICKLE
+cpps_path : "/scratch/ak11326/Dev/rl_auto_scheduler_2/datasets/cpps_mr_nr_ts.pkl" # Path to the cpps pkl file 
+dataset_path: "/scratch/ak11326/Dev/rl_auto_scheduler_2/datasets/data_mr_nr_ts.pkl" # Path to the dataset pkl file
+save_path: "/scratch/ak11326/Dev/rl_auto_scheduler_2/datasets" # Path to save the dataset
+shuffle: True # Shuffle the dataset
+seed: 7 # Random seed for shuffling the dataset
+saving_frequency: 500 # Dataset saving frequency
+# When doing evaluation on the benchmark set the value to True
+is_benchmark: False # True

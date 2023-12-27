@@ -27,10 +27,10 @@ class TiramisuRlEnv(gym.Env):
         self.tiramisu_api = TiramisuEnvAPI(local_dataset=False)
         # self.dataset_actor: DatasetActor = config["dataset_actor"]
         # Define action and observation spaces
-        self.action_space = spaces.Discrete(33)
+        self.action_space = spaces.Discrete(36)
         space = {
             "embedding": spaces.Box(-np.inf, np.inf, shape=(362,)),
-            "actions_mask": spaces.Box(0, 1, shape=(33,)),
+            "actions_mask": spaces.Box(0, 1, shape=(36,)),
         }
         space = OrderedDict(sorted(space.items()))
         self.observation_space = spaces.Dict(space)
@@ -234,6 +234,23 @@ class TiramisuRlEnv(gym.Env):
             speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.fuse(
                 env_id=action, worker_id=self.worker_index
             )
+        
+        elif action == 32:
+            speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.addOne(
+                env_id=action,
+                worker_id=self.worker_index,
+            )
+        elif action == 33:
+            speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.nextRow(
+                env_id=action,
+                worker_id=self.worker_index,
+            )
+        elif action == 34:
+            speedup, embedded_tensor, legality, actions_mask = self.tiramisu_api.nextCol(
+                env_id=action,
+                worker_id=self.worker_index,
+            )
+        
         else:
             # Next case
             next_branch = self.tiramisu_api.scheduler_service.next_branch()
