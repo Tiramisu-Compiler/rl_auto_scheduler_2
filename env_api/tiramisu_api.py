@@ -133,9 +133,7 @@ class TiramisuEnvAPI:
             actions_mask,
         ) = self.scheduler_service.apply_action(skewing)
 
-        if legality:
-            # skewing is legal and enabled parallelization
-            assert skewing.loop_to_parallelize, "loop_to_parallelize is None"
+        if legality and skewing.loop_to_parallelize is not None:
             parallelization = Parallelization(
                 params=[loop_level1 + skewing.loop_to_parallelize],
                 # Parallelization for level 0 is 12 and for level 1 is 13
