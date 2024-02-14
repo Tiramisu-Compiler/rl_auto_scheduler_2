@@ -126,7 +126,24 @@ class TiramisuEnvAPI:
             params=[loop_level1, loop_level2], env_id=env_id, worker_id=worker_id
         )
         # Use the Scheduler to apply Skewing and return the speedup and legality
-        return self.scheduler_service.apply_action(skewing)
+        (
+            speedup,
+            embedded_tensor,
+            legality,
+            actions_mask,
+        ) = self.scheduler_service.apply_action(skewing)
+
+        if legality and skewing.loop_to_parallelize is not None:
+            parallelization = Parallelization(
+                params=[loop_level1 + skewing.loop_to_parallelize],
+                # Parallelization for level 0 is 12 and for level 1 is 13
+                env_id=12 + skewing.loop_to_parallelize,
+                worker_id=worker_id,
+            )
+
+            return self.scheduler_service.apply_action(parallelization)
+
+        return speedup, embedded_tensor, legality, actions_mask
 
     def fuse(self, env_id: int = None, worker_id=""):
         # Create a Fusion action with given loop level 1

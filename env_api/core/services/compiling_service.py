@@ -8,7 +8,7 @@ from typing import List
 from config.config import Config
 from env_api.core.models.optim_cmd import OptimizationCommand
 from env_api.core.models.tiramisu_program import TiramisuProgram
-from env_api.scheduler.models.action import Parallelization, Tiling, Unrolling
+from env_api.scheduler.models.action import Parallelization, Skewing, Tiling, Unrolling
 from env_api.scheduler.models.branch import Branch
 from env_api.scheduler.models.schedule import Schedule
 
@@ -52,7 +52,7 @@ class CompilingService:
             comps_dict[comp] = copy.deepcopy(d[comp]["iterators"])
         # Add code to the original file to get legality result
         legality_check_lines = """
-        prepare_schedules_for_legality_checks();
+        prepare_schedules_for_legality_checks(true);
         perform_full_dependency_analysis();
         
         bool is_legal=true;"""
@@ -123,7 +123,7 @@ class CompilingService:
         legality_check_lines += f"""
             {updated_fusion}
             {unrolling_legality}
-            prepare_schedules_for_legality_checks();
+            prepare_schedules_for_legality_checks(true);
             is_legal &= check_legality_of_function();   
             std::cout << is_legal;
             """
@@ -218,7 +218,9 @@ class CompilingService:
             return "0"
 
     @classmethod
-    def call_skewing_solver(cls, schedule_object, optim_list, action, branches):
+    def call_skewing_solver(
+        cls, schedule_object, optim_list, action: Skewing, branches
+    ):
         params = action.params
         legality_cpp_code = cls.get_legality_code(schedule_object, optim_list, branches)
         to_replace = re.findall(r"std::cout << is_legal;", legality_cpp_code)[0]
@@ -297,9 +299,11 @@ class CompilingService:
             # Means we have a solution for outer parallelism
             fac1 = int(result_str[0])
             fac2 = int(result_str[1])
+            action.loop_to_parallelize = 0
             return fac1, fac2
         if result_str[2] != "None":
             # Means we have a solution for inner parallelism
+            action.loop_to_parallelize = 1
             fac1 = int(result_str[2])
             fac2 = int(result_str[3])
             return fac1, fac2

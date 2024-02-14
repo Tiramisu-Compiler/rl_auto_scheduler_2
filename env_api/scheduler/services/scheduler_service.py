@@ -202,10 +202,6 @@ class SchedulerService:
                 f"{self.schedule_object.prog.name}: {OptimizationCommand(action, get_tiramisu_optim_str=False)} is illegal"
             )
 
-        print(
-            f"{self.schedule_object.prog.name}: schedule_str: {self.schedule_object.schedule_list}"
-        )
-
         embedding_tensor = None
         speedup = Config.config.experiment.legality_speedup
         if legality_check:
@@ -348,7 +344,9 @@ class SchedulerService:
                     print(action.name)
                     print("%" * 50)
                     legality_check = False
-
+            print(
+                f"{self.schedule_object.prog.name}: schedule_str: {self.schedule_object.schedule_list} | speedup: {speedup}"
+            )
         return (
             speedup,
             embedding_tensor,
