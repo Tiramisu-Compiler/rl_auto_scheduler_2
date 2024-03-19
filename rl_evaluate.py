@@ -52,7 +52,7 @@ if __name__ == "__main__":
     while ip_and_port == "":
         with open("./server_address", "r") as f:
             ip_and_port = f.read()
-    
+
     ip_and_port = ip_and_port.splitlines()[0]
 
     with grpc.insecure_channel(ip_and_port) as channel:

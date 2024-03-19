@@ -1,11 +1,10 @@
 import copy
-import logging
 
 import numpy as np
 
 from config.config import Config
 from env_api.core.models.tiramisu_program import TiramisuProgram
-from env_api.scheduler.models.action import *
+from env_api.scheduler.models.action import Action, Parallelization, Tiling, Unrolling
 from env_api.scheduler.models.representation import Representation
 from env_api.utils.data_preprocessors import (
     build_tree_structure,
@@ -156,9 +155,9 @@ class Schedule:
                     parent = branch_annotations["iterators"][copy.copy(iterator)][
                         "parent_iterator"
                     ]
-                    branch_annotations["iterators"][parent][
-                        "child_iterators"
-                    ] = copy.deepcopy([iterator])
+                    branch_annotations["iterators"][parent]["child_iterators"] = (
+                        copy.deepcopy([iterator])
+                    )
                     branch_annotations["iterators"][parent]["computations_list"] = []
             branch["program_annotation"] = copy.deepcopy(branch_annotations)
 

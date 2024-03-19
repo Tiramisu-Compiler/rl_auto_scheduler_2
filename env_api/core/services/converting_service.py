@@ -295,9 +295,9 @@ class ConvertService:
         access_matrix = np.c_[np.ones(access_matrix.shape[0]), access_matrix]
         access_matrix = np.r_[[np.ones(access_matrix.shape[1])], access_matrix]
         padded_access_matrix = np.zeros((max_depth + 1, max_depth + 2))
-        padded_access_matrix[
-            : access_matrix.shape[0], : access_matrix.shape[1] - 1
-        ] = access_matrix[:, :-1]
+        padded_access_matrix[: access_matrix.shape[0], : access_matrix.shape[1] - 1] = (
+            access_matrix[:, :-1]
+        )
         padded_access_matrix[: access_matrix.shape[0], -1] = access_matrix[:, -1]
 
         return padded_access_matrix
@@ -757,10 +757,10 @@ class ConvertService:
 
             nb_mat_elements = ogv_end[1] - ogv_start[1] + 1
 
-            comps_repr[ogv_start[0]][
-                ogv_start[1] : ogv_end[1] + 1
-            ] = cls.get_padded_second_side_of_the_constraint_equations_original(
-                program_json, schedule_json, comp_name, max_depth
+            comps_repr[ogv_start[0]][ogv_start[1] : ogv_end[1] + 1] = (
+                cls.get_padded_second_side_of_the_constraint_equations_original(
+                    program_json, schedule_json, comp_name, max_depth
+                )
             )
 
             c_start = comps_placeholders_indices_dict[c_code + "-ConstraintMatrixStart"]
@@ -823,9 +823,7 @@ class ConvertService:
                     "unroll_factor"
                 ] == 0 or loop_schedules_dict[comp_innermost_loop][
                     "unroll_factor"
-                ] == int(
-                    comp_schedule_dict["unrolling_factor"]
-                )
+                ] == int(comp_schedule_dict["unrolling_factor"])
 
                 loop_schedules_dict[comp_innermost_loop]["unroll_factor"] = int(
                     comp_schedule_dict["unrolling_factor"]

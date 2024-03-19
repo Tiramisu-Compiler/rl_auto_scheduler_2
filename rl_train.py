@@ -104,14 +104,14 @@ if __name__ == "__main__":
     while ip_and_port == "":
         with open("./server_address", "r") as f:
             ip_and_port = f.read()
-    
+
     ip_and_port = ip_and_port.splitlines()[0]
 
     print(f"Dataset server is ready at {ip_and_port}")
     # DatasetActor is the responsible class of syncronizing data between rollout-workers, TiramisuEnvAPI will read
     # data from this actor.
     # dataset_actor = DatasetActor.remote(Config.config.dataset)
-    match (Config.config.experiment.policy_model):
+    match Config.config.experiment.policy_model:
         case "lstm":
             ModelCatalog.register_custom_model("policy_nn", PolicyLSTM)
             model_custom_config = Config.config.lstm_policy.__dict__

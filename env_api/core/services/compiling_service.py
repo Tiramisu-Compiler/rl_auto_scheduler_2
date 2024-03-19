@@ -554,7 +554,7 @@ class CompilingService:
                 "export MAX_RUNS=5",
                 "export NB_EXEC=5",
                 # run the wrapper
-                f"./{tiramisu_program.name}_wrapper"
+                f"./{tiramisu_program.name}_wrapper",
                 # # Clean generated files
                 # f"rm {tiramisu_program.name}*",
             ]

@@ -1,7 +1,9 @@
 import json
+import logging
 import math
-import os
 from collections import OrderedDict
+from pathlib import Path
+from time import sleep
 
 import grpc
 import gymnasium as gym
@@ -48,29 +50,46 @@ class TiramisuRlEnv(gym.Env):
     def reset(self, seed=None, options={}):
         embedded_tensor = None
         # Select a program randomly
-        while embedded_tensor == None:
+        while embedded_tensor is None:
             # There is some programs that has unsupported loop levels , acces matrices , ...
             # These programs are not supported yet so the embedded_tensor will be None
 
             # read the ip and port from the server_address file
             self.ip_and_port = ""
             while self.ip_and_port == "":
-                with open("./server_address", "r") as f:
-                    self.ip_and_port = f.read()
+                self.ip_and_port = Path("./server_address").read_text()
+                splitlines = self.ip_and_port.splitlines()
+                if len(splitlines) > 1 and splitlines[1].strip().startswith(
+                    "last_function_served"
+                ):
+                    self.ip_and_port = splitlines[0].strip()
+                else:
+                    self.ip_and_port = ""
+                sleep(3)
 
-            self.ip_and_port = self.ip_and_port.splitlines()[0]
             function_name = (
                 ""
                 if options is None or "function_name" not in options
                 else options["function_name"]
             )
-            with grpc.insecure_channel(self.ip_and_port) as channel:
-                stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
-                response = stub.GetTiramisuFunction(
-                    tiramisu_function_pb2.TiramisuFunctionName(
-                        name=function_name
-                    )  # You can also specify a function name like function550013
-                )
+            response = None
+            while response is None:
+                try:
+                    with grpc.insecure_channel(self.ip_and_port) as channel:
+                        stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(
+                            channel
+                        )
+                        response = stub.GetTiramisuFunction(
+                            tiramisu_function_pb2.TiramisuFunctionName(
+                                name=function_name
+                            )  # You can also specify a function name like function550013
+                        )
+                except Exception as e:
+                    logging.error(
+                        f"Error in getting function {function_name} : \n ip and port: {self.ip_and_port} \n Error: {e}"
+                    )
+                    response = None
+                    sleep(3)
 
             cpp = (
                 response.cpp[1:-1]
@@ -134,14 +153,15 @@ class TiramisuRlEnv(gym.Env):
                 self.tiramisu_api.get_current_tiramisu_program_dict()
             )
 
-            with grpc.insecure_channel(self.ip_and_port) as channel:
-                stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
-                response = stub.SaveTiramisuFunction(
-                    tiramisu_function_pb2.TiramisuFunction(
-                        name=self.current_program,
-                        content=json.dumps(tiramisu_program_dict),
-                    )  # You can also specify a function name like function550013
-                )
+            if self.ip_and_port:
+                with grpc.insecure_channel(self.ip_and_port) as channel:
+                    stub = tiramisu_function_pb2_grpc.TiramisuDataServerStub(channel)
+                    stub.SaveTiramisuFunction(
+                        tiramisu_function_pb2.TiramisuFunction(
+                            name=self.current_program,
+                            content=json.dumps(tiramisu_program_dict),
+                        )  # You can also specify a function name like function550013
+                    )
             # self.dataset_actor.update_dataset.remote(
             #     self.current_program, tiramisu_program_dict
             # )

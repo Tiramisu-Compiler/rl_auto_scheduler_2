@@ -1,5 +1,4 @@
 import logging
-import pprint as pp
 from typing import List
 
 import torch
@@ -8,18 +7,30 @@ from config.config import Config
 from env_api.core.models.optim_cmd import OptimizationCommand
 from env_api.core.models.tiramisu_program import TiramisuProgram
 from env_api.core.services.converting_service import ConvertService
+from env_api.scheduler.models.action import (
+    Action,
+    Fusion,
+    Interchange,
+    Parallelization,
+    Reversal,
+    Skewing,
+    Tiling,
+    Unrolling,
+)
 from env_api.scheduler.models.branch import Branch
-from env_api.scheduler.services.legality_service import LegalityService
+from env_api.scheduler.models.schedule import Schedule
+from env_api.scheduler.services.legality.compile_legality_service import (
+    CompilingLegalityService,
+)
+from env_api.scheduler.services.legality.model.model_legality_service import (
+    ModelLegalityService,
+)
 from env_api.scheduler.services.prediction_service import PredictionService
 from env_api.utils.data_preprocessors import (
     get_schedule_representation,
     linear_diophantine_default,
 )
 from env_api.utils.exceptions import ExecutingFunctionException
-from env_api.utils.functions.fusion import transform_tree_for_fusion
-
-from ..models.action import *
-from ..models.schedule import Schedule
 
 
 class SchedulerService:
@@ -38,7 +49,15 @@ class SchedulerService:
         # This estimator is a recursive model that needs the schedule representation to give speedups
         self.prediction_service = PredictionService()
         # A schedules-legality service
-        self.legality_service = LegalityService()
+        match Config.config.legality.mode:
+            case "cpu":
+                self.legality_service = CompilingLegalityService()
+            case "model":
+                self.legality_service = ModelLegalityService()
+            case _:
+                raise ValueError(
+                    f"Legality mode {Config.config.legality.mode} not supported"
+                )
 
     def set_schedule(self, schedule_object: Schedule):
         """
@@ -267,6 +286,7 @@ class SchedulerService:
                         self.fusion_phase = False
 
                 except ExecutingFunctionException as e:
+                    logging.error(f"Error while executing the function : {e}")
                     # If the execution went wring remove it from the schedule list
                     self.schedule_object.schedule_list.pop()
                     # Rebuild the scedule string after removing the action
@@ -335,7 +355,7 @@ class SchedulerService:
                 except KeyError as e:
                     logging.error(f"This loop level: {e} doesn't exist")
                     legality_check = False
-                except AssertionError as e:
+                except AssertionError:
                     print("%" * 50)
                     print("Used more than 4 transformations of I,R,S")
                     print(self.schedule_object.prog.name)
@@ -508,8 +528,8 @@ class SchedulerService:
             tiling_factors = [str(p) for p in tile_sizes]
             for comp in tiling.comps:
                 tiling_dims = [
-                    self.schedule_object.it_dict[comp][l]["iterator"]
-                    for l in loop_levels
+                    self.schedule_object.it_dict[comp][level]["iterator"]
+                    for level in loop_levels
                 ]
                 tiling_dict = {
                     "tiling_depth": tiling_depth,

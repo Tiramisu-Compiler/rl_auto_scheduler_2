@@ -114,11 +114,12 @@ class OptimizationCommand:
             computations_of_first_iterator = []
 
             def recursively_add_comps(iterator):
-                computations_of_first_iterator.extend(
-                    annotations["iterators"][iterator]["computations_list"]
-                )
-                for child in annotations["iterators"][iterator]["child_iterators"]:
-                    recursively_add_comps(child)
+                if iterator in annotations["iterators"]:
+                    computations_of_first_iterator.extend(
+                        annotations["iterators"][iterator]["computations_list"]
+                    )
+                    for child in annotations["iterators"][iterator]["child_iterators"]:
+                        recursively_add_comps(child)
 
             recursively_add_comps(self.params_list[0]["iterators"][-1])
 

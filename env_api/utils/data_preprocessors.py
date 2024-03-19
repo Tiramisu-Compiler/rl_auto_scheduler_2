@@ -389,9 +389,9 @@ def get_schedule_representation(schedule_object):
             program_json, comp_name, pad=True
         )
 
-        comps_repr[ogc_start[0]][
-            ogc_start[1] : ogc_end[1] + 1
-        ] = padded_coeff_mat.flatten().tolist()
+        comps_repr[ogc_start[0]][ogc_start[1] : ogc_end[1] + 1] = (
+            padded_coeff_mat.flatten().tolist()
+        )
 
         # Add the padded original constraints vector to the representation
         ogv_start = comps_placeholders_indices_dict[c_code + "-OgConstraintVectorStart"]
@@ -400,9 +400,9 @@ def get_schedule_representation(schedule_object):
 
         nb_mat_elements = ogv_end[1] - ogv_start[1] + 1
 
-        comps_repr[ogv_start[0]][
-            ogv_start[1] : ogv_end[1] + 1
-        ] = padded_constants_col.tolist()
+        comps_repr[ogv_start[0]][ogv_start[1] : ogv_end[1] + 1] = (
+            padded_constants_col.tolist()
+        )
 
         # Add the padded transformed constraints vector to the representation
         c_start = comps_placeholders_indices_dict[c_code + "-ConstraintMatrixStart"]
@@ -635,9 +635,9 @@ def pad_access_matrix(access_matrix):
     access_matrix = np.c_[np.ones(access_matrix.shape[0]), access_matrix]
     access_matrix = np.r_[[np.ones(access_matrix.shape[1])], access_matrix]
     padded_access_matrix = np.zeros((MAX_DEPTH + 1, MAX_DEPTH + 2))
-    padded_access_matrix[
-        : access_matrix.shape[0], : access_matrix.shape[1] - 1
-    ] = access_matrix[:, :-1]
+    padded_access_matrix[: access_matrix.shape[0], : access_matrix.shape[1] - 1] = (
+        access_matrix[:, :-1]
+    )
     padded_access_matrix[: access_matrix.shape[0], -1] = access_matrix[:, -1]
 
     return padded_access_matrix

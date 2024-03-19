@@ -47,9 +47,9 @@ class PredictionService:
                 tiramisu_program=schedule_object.prog, optims_list=[], branches=branches
             )
             if initial_execution:
-                schedule_object.prog.execution_times[
-                    "initial_execution"
-                ] = initial_execution
+                schedule_object.prog.execution_times["initial_execution"] = (
+                    initial_execution
+                )
             else:
                 raise ExecutingFunctionException
 
@@ -66,9 +66,9 @@ class PredictionService:
                 branches=branches,
             )
             if schedule_execution:
-                schedule_object.prog.execution_times[
-                    schedule_object.schedule_str
-                ] = schedule_execution
+                schedule_object.prog.execution_times[schedule_object.schedule_str] = (
+                    schedule_execution
+                )
             else:
                 raise ExecutingFunctionException
 

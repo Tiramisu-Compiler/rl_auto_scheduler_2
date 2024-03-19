@@ -125,6 +125,13 @@ class EnvVars:
 
 
 @dataclass
+class Legality:
+    mode: Literal["model", "cpu"] = "cpu"
+    weights_path: str = ""
+    threshold: float = 0.5
+
+
+@dataclass
 class AutoSchedulerConfig:
     tiramisu: TiramisuConfig
     dataset: DatasetConfig
@@ -133,6 +140,7 @@ class AutoSchedulerConfig:
     policy_network: PolicyNetwork
     lstm_policy: LSTMPolicy
     env_vars: EnvVars
+    legality: Legality
 
     def __post_init__(self):
         if isinstance(self.tiramisu, dict):
@@ -147,6 +155,10 @@ class AutoSchedulerConfig:
             self.policy_network = PolicyNetwork(**self.policy_network)
         if isinstance(self.lstm_policy, dict):
             self.lstm_policy = LSTMPolicy(**self.lstm_policy)
+        if isinstance(self.env_vars, dict):
+            self.env_vars = EnvVars(**self.env_vars)
+        if isinstance(self.legality, dict):
+            self.legality = Legality(**self.legality)
 
 
 def read_yaml_file(path):
@@ -167,8 +179,16 @@ def dict_to_config(parsed_yaml: Dict[Any, Any]) -> AutoSchedulerConfig:
     lstm_policy = LSTMPolicy(**parsed_yaml["lstm_policy"])
     env_vars = EnvVars(**parsed_yaml["env_vars"])
     env_vars.TIRAMISU_ROOT = tiramisu.tiramisu_path
+    legality = Legality(**parsed_yaml["legality"])
     return AutoSchedulerConfig(
-        tiramisu, dataset, ray, experiment, policy_network, lstm_policy, env_vars
+        tiramisu,
+        dataset,
+        ray,
+        experiment,
+        policy_network,
+        lstm_policy,
+        env_vars,
+        legality,
     )
 
 
